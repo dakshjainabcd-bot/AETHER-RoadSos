@@ -6,11 +6,6 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
-    "splash": {
-      "image": "./assets/splash.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#0A0A0A"
-    },
     "assetBundlePatterns": [
       "**/*"
     ],
@@ -24,7 +19,12 @@
         "NSMicrophoneUsageDescription": "AETHER uses the microphone to detect crash sounds and provide CPR coaching.",
         "NSBluetoothAlwaysUsageDescription": "AETHER uses Bluetooth to relay SOS signals to nearby phones without internet.",
         "NSBluetoothPeripheralUsageDescription": "AETHER uses Bluetooth to relay SOS signals to nearby phones without internet.",
-        "UIBackgroundModes": ["location", "fetch", "bluetooth-central", "bluetooth-peripheral"]
+        "UIBackgroundModes": [
+          "location",
+          "fetch",
+          "bluetooth-central",
+          "bluetooth-peripheral"
+        ]
       }
     },
     "android": {
@@ -46,22 +46,26 @@
         "FOREGROUND_SERVICE",
         "RECEIVE_BOOT_COMPLETED",
         "VIBRATE",
-        "WAKE_LOCK"
+        "WAKE_LOCK",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION"
       ]
     },
     "plugins": [
       "expo-router",
-      "expo-location",
-      [
-        "expo-sqlite",
-        {
-          "enableFTS": true
-        }
-      ]
+      "expo-location"
     ],
     "experiments": {
       "typedRoutes": true
     },
-    "scheme": "aether"
+    "scheme": "aether",
+    "extra": {
+      "router": {
+        "origin": false
+      },
+      "eas": {
+        "projectId": "235bc25e-fb94-4f9c-ac64-d3c87c39c86d"
+      }
+    }
   }
 }
