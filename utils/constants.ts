@@ -112,4 +112,4 @@ export const MESH = {
  *
  * Keep the port as 3001. Only change the IP.
  */
-export const SIMULATION_SERVER_URL = 'ws://172.20.10.9:3001'; // ← CHANGE THIS IP
+export const SIMULATION_SERVER_URL = 'ws://172.17.3.232:3001'; // ← CHANGE THIS IP
