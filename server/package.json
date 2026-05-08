@@ -1,0 +1,12 @@
+{
+  "name": "aether-simulation-server",
+  "version": "1.0.0",
+  "description": "AETHER Mesh Relay Simulation Server for Expo Go demos",
+  "main": "simulation-server.js",
+  "scripts": {
+    "start": "node simulation-server.js"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  }
+}

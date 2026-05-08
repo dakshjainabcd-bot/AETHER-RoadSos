@@ -1,23 +1,13 @@
 /**
- * Root Layout — App Entry Point
+ * Root Layout — App Entry Point (Updated for Phase 2)
  *
- * WHY THIS FILE EXISTS:
- * Expo Router uses file-based routing. _layout.tsx files wrap all screens
- * in the same folder. This is the ROOT layout — it wraps EVERYTHING.
- *
- * WHAT IT DOES:
- * 1. Initializes all services (GPS, MCC, Database) when app starts
- * 2. Sets up the navigation container
- * 3. Makes app-wide data (emergency numbers, GPS) available to all screens
- *    via React Context
- *
- * REACT CONTEXT:
- * Context is like a "global state" that any child component can access
- * without passing props down through every level.
- * We use it for: emergency numbers, current GPS, language preference.
+ * CHANGES FROM PHASE 1:
+ * - Added meshRelayManager.initialize() to startup sequence
+ * - Added activeBystanderAlert state to AppContext
+ *   (so any screen can know when an SOS was received nearby)
  */
 
-import { useEffect, useState, createContext, useContext } from 'react';
+import { useEffect, useState, createContext, useContext, useRef } from 'react';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { View, ActivityIndicator, StyleSheet, Text } from 'react-native';
@@ -26,23 +16,29 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { initializeMCCService, type EmergencyNumbers } from '../services/MCCService';
 import { initializeDatabase } from '../services/POIDatabase';
 import { requestLocationPermissions, startBackgroundTracking } from '../services/GPSService';
+import { meshRelayManager } from '../services/MeshRelay/MeshRelayManager';
+import { SOSPacket } from '../services/MeshRelay/types';
 import { STORAGE_KEYS, DEFAULT_EMERGENCY, type LanguageCode } from '../utils/constants';
 import { Colors } from '../theme';
 
 // ─────────────────────────────────────────────────────────────
-// GLOBAL APP CONTEXT
-// Any screen can call useAppContext() to get emergency numbers, language, etc.
+// GLOBAL APP CONTEXT (Phase 1 + Phase 2 additions)
 // ─────────────────────────────────────────────────────────────
 
 interface AppContextType {
+  // Phase 1
   emergencyNumbers: EmergencyNumbers;
   language: LanguageCode;
   setLanguage: (lang: LanguageCode) => Promise<void>;
   isInitialized: boolean;
   gpsPermissionGranted: boolean;
+  // Phase 2 — new additions
+  activeBystanderAlert: { packet: SOSPacket; distanceM: number } | null;
+  clearBystanderAlert: () => void;
+  meshConnected: boolean;
+  meshPeerCount: number;
 }
 
-// Create the context with defaults (will be overwritten by actual values)
 const AppContext = createContext<AppContextType>({
   emergencyNumbers: {
     ...DEFAULT_EMERGENCY,
@@ -54,9 +50,12 @@ const AppContext = createContext<AppContextType>({
   setLanguage: async () => {},
   isInitialized: false,
   gpsPermissionGranted: false,
+  activeBystanderAlert: null,
+  clearBystanderAlert: () => {},
+  meshConnected: false,
+  meshPeerCount: 0,
 });
 
-// Custom hook — screens call this instead of useContext(AppContext) directly
 export function useAppContext(): AppContextType {
   return useContext(AppContext);
 }
@@ -75,29 +74,67 @@ export default function RootLayout() {
   });
   const [language, setLanguageState] = useState<LanguageCode>('en');
   const [gpsPermissionGranted, setGpsPermissionGranted] = useState(false);
-  const [initError, setInitError] = useState<string | null>(null);
 
-  // Initialize everything when app launches
+  // Phase 2 state
+  const [activeBystanderAlert, setActiveBystanderAlert] = useState<{
+    packet: SOSPacket;
+    distanceM: number;
+  } | null>(null);
+  const [meshConnected, setMeshConnected] = useState(false);
+  const [meshPeerCount, setMeshPeerCount] = useState(0);
+
   useEffect(() => {
     initializeApp();
+  }, []);
+
+  // Set up mesh relay event listeners (after component mounts)
+  useEffect(() => {
+    // Listen for SOS received events from MeshRelayManager
+    const unsubSOS = meshRelayManager.on('SOS_RECEIVED', (event) => {
+      if (event.packet && event.data) {
+        const isNearby = event.data['isNearby'] as boolean;
+        const distanceM = (event.data['distanceM'] as number) ?? 0;
+
+        if (isNearby) {
+          console.log('[Layout] SOS nearby — showing bystander alert');
+          setActiveBystanderAlert({ packet: event.packet, distanceM });
+        }
+      }
+    });
+
+    // Listen for simulation connection status
+    const unsubConnected = meshRelayManager.on('SIMULATION_CONNECTED', (event) => {
+      setMeshConnected(true);
+      setMeshPeerCount((event.data?.['deviceCount'] as number) ?? 0);
+    });
+
+    const unsubDisconnected = meshRelayManager.on('SIMULATION_DISCONNECTED', () => {
+      setMeshConnected(false);
+      setMeshPeerCount(0);
+    });
+
+    return () => {
+      unsubSOS();
+      unsubConnected();
+      unsubDisconnected();
+    };
   }, []);
 
   async function initializeApp() {
     try {
       console.log('[App] Starting initialization...');
 
-      // Step 1: Load saved language preference (fast — AsyncStorage read)
+      // Step 1: Load saved language preference
       const savedLanguage = await AsyncStorage.getItem(STORAGE_KEYS.LANGUAGE);
       if (savedLanguage) {
         setLanguageState(savedLanguage as LanguageCode);
       }
 
-      // Step 2: Initialize SQLite database (creates tables if not exist)
-      // This MUST happen before any POI searches
+      // Step 2: Initialize SQLite database
       await initializeDatabase();
       console.log('[App] Database initialized');
 
-      // Step 3: Detect country via SIM MCC and load emergency numbers
+      // Step 3: Detect country and load emergency numbers
       const numbers = await initializeMCCService();
       setEmergencyNumbers(numbers);
       console.log(`[App] Emergency numbers loaded for: ${numbers.country}`);
@@ -105,32 +142,34 @@ export default function RootLayout() {
       // Step 4: Request GPS permissions and start tracking
       const gpsGranted = await requestLocationPermissions();
       setGpsPermissionGranted(gpsGranted);
-
       if (gpsGranted) {
         await startBackgroundTracking();
         console.log('[App] GPS tracking started');
       }
 
-      // All done — show the actual app
-      setIsInitialized(true);
-      console.log('[App] Initialization complete');
+      // Step 5: Initialize Mesh Relay (Phase 2) ← NEW
+      // We do this AFTER GPS so that crash location is available
+      await meshRelayManager.initialize();
+      console.log('[App] Mesh relay initialized');
 
+      setIsInitialized(true);
+      console.log('[App] ✅ Initialization complete');
     } catch (error) {
       console.error('[App] Initialization failed:', error);
-      setInitError('Failed to start AETHER. Please restart the app.');
-      // Still set initialized to true so we show something (not blank screen)
+      // Still show app, just with reduced functionality
       setIsInitialized(true);
     }
   }
 
-  // Change language and persist to storage
   async function setLanguage(lang: LanguageCode): Promise<void> {
     setLanguageState(lang);
     await AsyncStorage.setItem(STORAGE_KEYS.LANGUAGE, lang);
-    console.log(`[App] Language changed to: ${lang}`);
   }
 
-  // Show loading screen while initializing
+  function clearBystanderAlert(): void {
+    setActiveBystanderAlert(null);
+  }
+
   if (!isInitialized) {
     return (
       <View style={styles.loadingContainer}>
@@ -151,11 +190,13 @@ export default function RootLayout() {
         setLanguage,
         isInitialized,
         gpsPermissionGranted,
+        activeBystanderAlert,
+        clearBystanderAlert,
+        meshConnected,
+        meshPeerCount,
       }}
     >
       <StatusBar style="light" />
-      {/* Stack navigator — Expo Router uses file-based routing */}
-      {/* The (tabs) folder becomes the main tab bar */}
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       </Stack>
@@ -185,9 +226,7 @@ const styles = StyleSheet.create({
     marginBottom: 48,
     letterSpacing: 1,
   },
-  spinner: {
-    marginBottom: 16,
-  },
+  spinner: { marginBottom: 16 },
   loadingStatus: {
     fontSize: 13,
     color: Colors.text.muted,

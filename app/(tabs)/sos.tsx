@@ -31,6 +31,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAppContext } from '../_layout';
 import { getLastKnownLocation } from '../../services/GPSService';
 import { Colors, Spacing, Typography, BorderRadius } from '../../theme';
+import { meshRelayManager } from '../../services/MeshRelay/MeshRelayManager';
 
 export default function SOSScreen() {
   const { emergencyNumbers } = useAppContext();
@@ -106,9 +107,9 @@ export default function SOSScreen() {
 
   async function triggerSOS() {
     setSOSActive(true);
-    Vibration.vibrate([0, 200, 100, 200]); // Emergency vibration pattern
+    Vibration.vibrate([0, 200, 100, 200]);
 
-    // Get location
+    // Get location for display
     const loc = await getLastKnownLocation();
     if (loc) {
       setLocationText(
@@ -120,21 +121,22 @@ export default function SOSScreen() {
 
     startPulse();
 
-    // Show options: call ambulance or cancel
+    // Phase 2: Broadcast SOS via mesh relay ← NEW
+    const severity = 3; // Default severity — Phase 3 will calculate from crash force
+    const packet = await meshRelayManager.triggerSOS(severity);
+    
+    if (packet) {
+      console.log(`[SOS Screen] Mesh SOS broadcasted: ${packet.incidentId}`);
+    } else {
+      console.warn('[SOS Screen] Mesh relay unavailable — direct call only');
+    }
+
     Alert.alert(
       '🚨 SOS ACTIVATED',
-      `Calling ${emergencyNumbers.ambulance} (Ambulance)\n\nYour location has been recorded.`,
+      `Calling ${emergencyNumbers.ambulance} (Ambulance)\n\nYour location is being relayed to nearby phones.`,
       [
-        {
-          text: 'Cancel SOS',
-          style: 'cancel',
-          onPress: cancelSOS,
-        },
-        {
-          text: `Call ${emergencyNumbers.ambulance}`,
-          style: 'destructive',
-          onPress: () => Linking.openURL(`tel:${emergencyNumbers.ambulance}`),
-        },
+        { text: 'Cancel SOS', style: 'cancel', onPress: cancelSOS },
+        { text: `Call ${emergencyNumbers.ambulance}`, style: 'destructive', onPress: () => Linking.openURL(`tel:${emergencyNumbers.ambulance}`) },
       ]
     );
   }

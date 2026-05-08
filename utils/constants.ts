@@ -87,3 +87,29 @@ export const APP = {
   VERSION: '1.0.0',
   TAGLINE: 'Accident Emergency & Trauma Hyper-Response',
 };
+
+// ─── Phase 2: Mesh Relay Constants ───────────────────────────────────────────
+
+export const MESH = {
+  MAX_HOPS: 30,                    // Stop relaying after 30 hops (infinite loop prevention)
+  BYSTANDER_RADIUS_M: 500,         // Only show alert if crash is within 500m
+  DEDUP_WINDOW_MS: 5 * 60 * 1000, // Remember seen packets for 5 minutes
+  RELAY_JITTER_MAX_MS: 200,        // Random delay before relaying (0-200ms) to prevent collisions
+  BLE_SERVICE_UUID: 'AETHER-SOS-001', // Bluetooth GATT service ID (for production BLE)
+};
+
+/**
+ * SIMULATION SERVER URL — UPDATE THIS TO YOUR LAPTOP'S IP
+ *
+ * HOW TO FIND YOUR IP (Windows):
+ *   1. Open a NEW terminal window
+ *   2. Run: ipconfig
+ *   3. Look under "Wireless LAN adapter Wi-Fi:" (or your WiFi adapter name)
+ *   4. Copy the "IPv4 Address" line (e.g., 192.168.1.105)
+ *   5. Replace 192.168.1.100 below with your actual IP
+ *
+ * EXAMPLE: ws://192.168.1.105:3001
+ *
+ * Keep the port as 3001. Only change the IP.
+ */
+export const SIMULATION_SERVER_URL = 'ws://172.20.10.9:3001'; // ← CHANGE THIS IP
