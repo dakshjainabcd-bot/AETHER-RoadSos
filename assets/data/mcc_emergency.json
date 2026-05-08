@@ -1,0 +1,353 @@
+{
+  "404": {
+    "country": "India",
+    "country_code": "IN",
+    "police": "100",
+    "ambulance": "108",
+    "fire": "101",
+    "unified": "112",
+    "languages": ["hi", "en", "ta", "te", "kn", "ml", "bn", "mr", "gu", "pa"]
+  },
+  "405": {
+    "country": "India (alternate)",
+    "country_code": "IN",
+    "police": "100",
+    "ambulance": "108",
+    "fire": "101",
+    "unified": "112",
+    "languages": ["hi", "en", "ta", "te", "kn", "ml", "bn", "mr", "gu", "pa"]
+  },
+  "502": {
+    "country": "Malaysia",
+    "country_code": "MY",
+    "police": "999",
+    "ambulance": "999",
+    "fire": "994",
+    "unified": "999",
+    "languages": ["ms", "en", "zh", "ta"]
+  },
+  "520": {
+    "country": "Thailand",
+    "country_code": "TH",
+    "police": "191",
+    "ambulance": "1669",
+    "fire": "199",
+    "unified": "112",
+    "languages": ["th", "en"]
+  },
+  "470": {
+    "country": "Bangladesh",
+    "country_code": "BD",
+    "police": "999",
+    "ambulance": "199",
+    "fire": "199",
+    "unified": "999",
+    "languages": ["bn", "en"]
+  },
+  "412": {
+    "country": "Afghanistan",
+    "country_code": "AF",
+    "police": "119",
+    "ambulance": "112",
+    "fire": "119",
+    "unified": "112",
+    "languages": ["ps", "fa"]
+  },
+  "413": {
+    "country": "Sri Lanka",
+    "country_code": "LK",
+    "police": "119",
+    "ambulance": "110",
+    "fire": "111",
+    "unified": "119",
+    "languages": ["si", "ta", "en"]
+  },
+  "429": {
+    "country": "Nepal",
+    "country_code": "NP",
+    "police": "100",
+    "ambulance": "102",
+    "fire": "101",
+    "unified": "112",
+    "languages": ["ne", "en"]
+  },
+  "436": {
+    "country": "Tajikistan",
+    "country_code": "TJ",
+    "police": "102",
+    "ambulance": "103",
+    "fire": "101",
+    "unified": "112",
+    "languages": ["tg", "ru"]
+  },
+  "460": {
+    "country": "China",
+    "country_code": "CN",
+    "police": "110",
+    "ambulance": "120",
+    "fire": "119",
+    "unified": "112",
+    "languages": ["zh"]
+  },
+  "440": {
+    "country": "Japan",
+    "country_code": "JP",
+    "police": "110",
+    "ambulance": "119",
+    "fire": "119",
+    "unified": "110",
+    "languages": ["ja", "en"]
+  },
+  "450": {
+    "country": "South Korea",
+    "country_code": "KR",
+    "police": "112",
+    "ambulance": "119",
+    "fire": "119",
+    "unified": "112",
+    "languages": ["ko", "en"]
+  },
+  "510": {
+    "country": "Indonesia",
+    "country_code": "ID",
+    "police": "110",
+    "ambulance": "119",
+    "fire": "113",
+    "unified": "112",
+    "languages": ["id", "en"]
+  },
+  "515": {
+    "country": "Philippines",
+    "country_code": "PH",
+    "police": "911",
+    "ambulance": "911",
+    "fire": "911",
+    "unified": "911",
+    "languages": ["fil", "en"]
+  },
+  "525": {
+    "country": "Singapore",
+    "country_code": "SG",
+    "police": "999",
+    "ambulance": "995",
+    "fire": "995",
+    "unified": "999",
+    "languages": ["en", "zh", "ms", "ta"]
+  },
+  "528": {
+    "country": "Brunei",
+    "country_code": "BN",
+    "police": "993",
+    "ambulance": "991",
+    "fire": "995",
+    "unified": "991",
+    "languages": ["ms", "en"]
+  },
+  "230": {
+    "country": "Czech Republic",
+    "country_code": "CZ",
+    "police": "158",
+    "ambulance": "155",
+    "fire": "150",
+    "unified": "112",
+    "languages": ["cs", "en"]
+  },
+  "234": {
+    "country": "United Kingdom",
+    "country_code": "GB",
+    "police": "999",
+    "ambulance": "999",
+    "fire": "999",
+    "unified": "999",
+    "languages": ["en"]
+  },
+  "235": {
+    "country": "United Kingdom (alternate)",
+    "country_code": "GB",
+    "police": "999",
+    "ambulance": "999",
+    "fire": "999",
+    "unified": "999",
+    "languages": ["en"]
+  },
+  "262": {
+    "country": "Germany",
+    "country_code": "DE",
+    "police": "110",
+    "ambulance": "112",
+    "fire": "112",
+    "unified": "112",
+    "languages": ["de", "en"]
+  },
+  "208": {
+    "country": "France",
+    "country_code": "FR",
+    "police": "17",
+    "ambulance": "15",
+    "fire": "18",
+    "unified": "112",
+    "languages": ["fr", "en"]
+  },
+  "214": {
+    "country": "Spain",
+    "country_code": "ES",
+    "police": "091",
+    "ambulance": "061",
+    "fire": "080",
+    "unified": "112",
+    "languages": ["es", "en"]
+  },
+  "222": {
+    "country": "Italy",
+    "country_code": "IT",
+    "police": "113",
+    "ambulance": "118",
+    "fire": "115",
+    "unified": "112",
+    "languages": ["it", "en"]
+  },
+  "310": {
+    "country": "United States",
+    "country_code": "US",
+    "police": "911",
+    "ambulance": "911",
+    "fire": "911",
+    "unified": "911",
+    "languages": ["en", "es"]
+  },
+  "311": {
+    "country": "United States (alternate)",
+    "country_code": "US",
+    "police": "911",
+    "ambulance": "911",
+    "fire": "911",
+    "unified": "911",
+    "languages": ["en", "es"]
+  },
+  "302": {
+    "country": "Canada",
+    "country_code": "CA",
+    "police": "911",
+    "ambulance": "911",
+    "fire": "911",
+    "unified": "911",
+    "languages": ["en", "fr"]
+  },
+  "505": {
+    "country": "Australia",
+    "country_code": "AU",
+    "police": "000",
+    "ambulance": "000",
+    "fire": "000",
+    "unified": "000",
+    "languages": ["en"]
+  },
+  "530": {
+    "country": "New Zealand",
+    "country_code": "NZ",
+    "police": "111",
+    "ambulance": "111",
+    "fire": "111",
+    "unified": "111",
+    "languages": ["en", "mi"]
+  },
+  "424": {
+    "country": "UAE",
+    "country_code": "AE",
+    "police": "999",
+    "ambulance": "998",
+    "fire": "997",
+    "unified": "999",
+    "languages": ["ar", "en"]
+  },
+  "420": {
+    "country": "Kuwait",
+    "country_code": "KW",
+    "police": "112",
+    "ambulance": "112",
+    "fire": "112",
+    "unified": "112",
+    "languages": ["ar", "en"]
+  },
+  "432": {
+    "country": "Iran",
+    "country_code": "IR",
+    "police": "110",
+    "ambulance": "115",
+    "fire": "125",
+    "unified": "115",
+    "languages": ["fa"]
+  },
+  "418": {
+    "country": "Iraq",
+    "country_code": "IQ",
+    "police": "104",
+    "ambulance": "122",
+    "fire": "115",
+    "unified": "112",
+    "languages": ["ar", "ku"]
+  },
+  "401": {
+    "country": "Kazakhstan",
+    "country_code": "KZ",
+    "police": "102",
+    "ambulance": "103",
+    "fire": "101",
+    "unified": "112",
+    "languages": ["kk", "ru"]
+  },
+  "415": {
+    "country": "Lebanon",
+    "country_code": "LB",
+    "police": "112",
+    "ambulance": "140",
+    "fire": "175",
+    "unified": "112",
+    "languages": ["ar", "fr", "en"]
+  },
+  "602": {
+    "country": "Egypt",
+    "country_code": "EG",
+    "police": "122",
+    "ambulance": "123",
+    "fire": "180",
+    "unified": "112",
+    "languages": ["ar", "en"]
+  },
+  "655": {
+    "country": "South Africa",
+    "country_code": "ZA",
+    "police": "10111",
+    "ambulance": "10177",
+    "fire": "10111",
+    "unified": "112",
+    "languages": ["en", "af", "zu", "xh"]
+  },
+  "621": {
+    "country": "Nigeria",
+    "country_code": "NG",
+    "police": "199",
+    "ambulance": "199",
+    "fire": "199",
+    "unified": "112",
+    "languages": ["en", "yo", "ha", "ig"]
+  },
+  "636": {
+    "country": "Ethiopia",
+    "country_code": "ET",
+    "police": "991",
+    "ambulance": "907",
+    "fire": "939",
+    "unified": "911",
+    "languages": ["am", "en"]
+  },
+  "DEFAULT": {
+    "country": "Unknown",
+    "country_code": "XX",
+    "police": "112",
+    "ambulance": "112",
+    "fire": "112",
+    "unified": "112",
+    "languages": ["en"]
+  }
+}

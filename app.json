@@ -1,34 +1,67 @@
 {
   "expo": {
-    "name": "AETHER-RoadSos",
-    "slug": "AETHER-RoadSos",
+    "name": "AETHER",
+    "slug": "aether-sos",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
-    "newArchEnabled": true,
+    "userInterfaceStyle": "dark",
     "splash": {
-      "image": "./assets/splash-icon.png",
+      "image": "./assets/splash.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#0A0A0A"
     },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": false,
+      "bundleIdentifier": "com.aether.sos",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "AETHER needs your location to find nearby emergency services and detect accidents.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "AETHER runs in the background to detect accidents and keep your last location updated.",
+        "NSLocationAlwaysUsageDescription": "AETHER needs background location to detect accidents even when the app is closed.",
+        "NSMicrophoneUsageDescription": "AETHER uses the microphone to detect crash sounds and provide CPR coaching.",
+        "NSBluetoothAlwaysUsageDescription": "AETHER uses Bluetooth to relay SOS signals to nearby phones without internet.",
+        "NSBluetoothPeripheralUsageDescription": "AETHER uses Bluetooth to relay SOS signals to nearby phones without internet.",
+        "UIBackgroundModes": ["location", "fetch", "bluetooth-central", "bluetooth-peripheral"]
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "backgroundColor": "#0A0A0A"
       },
-      "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
-    },
-    "web": {
-      "favicon": "./assets/favicon.png"
+      "package": "com.aether.sos",
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION",
+        "RECORD_AUDIO",
+        "BLUETOOTH",
+        "BLUETOOTH_ADMIN",
+        "BLUETOOTH_SCAN",
+        "BLUETOOTH_CONNECT",
+        "BLUETOOTH_ADVERTISE",
+        "FOREGROUND_SERVICE",
+        "RECEIVE_BOOT_COMPLETED",
+        "VIBRATE",
+        "WAKE_LOCK"
+      ]
     },
     "plugins": [
-      "expo-sqlite",
-      "expo-router"
-    ]
+      "expo-router",
+      "expo-location",
+      [
+        "expo-sqlite",
+        {
+          "enableFTS": true
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "scheme": "aether"
   }
 }
