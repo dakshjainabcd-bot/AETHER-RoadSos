@@ -171,7 +171,7 @@ export function CrashCountdown({
         <Text style={styles.dispatchNote}>SOS dispatching in {secondsRemaining}s</Text>
 
         {/* ── Debug: confidence score ──────────────────────────────── */}
-        {confidence !== undefined && (
+        {confidence !== undefined && confidence > 0 && (
           <Text style={styles.debugText}>
             Confidence: {(confidence * 100).toFixed(0)}%
           </Text>
@@ -232,7 +232,7 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: 14,
-    color: Colors.text.secondary,
+    color: 'rgba(255,255,255,0.55)',
     textAlign: 'center',
     marginBottom: Spacing['3xl'],
   },
@@ -263,7 +263,7 @@ const styles = StyleSheet.create({
   },
   unit: {
     fontSize: 14,
-    color: Colors.text.muted,
+    color: 'rgba(255,255,255,0.45)',
     fontWeight: '600',
     letterSpacing: 2,
     textTransform: 'uppercase',
@@ -273,7 +273,7 @@ const styles = StyleSheet.create({
   progressTrack: {
     width: '100%',
     height: 4,
-    backgroundColor: Colors.background.tertiary,
+    backgroundColor: 'rgba(255,255,255,0.12)',
     borderRadius: 2,
     marginBottom: 10,
     overflow: 'hidden',
@@ -287,12 +287,12 @@ const styles = StyleSheet.create({
   // ── Text below progress bar ───────────────────────────────────────────
   dispatchNote: {
     fontSize: 13,
-    color: Colors.text.muted,
+    color: 'rgba(255,255,255,0.40)',
     marginBottom: 6,
   },
   debugText: {
     fontSize: 11,
-    color: Colors.text.muted,
+    color: 'rgba(255,255,255,0.30)',
     fontFamily: 'monospace',
     marginBottom: Spacing['2xl'],
   },
@@ -319,7 +319,7 @@ const styles = StyleSheet.create({
   // ── Footer ────────────────────────────────────────────────────────────
   footerNote: {
     fontSize: 12,
-    color: Colors.text.muted,
+    color: 'rgba(255,255,255,0.30)',
     textAlign: 'center',
     lineHeight: 18,
     paddingHorizontal: Spacing.lg,

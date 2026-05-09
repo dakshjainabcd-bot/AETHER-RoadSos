@@ -1,11 +1,8 @@
 /**
- * Services Screen — Find Nearby Emergency Services
+ * Services Screen — Premium iOS Design
  *
- * This implements Verticals A and B of Phase 1:
- * - Find hospitals, police, ambulance, towing, puncture shops
- * - SQLite adaptive radius search (10km → 20km → 50km)
- * - Works fully offline — no internet required
- * - One-tap to call any result
+ * iOS-style category chips + clean card list.
+ * All logic unchanged — only visual layer upgraded.
  */
 
 import { useState, useCallback } from 'react';
@@ -25,425 +22,330 @@ import { useAppContext } from '../_layout';
 import { getLastKnownLocation } from '../../services/GPSService';
 import { searchPOI, type POI } from '../../services/POIDatabase';
 import { POI_TYPES, type POIType } from '../../utils/constants';
-import { Colors, Spacing, BorderRadius, Shadows } from '../../theme';
+import { Colors, Spacing, BorderRadius, Shadows, Layout } from '../../theme';
 
-// Service categories shown in the tab selector
-const SERVICE_CATEGORIES = [
-  { type: POI_TYPES.HOSPITAL, label: 'Hospitals', icon: 'medical', color: Colors.brand.primary },
-  { type: POI_TYPES.POLICE, label: 'Police', icon: 'shield-checkmark', color: '#5856D6' },
-  { type: POI_TYPES.TOWING, label: 'Towing', icon: 'car', color: '#FF9500' },
-  { type: POI_TYPES.PUNCTURE, label: 'Puncture', icon: 'ellipse', color: '#34C759' },
-  { type: POI_TYPES.PETROL, label: 'Petrol', icon: 'flash', color: '#FFD700' },
+const CATEGORIES = [
+  { type: POI_TYPES.HOSPITAL, label: 'Hospital', icon: 'medical',          color: Colors.brand.primary,    tint: Colors.tint.ambulance },
+  { type: POI_TYPES.POLICE,   label: 'Police',   icon: 'shield-checkmark', color: Colors.brand.accent,     tint: Colors.tint.police    },
+  { type: POI_TYPES.TOWING,   label: 'Towing',   icon: 'car',              color: Colors.brand.gold,       tint: Colors.tint.fire      },
+  { type: POI_TYPES.PUNCTURE, label: 'Tyre',     icon: 'ellipse',          color: Colors.status.success,   tint: Colors.tint.universal },
+  { type: POI_TYPES.PETROL,   label: 'Petrol',   icon: 'flash',            color: Colors.brand.purple,     tint: Colors.tint.towing    },
 ] as const;
 
 export default function ServicesScreen() {
   const { gpsPermissionGranted } = useAppContext();
 
-  const [selectedType, setSelectedType] = useState<POIType>(POI_TYPES.HOSPITAL);
-  const [results, setResults] = useState<POI[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [searchRadius, setSearchRadius] = useState<number | null>(null);
-  const [locationAvailable, setLocationAvailable] = useState(false);
+  const [selected, setSelected] = useState<POIType>(POI_TYPES.HOSPITAL);
+  const [results, setResults]   = useState<POI[]>([]);
+  const [loading, setLoading]   = useState(false);
+  const [radiusKm, setRadiusKm] = useState<number | null>(null);
+  const [hasLocation, setHasLocation] = useState(false);
 
-  // Re-search whenever screen is focused or category changes
   useFocusEffect(
-    useCallback(() => {
-      performSearch(selectedType);
-    }, [selectedType, gpsPermissionGranted])
+    useCallback(() => { search(selected); }, [selected, gpsPermissionGranted])
   );
 
-  async function performSearch(type: POIType) {
-    setIsLoading(true);
+  async function search(type: POIType) {
+    setLoading(true);
     setResults([]);
-
     try {
-      const location = await getLastKnownLocation();
-      setLocationAvailable(!!location);
+      const loc = await getLastKnownLocation();
+      setHasLocation(!!loc);
+      if (!loc) { setLoading(false); return; }
 
-      if (!location) {
-        setIsLoading(false);
-        return;
-      }
-
-      // The adaptive radius search is inside searchPOI
-      // It will try 10km → 20km → 50km automatically
-      const found = await searchPOI(location.lat, location.lng, type);
+      const found = await searchPOI(loc.lat, loc.lng, type);
       setResults(found);
-
-      // Show the radius that was actually used
       if (found.length > 0) {
-        const maxDist = Math.max(...found.map(p => p.distance ?? 0));
-        setSearchRadius(Math.ceil(maxDist));
+        const max = Math.max(...found.map(p => p.distance ?? 0));
+        setRadiusKm(Math.ceil(max));
       }
-
-    } catch (error) {
-      console.error('[ServicesScreen] Search failed:', error);
-      Alert.alert('Search Error', 'Could not search for services. Please try again.');
+    } catch (e) {
+      Alert.alert('Error', 'Search failed. Please try again.');
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   }
 
-  const selectedCategory = SERVICE_CATEGORIES.find(c => c.type === selectedType)!;
+  const cat = CATEGORIES.find(c => c.type === selected)!;
 
   return (
     <View style={styles.container}>
-      {/* Header */}
+      {/* ── Header ──────────────────────────────────────────────── */}
       <View style={styles.header}>
         <Text style={styles.title}>Find Services</Text>
+        {/* Offline indicator */}
         <View style={styles.offlinePill}>
           <View style={styles.offlineDot} />
           <Text style={styles.offlinePillText}>Offline</Text>
         </View>
       </View>
 
-      {/* Category Selector */}
-      <View style={styles.categoryScroll}>
-        {SERVICE_CATEGORIES.map((cat) => (
-          <TouchableOpacity
-            key={cat.type}
-            style={[
-              styles.categoryChip,
-              selectedType === cat.type && {
-                backgroundColor: cat.color + '25',
-                borderColor: cat.color,
-              },
-            ]}
-            onPress={() => setSelectedType(cat.type)}
-          >
-            <Ionicons
-              name={cat.icon as any}
-              size={16}
-              color={selectedType === cat.type ? cat.color : Colors.text.muted}
-            />
-            <Text
+      {/* ── Category chips (horizontal scroll via wrapping) ──────── */}
+      <View style={styles.chips}>
+        {CATEGORIES.map((c) => {
+          const active = selected === c.type;
+          return (
+            <TouchableOpacity
+              key={c.type}
               style={[
-                styles.categoryLabel,
-                selectedType === cat.type && { color: cat.color, fontWeight: '700' },
+                styles.chip,
+                active
+                  ? { backgroundColor: c.tint, borderColor: `${c.color}40` }
+                  : { backgroundColor: Colors.background.elevated, borderColor: Colors.border.subtle },
               ]}
+              onPress={() => setSelected(c.type)}
+              activeOpacity={0.7}
             >
-              {cat.label}
-            </Text>
-          </TouchableOpacity>
-        ))}
+              <Ionicons name={c.icon as any} size={15} color={active ? c.color : Colors.label.secondary} />
+              <Text style={[styles.chipText, active && { color: c.color, fontWeight: '600' }]}>
+                {c.label}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
       </View>
 
-      {/* Result count and radius info */}
-      {!isLoading && results.length > 0 && (
-        <Text style={styles.resultsMeta}>
-          {results.length} found{searchRadius ? ` within ${searchRadius}km` : ''}
+      {/* ── Result meta ─────────────────────────────────────────── */}
+      {!loading && results.length > 0 && (
+        <Text style={styles.meta}>
+          {results.length} found{radiusKm ? ` within ${radiusKm} km` : ''}
         </Text>
       )}
 
-      {/* No GPS warning */}
-      {!locationAvailable && !isLoading && (
-        <View style={styles.noGPS}>
-          <Ionicons name="location-outline" size={40} color={Colors.text.muted} />
-          <Text style={styles.noGPSTitle}>Location needed</Text>
-          <Text style={styles.noGPSSubtitle}>
-            Enable location permission to find nearby services
-          </Text>
+      {/* ── States ──────────────────────────────────────────────── */}
+      {!hasLocation && !loading && (
+        <View style={styles.stateBox}>
+          <Ionicons name="location-outline" size={36} color={Colors.label.tertiary} />
+          <Text style={styles.stateTitle}>Location needed</Text>
+          <Text style={styles.stateSub}>Grant location permission to find nearby services</Text>
         </View>
       )}
 
-      {/* Loading */}
-      {isLoading && (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={selectedCategory.color} />
-          <Text style={styles.loadingText}>Searching for {selectedCategory.label.toLowerCase()}...</Text>
-          <Text style={styles.loadingSubtext}>10km → 20km → 50km</Text>
+      {loading && (
+        <View style={styles.stateBox}>
+          <ActivityIndicator size="large" color={cat.color} />
+          <Text style={styles.stateTitle}>Searching…</Text>
+          <Text style={styles.stateSub}>10 km → 20 km → 50 km</Text>
         </View>
       )}
 
-      {/* Results */}
-      {!isLoading && locationAvailable && results.length === 0 && (
-        <View style={styles.noResults}>
-          <Ionicons name="search-outline" size={40} color={Colors.text.muted} />
-          <Text style={styles.noResultsTitle}>None found within 50km</Text>
-          <Text style={styles.noResultsSubtitle}>
-            Try calling the national emergency number
-          </Text>
+      {!loading && hasLocation && results.length === 0 && (
+        <View style={styles.stateBox}>
+          <Ionicons name="search-outline" size={36} color={Colors.label.tertiary} />
+          <Text style={styles.stateTitle}>None found within 50 km</Text>
+          <Text style={styles.stateSub}>Call the national emergency number</Text>
         </View>
       )}
 
+      {/* ── Results ─────────────────────────────────────────────── */}
       <FlatList
         data={results}
         keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <POIResultCard poi={item} accentColor={selectedCategory.color} />
-        )}
+        renderItem={({ item }) => <POIResultCard poi={item} accentColor={cat.color} tint={cat.tint} />}
         contentContainerStyle={styles.list}
         showsVerticalScrollIndicator={false}
+        ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
       />
     </View>
   );
 }
 
-// ── POI Result Card ──────────────────────────────────────────
+// ── POI Result Card ─────────────────────────────────────────────────────────
 
-function POIResultCard({ poi, accentColor }: { poi: POI; accentColor: string }) {
+function POIResultCard({ poi, accentColor, tint }: { poi: POI; accentColor: string; tint: string }) {
   function call() {
-    if (poi.phone) {
-      Linking.openURL(`tel:${poi.phone}`);
-    } else {
-      Alert.alert('No number', 'No phone number available for this location.');
-    }
+    if (poi.phone) Linking.openURL(`tel:${poi.phone}`);
+    else Alert.alert('No number', 'No phone number available.');
   }
 
   function navigate() {
     const url = `geo:${poi.lat},${poi.lng}?q=${poi.lat},${poi.lng}(${encodeURIComponent(poi.name)})`;
-    Linking.openURL(url).catch(() => {
-      // Fallback: Google Maps URL
-      Linking.openURL(`https://maps.google.com/?q=${poi.lat},${poi.lng}`);
-    });
+    Linking.openURL(url).catch(() =>
+      Linking.openURL(`https://maps.google.com/?q=${poi.lat},${poi.lng}`)
+    );
   }
 
   return (
     <View style={styles.card}>
-      {/* Distance badge */}
-      <View style={[styles.distanceBadge, { backgroundColor: accentColor + '20' }]}>
-        <Text style={[styles.distanceText, { color: accentColor }]}>
-          {poi.distanceText}
-        </Text>
+      <View style={styles.cardTop}>
+        {/* Distance badge */}
+        <View style={[styles.distBadge, { backgroundColor: tint }]}>
+          <Text style={[styles.distText, { color: accentColor }]}>{poi.distanceText}</Text>
+        </View>
+        {/* POI name */}
+        <Text style={styles.poiName}>{poi.name}</Text>
+        {/* Hours */}
+        {poi.hours ? (
+          <View style={styles.hoursRow}>
+            <Ionicons name="time-outline" size={11} color={Colors.label.tertiary} />
+            <Text style={styles.hoursText}>{poi.hours}</Text>
+          </View>
+        ) : null}
       </View>
 
-      <Text style={styles.poiName}>{poi.name}</Text>
-
-      {poi.hours && (
-        <View style={styles.hoursRow}>
-          <Ionicons name="time-outline" size={12} color={Colors.text.muted} />
-          <Text style={styles.hoursText}>{poi.hours}</Text>
-        </View>
-      )}
-
-      {poi.capabilities && poi.capabilities.length > 0 && (
-        <View style={styles.capabilitiesRow}>
-          {poi.capabilities.slice(0, 3).map((cap) => (
-            <View key={cap} style={styles.capBadge}>
-              <Text style={styles.capText}>{cap.replace(/_/g, ' ')}</Text>
+      {/* Capability badges */}
+      {poi.capabilities?.length > 0 && (
+        <View style={styles.caps}>
+          {poi.capabilities.slice(0, 3).map((c) => (
+            <View key={c} style={styles.capBadge}>
+              <Text style={styles.capText}>{c.replace(/_/g, ' ')}</Text>
             </View>
           ))}
           {poi.capabilities.length > 3 && (
-            <Text style={styles.moreCapText}>+{poi.capabilities.length - 3} more</Text>
+            <Text style={styles.capMore}>+{poi.capabilities.length - 3}</Text>
           )}
         </View>
       )}
 
+      {/* Action buttons */}
       <View style={styles.cardActions}>
         <TouchableOpacity
-          style={[styles.actionButton, { backgroundColor: Colors.status.success + '20' }]}
+          style={[styles.actionBtn, { backgroundColor: `${Colors.status.success}12`, borderColor: `${Colors.status.success}30` }]}
           onPress={call}
         >
-          <Ionicons name="call" size={16} color={Colors.status.success} />
-          <Text style={[styles.actionLabel, { color: Colors.status.success }]}>
+          <Ionicons name="call" size={15} color={Colors.status.success} />
+          <Text style={[styles.actionText, { color: Colors.status.success }]}>
             {poi.phone ?? 'Call'}
           </Text>
         </TouchableOpacity>
-
         <TouchableOpacity
-          style={[styles.actionButton, { backgroundColor: Colors.brand.accent + '20' }]}
+          style={[styles.actionBtn, { backgroundColor: `${Colors.brand.accent}10`, borderColor: `${Colors.brand.accent}25` }]}
           onPress={navigate}
         >
-          <Ionicons name="navigate" size={16} color={Colors.brand.accent} />
-          <Text style={[styles.actionLabel, { color: Colors.brand.accent }]}>Navigate</Text>
+          <Ionicons name="navigate" size={15} color={Colors.brand.accent} />
+          <Text style={[styles.actionText, { color: Colors.brand.accent }]}>Navigate</Text>
         </TouchableOpacity>
       </View>
     </View>
   );
 }
 
-// ── Styles ───────────────────────────────────────────────────
+// ── Styles ──────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.background.primary,
-    paddingTop: 56,
+    backgroundColor: Colors.background.grouped,
+    paddingTop: Layout.STATUS_BAR_HEIGHT + 4,
   },
   header: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: Spacing.lg,
-    marginBottom: Spacing.lg,
+    justifyContent: 'space-between',
+    paddingHorizontal: Layout.HORIZONTAL_PADDING,
+    marginBottom: 18,
   },
   title: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: Colors.text.primary,
+    fontSize: 34,
+    fontWeight: '700',
+    color: Colors.label.primary,
+    letterSpacing: -0.8,
   },
   offlinePill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    backgroundColor: Colors.status.success + '15',
+    gap: 5,
+    backgroundColor: `${Colors.status.success}12`,
     borderRadius: BorderRadius.full,
     paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingVertical: 5,
   },
-  offlineDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: Colors.status.success,
-  },
-  offlinePillText: {
-    fontSize: 11,
-    color: Colors.status.success,
-    fontWeight: '600',
-  },
-  categoryScroll: {
+  offlineDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: Colors.status.success },
+  offlinePillText: { fontSize: 11, color: Colors.status.success, fontWeight: '600' },
+
+  // Chips
+  chips: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    paddingHorizontal: Spacing.lg,
+    paddingHorizontal: Layout.HORIZONTAL_PADDING,
     gap: 8,
-    marginBottom: Spacing.lg,
+    marginBottom: 16,
   },
-  categoryChip: {
+  chip: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 5,
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: BorderRadius.full,
     borderWidth: 1,
-    borderColor: Colors.border.subtle,
-    backgroundColor: Colors.background.secondary,
   },
-  categoryLabel: {
+  chipText: {
     fontSize: 13,
-    color: Colors.text.muted,
+    color: Colors.label.secondary,
     fontWeight: '500',
   },
-  resultsMeta: {
+
+  meta: {
     fontSize: 12,
-    color: Colors.text.muted,
-    paddingHorizontal: Spacing.lg,
-    marginBottom: Spacing.sm,
+    color: Colors.label.secondary,
+    paddingHorizontal: Layout.HORIZONTAL_PADDING,
+    marginBottom: 10,
   },
-  loadingContainer: {
+
+  // States
+  stateBox: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 12,
+    padding: 40,
+    gap: 10,
   },
-  loadingText: {
-    fontSize: 15,
-    color: Colors.text.secondary,
-  },
-  loadingSubtext: {
-    fontSize: 12,
-    color: Colors.text.muted,
-  },
-  noGPS: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: Spacing['4xl'],
-    gap: 12,
-  },
-  noGPSTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: Colors.text.secondary,
-  },
-  noGPSSubtitle: {
-    fontSize: 14,
-    color: Colors.text.muted,
-    textAlign: 'center',
-  },
-  noResults: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: Spacing['4xl'],
-    gap: 12,
-  },
-  noResultsTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: Colors.text.secondary,
-  },
-  noResultsSubtitle: {
-    fontSize: 14,
-    color: Colors.text.muted,
-    textAlign: 'center',
-  },
+  stateTitle: { fontSize: 17, fontWeight: '600', color: Colors.label.primary },
+  stateSub: { fontSize: 14, color: Colors.label.secondary, textAlign: 'center' },
+
+  // List
   list: {
-    padding: Spacing.lg,
-    paddingTop: Spacing.sm,
+    paddingHorizontal: Layout.HORIZONTAL_PADDING,
+    paddingBottom: Layout.CONTENT_BOTTOM_PADDING,
   },
+
+  // Card
   card: {
-    backgroundColor: Colors.background.secondary,
-    borderRadius: BorderRadius.lg,
-    padding: Spacing.lg,
-    marginBottom: Spacing.md,
+    backgroundColor: Colors.background.elevated,
+    borderRadius: BorderRadius.xl,
+    padding: 16,
     ...Shadows.sm,
   },
-  distanceBadge: {
+  cardTop: { marginBottom: 10 },
+  distBadge: {
     alignSelf: 'flex-start',
-    borderRadius: BorderRadius.full,
     paddingHorizontal: 10,
     paddingVertical: 3,
+    borderRadius: BorderRadius.full,
     marginBottom: 8,
   },
-  distanceText: {
-    fontSize: 12,
-    fontWeight: '700',
-  },
+  distText: { fontSize: 11, fontWeight: '700' },
   poiName: {
     fontSize: 16,
-    fontWeight: '700',
-    color: Colors.text.primary,
-    marginBottom: 6,
+    fontWeight: '600',
+    color: Colors.label.primary,
+    letterSpacing: -0.2,
+    marginBottom: 4,
   },
-  hoursRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    marginBottom: 8,
-  },
-  hoursText: {
-    fontSize: 12,
-    color: Colors.text.muted,
-  },
-  capabilitiesRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-    marginBottom: 12,
-  },
+  hoursRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  hoursText: { fontSize: 11, color: Colors.label.tertiary },
+
+  caps: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 12 },
   capBadge: {
-    backgroundColor: Colors.background.tertiary,
-    borderRadius: BorderRadius.sm,
+    backgroundColor: Colors.background.grouped,
+    borderRadius: 6,
     paddingHorizontal: 8,
     paddingVertical: 3,
   },
-  capText: {
-    fontSize: 10,
-    color: Colors.text.muted,
-    textTransform: 'capitalize',
-  },
-  moreCapText: {
-    fontSize: 10,
-    color: Colors.text.muted,
-    alignSelf: 'center',
-  },
-  cardActions: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  actionButton: {
+  capText: { fontSize: 10, color: Colors.label.secondary, textTransform: 'capitalize' },
+  capMore: { fontSize: 10, color: Colors.label.tertiary, alignSelf: 'center' },
+
+  cardActions: { flexDirection: 'row', gap: 10 },
+  actionBtn: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    borderRadius: BorderRadius.md,
     paddingVertical: 10,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
   },
-  actionLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-  },
+  actionText: { fontSize: 13, fontWeight: '600' },
 });

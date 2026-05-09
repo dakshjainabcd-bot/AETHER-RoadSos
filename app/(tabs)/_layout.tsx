@@ -1,161 +1,140 @@
 /**
- * Tabs Layout — Bottom Navigation Bar
+ * Tabs Layout — Floating Pill Bottom Navigation
  *
- * WHY TABS?
- * In emergencies, users need to reach any function in ONE tap.
- * A tab bar shows all 5 sections permanently at the bottom.
- * No hidden menus, no back buttons during a crisis.
- *
- * 5 TABS:
- * 1. Home      — Emergency numbers, quick SOS trigger
- * 2. SOS       — Active SOS button (Phase 3 crash detection lives here)
- * 3. Services  — Find hospital / police / towing
- * 4. Map       — Visual map with POI pins
- * 5. Settings  — Language, country, preferences
+ * Premium iOS-style floating navigation bar.
+ * Pill-shaped, white, shadow-elevated, floating above the screen edge.
+ * SOS button is a prominent red circle in the center.
  */
 
 import { Tabs } from 'expo-router';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors, Spacing, Typography } from '../../theme';
-
-// Tab configuration — each tab has a name, icon, and label
-const TAB_CONFIG = [
-  {
-    name: 'index',
-    label: 'Home',
-    icon: 'home',
-    activeIcon: 'home',
-  },
-  {
-    name: 'sos',
-    label: 'SOS',
-    icon: 'warning-outline',
-    activeIcon: 'warning',
-    isEmergency: true,  // Special styling for the SOS tab
-  },
-  {
-    name: 'services',
-    label: 'Services',
-    icon: 'search-outline',
-    activeIcon: 'search',
-  },
-  {
-    name: 'map',
-    label: 'Map',
-    icon: 'map-outline',
-    activeIcon: 'map',
-  },
-  {
-    name: 'settings',
-    label: 'Settings',
-    icon: 'settings-outline',
-    activeIcon: 'settings',
-  },
-] as const;
+import { Colors, BorderRadius } from '../../theme';
 
 export default function TabsLayout() {
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
-        // Custom tab bar styling
         tabBarStyle: {
-          backgroundColor: Colors.background.secondary,
-          borderTopColor: Colors.border.subtle,
-          borderTopWidth: 1,
-          height: 80,
-          paddingBottom: 16,
-          paddingTop: 8,
+          position: 'absolute',
+          bottom: 24,
+          left: 20,
+          right: 20,
+          borderRadius: BorderRadius.full,
+          height: 72,
+          backgroundColor: 'rgba(255, 255, 255, 0.96)',
+          // Floating pill shadow
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 8 },
+          shadowOpacity: 0.12,
+          shadowRadius: 28,
+          elevation: 24,
+          borderTopWidth: 0,
+          paddingHorizontal: 4,
+        },
+        tabBarItemStyle: {
+          height: 72,
+          paddingVertical: 0,
         },
         tabBarActiveTintColor: Colors.brand.primary,
-        tabBarInactiveTintColor: Colors.text.muted,
+        tabBarInactiveTintColor: 'rgba(60, 60, 67, 0.4)',
         tabBarLabelStyle: {
           fontSize: 10,
-          fontWeight: '600',
-          letterSpacing: 0.5,
-          marginTop: 2,
+          fontWeight: '500',
+          letterSpacing: -0.1,
+          marginTop: -4,
         },
+        tabBarShowLabel: true,
       }}
     >
-      {/* Home Tab */}
+      {/* Home */}
       <Tabs.Screen
         name="index"
         options={{
           title: 'Home',
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons
-              name={focused ? 'home' : 'home-outline'}
-              size={24}
-              color={color}
-            />
-          ),
-        }}
-      />
-
-      {/* SOS Tab — Special emergency styling */}
-      <Tabs.Screen
-        name="sos"
-        options={{
-          title: 'SOS',
-          tabBarIcon: ({ focused }) => (
-            <View style={styles.sosTabIcon}>
+            <View style={[styles.tabIcon, focused && styles.tabIconActive]}>
               <Ionicons
-                name={focused ? 'warning' : 'warning-outline'}
+                name={focused ? 'home' : 'home-outline'}
                 size={22}
-                color="#FFFFFF"
+                color={color}
               />
             </View>
           ),
-          tabBarLabel: ({ focused }) => (
-            <Text style={[styles.sosTabLabel, focused && styles.sosTabLabelActive]}>
-              SOS
-            </Text>
-          ),
         }}
       />
 
-      {/* Services Tab */}
+      {/* Services */}
       <Tabs.Screen
         name="services"
         options={{
           title: 'Services',
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons
-              name={focused ? 'search' : 'search-outline'}
-              size={24}
-              color={color}
-            />
+            <View style={[styles.tabIcon, focused && styles.tabIconActive]}>
+              <Ionicons
+                name={focused ? 'grid' : 'grid-outline'}
+                size={21}
+                color={color}
+              />
+            </View>
           ),
         }}
       />
 
-      {/* Map Tab */}
+      {/* SOS — Custom elevated red button */}
+      <Tabs.Screen
+        name="sos"
+        options={{
+          title: '',
+          tabBarLabel: () => null,
+          tabBarIcon: () => null,
+          tabBarButton: (props) => (
+            <TouchableOpacity
+              onPress={props.onPress}
+              style={styles.sosTouchable}
+              activeOpacity={0.85}
+            >
+              <View style={styles.sosButtonOuter}>
+                <View style={styles.sosButtonInner}>
+                  <Text style={styles.sosText}>SOS</Text>
+                </View>
+              </View>
+            </TouchableOpacity>
+          ),
+        }}
+      />
+
+      {/* Map */}
       <Tabs.Screen
         name="map"
         options={{
           title: 'Map',
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons
-              name={focused ? 'map' : 'map-outline'}
-              size={24}
-              color={color}
-            />
+            <View style={[styles.tabIcon, focused && styles.tabIconActive]}>
+              <Ionicons
+                name={focused ? 'map' : 'map-outline'}
+                size={22}
+                color={color}
+              />
+            </View>
           ),
         }}
       />
 
-      {/* Settings Tab */}
+      {/* Settings */}
       <Tabs.Screen
         name="settings"
         options={{
           title: 'Settings',
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons
-              name={focused ? 'settings' : 'settings-outline'}
-              size={24}
-              color={color}
-            />
+            <View style={[styles.tabIcon, focused && styles.tabIconActive]}>
+              <Ionicons
+                name={focused ? 'settings' : 'settings-outline'}
+                size={21}
+                color={color}
+              />
+            </View>
           ),
         }}
       />
@@ -164,29 +143,51 @@ export default function TabsLayout() {
 }
 
 const styles = StyleSheet.create({
-  // SOS button is a red circle in the tab bar — stands out
-  sosTabIcon: {
-    backgroundColor: Colors.brand.primary,
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+  tabIcon: {
+    width: 38,
+    height: 38,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 2,
-    // Glow effect
-    shadowColor: Colors.brand.primary,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.5,
-    shadowRadius: 8,
-    elevation: 8,
+    borderRadius: 10,
   },
-  sosTabLabel: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: Colors.brand.primary,
-    letterSpacing: 0.5,
+  tabIconActive: {
+    backgroundColor: 'rgba(255, 59, 48, 0.08)',
   },
-  sosTabLabelActive: {
-    color: Colors.brand.primary,
+
+  // SOS Button — floats above the nav bar via negative top margin
+  sosTouchable: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    // Lift the button above the nav pill surface
+    marginTop: -28,
+  },
+  sosButtonOuter: {
+    width: 68,
+    height: 68,
+    borderRadius: 34,
+    backgroundColor: 'rgba(255, 59, 48, 0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sosButtonInner: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: Colors.brand.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    // Glow shadow
+    shadowColor: '#FF3B30',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.40,
+    shadowRadius: 14,
+    elevation: 14,
+  },
+  sosText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: 0.8,
   },
 });

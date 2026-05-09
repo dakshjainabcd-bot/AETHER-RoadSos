@@ -63,13 +63,17 @@ export async function requestLocationPermissions(): Promise<boolean> {
     console.log('[GPSService] Foreground permission granted');
 
     // Step 2: Ask for background permission (needed for crash detection with screen off)
-    const { status: bgStatus } = await Location.requestBackgroundPermissionsAsync();
+    try {
+      const { status: bgStatus } = await Location.requestBackgroundPermissionsAsync();
 
-    if (bgStatus !== 'granted') {
-      // Not a fatal error — app works with foreground only, just less reliable
-      console.warn('[GPSService] Background location permission denied — crash detection less reliable');
-    } else {
-      console.log('[GPSService] Background permission granted');
+      if (bgStatus !== 'granted') {
+        // Not a fatal error — app works with foreground only, just less reliable
+        console.warn('[GPSService] Background location permission denied — crash detection less reliable');
+      } else {
+        console.log('[GPSService] Background permission granted');
+      }
+    } catch (bgError) {
+      console.warn('[GPSService] Could not request background permissions (often expected in Expo Go). App will use foreground only.');
     }
 
     return true;

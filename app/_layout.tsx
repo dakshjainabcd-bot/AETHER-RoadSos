@@ -1,4 +1,15 @@
-import { useEffect, useState, createContext, useContext, useRef, useCallback } from 'react';
+/**
+ * Root Layout — Phase 3 Integration
+ *
+ * All Phase 2 logic preserved.
+ * Phase 3 additions:
+ *  - crashDetectionEngine initialized after mesh relay
+ *  - CrashCountdown modal rendered at root (always mounted, shown via `visible`)
+ *  - crashState + crashConfidence exposed via AppContext
+ *  - Countdown timer managed here; cancel/dispatch delegated to engine
+ */
+
+import { useEffect, useState, useRef, createContext, useContext } from 'react';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { View, ActivityIndicator, StyleSheet, Text } from 'react-native';
@@ -9,12 +20,15 @@ import { initializeDatabase } from '../services/POIDatabase';
 import { requestLocationPermissions, startBackgroundTracking } from '../services/GPSService';
 import { meshRelayManager } from '../services/MeshRelay/MeshRelayManager';
 import { SOSPacket } from '../services/MeshRelay/types';
-import { STORAGE_KEYS, DEFAULT_EMERGENCY, type LanguageCode, CRASH_THRESHOLDS_CANCEL_WINDOW } from '../utils/constants';
+import { crashDetectionEngine } from '../services/CrashDetection/CrashDetectionEngine';
+import type { CrashDetectionState } from '../services/CrashDetection/types';
+import { CrashCountdown } from '../components/CrashCountdown';
+import { STORAGE_KEYS, DEFAULT_EMERGENCY, type LanguageCode } from '../utils/constants';
 import { Colors } from '../theme';
 
-import { crashDetectionEngine } from '../services/CrashDetection/CrashDetectionEngine';
-import { CrashCountdown } from '../components/CrashCountdown';
-import type { CrashDetectionState, FusionScore } from '../services/CrashDetection/types';
+// ─────────────────────────────────────────────────────────────
+// GLOBAL APP CONTEXT — Phase 3 extended
+// ─────────────────────────────────────────────────────────────
 
 interface AppContextType {
   emergencyNumbers: EmergencyNumbers;
@@ -26,12 +40,9 @@ interface AppContextType {
   clearBystanderAlert: () => void;
   meshConnected: boolean;
   meshPeerCount: number;
+  // ── Phase 3 ──────────────────────────────────────────────
   crashState: CrashDetectionState;
-  crashScore: FusionScore;
-  currentGForce: number;
-  isCountdownVisible: boolean;
-  countdownSecondsRemaining: number;
-  cancelCrashSOS: () => void;
+  crashConfidence: number;
 }
 
 const AppContext = createContext<AppContextType>({
@@ -45,109 +56,135 @@ const AppContext = createContext<AppContextType>({
   meshConnected: false,
   meshPeerCount: 0,
   crashState: 'idle',
-  crashScore: { accelScore: 0, gyroScore: 0, acousticScore: 0, confidence: 0, gForce: 0 },
-  currentGForce: 0,
-  isCountdownVisible: false,
-  countdownSecondsRemaining: 5,
-  cancelCrashSOS: () => {},
+  crashConfidence: 0,
 });
 
-export function useAppContext(): AppContextType { return useContext(AppContext); }
+export function useAppContext(): AppContextType {
+  return useContext(AppContext);
+}
+
+// ─────────────────────────────────────────────────────────────
+// ROOT LAYOUT
+// ─────────────────────────────────────────────────────────────
 
 export default function RootLayout() {
-  const [isInitialized, setIsInitialized] = useState(false);
-  const [emergencyNumbers, setEmergencyNumbers] = useState<EmergencyNumbers>({
-    ...DEFAULT_EMERGENCY, country: 'Detecting...', country_code: 'XX', languages: ['en'],
+  const [isInitialized, setIsInitialized]       = useState(false);
+  const [emergencyNumbers, setEmergencyNumbers]  = useState<EmergencyNumbers>({
+    ...DEFAULT_EMERGENCY,
+    country: 'Detecting…',
+    country_code: 'XX',
+    languages: ['en'],
   });
-  const [language, setLanguageState] = useState<LanguageCode>('en');
-  const [gpsPermissionGranted, setGpsPermissionGranted] = useState(false);
-  const [activeBystanderAlert, setActiveBystanderAlert] = useState<{ packet: SOSPacket; distanceM: number } | null>(null);
-  const [meshConnected, setMeshConnected] = useState(false);
-  const [meshPeerCount, setMeshPeerCount] = useState(0);
+  const [language, setLanguageState]             = useState<LanguageCode>('en');
+  const [gpsPermissionGranted, setGpsGranted]    = useState(false);
+  const [activeBystanderAlert, setAlert]         = useState<{ packet: SOSPacket; distanceM: number } | null>(null);
+  const [meshConnected, setMeshConnected]        = useState(false);
+  const [meshPeerCount, setMeshPeerCount]        = useState(0);
 
-  const [crashState, setCrashState] = useState<CrashDetectionState>('idle');
-  const [crashScore, setCrashScore] = useState<FusionScore>({ accelScore:0, gyroScore:0, acousticScore:0, confidence:0, gForce:0 });
-  const [currentGForce, setCurrentGForce] = useState(0);
-  const [isCountdownVisible, setIsCountdownVisible] = useState(false);
-  const [countdownSecondsRemaining, setCountdownSeconds] = useState(CRASH_THRESHOLDS_CANCEL_WINDOW);
-  const countdownTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // ── Phase 3 crash detection state ────────────────────────
+  const [crashState, setCrashState]              = useState<CrashDetectionState>('idle');
+  const [crashConfidence, setCrashConfidence]    = useState(0);
+  const [countdownVisible, setCountdownVisible]  = useState(false);
+  const [secondsRemaining, setSecondsRemaining]  = useState(5);
+  const countdownIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  useEffect(() => { initializeApp(); }, []);
-
+  // ── Mesh relay event subscriptions ───────────────────────
   useEffect(() => {
     const unsubSOS = meshRelayManager.on('SOS_RECEIVED', (event) => {
-      if (event.packet && event.data?.['isNearby']) {
-        setActiveBystanderAlert({ packet: event.packet, distanceM: (event.data['distanceM'] as number) ?? 0 });
+      if (event.packet && event.data) {
+        const isNearby  = event.data['isNearby'] as boolean;
+        const distanceM = (event.data['distanceM'] as number) ?? 0;
+        if (isNearby) setAlert({ packet: event.packet, distanceM });
       }
     });
-    const unsubConn = meshRelayManager.on('SIMULATION_CONNECTED', (event) => {
+    const unsubOn  = meshRelayManager.on('SIMULATION_CONNECTED', (e) => {
       setMeshConnected(true);
-      setMeshPeerCount((event.data?.['deviceCount'] as number) ?? 0);
+      setMeshPeerCount((e.data?.['deviceCount'] as number) ?? 0);
     });
-    const unsubDisc = meshRelayManager.on('SIMULATION_DISCONNECTED', () => {
-      setMeshConnected(false); setMeshPeerCount(0);
+    const unsubOff = meshRelayManager.on('SIMULATION_DISCONNECTED', () => {
+      setMeshConnected(false);
+      setMeshPeerCount(0);
     });
-    return () => { unsubSOS(); unsubConn(); unsubDisc(); };
+    return () => { unsubSOS(); unsubOn(); unsubOff(); };
   }, []);
 
+  // ── Phase 3: Crash detection event subscriptions ─────────
   useEffect(() => {
-    const unsubScore = crashDetectionEngine.on('SCORE_UPDATED', (event) => {
-      if (event.score) {
-        setCrashScore(event.score);
-        setCurrentGForce(event.score.gForce);
-      }
+    const unsubConfirmed = crashDetectionEngine.on('CRASH_CONFIRMED', () => {
+      // Start the 5-second countdown
+      setSecondsRemaining(5);
+      setCountdownVisible(true);
+      startCountdownTimer();
     });
+
     const unsubState = crashDetectionEngine.on('STATE_CHANGED', (event) => {
       if (event.state) setCrashState(event.state);
     });
-    const unsubConfirm = crashDetectionEngine.on('CRASH_CONFIRMED', (event) => {
-      if (event.score) setCrashScore(event.score);
-      startCountdown();
+
+    const unsubScore = crashDetectionEngine.on('SCORE_UPDATED', (event) => {
+      if (event.score) setCrashConfidence(event.score.confidence);
     });
+
+    const unsubCancelled = crashDetectionEngine.on('CRASH_CANCELLED', () => {
+      stopCountdownTimer();
+      setCountdownVisible(false);
+      setSecondsRemaining(5);
+    });
+
+    const unsubDispatched = crashDetectionEngine.on('SOS_DISPATCHED', () => {
+      stopCountdownTimer();
+      setCountdownVisible(false);
+      setSecondsRemaining(5);
+    });
+
     return () => {
-      unsubScore();
+      unsubConfirmed();
       unsubState();
-      unsubConfirm();
+      unsubScore();
+      unsubCancelled();
+      unsubDispatched();
     };
   }, []);
 
-  const startCountdown = useCallback(() => {
-    setIsCountdownVisible(true);
-    setCountdownSeconds(CRASH_THRESHOLDS_CANCEL_WINDOW);
-    if (countdownTimerRef.current) clearInterval(countdownTimerRef.current);
-    countdownTimerRef.current = setInterval(() => {
-      setCountdownSeconds(prev => {
-        if (prev <= 1) {
-          if (countdownTimerRef.current) clearInterval(countdownTimerRef.current);
-          setIsCountdownVisible(false);
-          crashDetectionEngine.dispatchSOS();
-          return 0;
-        }
-        return prev - 1;
-      });
+  function startCountdownTimer() {
+    stopCountdownTimer(); // Guard against double-start
+    let secs = 5;
+    countdownIntervalRef.current = setInterval(() => {
+      secs -= 1;
+      setSecondsRemaining(secs);
+      if (secs <= 0) {
+        stopCountdownTimer();
+      }
     }, 1000);
-  }, []);
+  }
 
-  const cancelCrashSOS = useCallback(() => {
-    if (countdownTimerRef.current) clearInterval(countdownTimerRef.current);
-    setIsCountdownVisible(false);
-    setCountdownSeconds(CRASH_THRESHOLDS_CANCEL_WINDOW);
-    crashDetectionEngine.cancelSOS();
-  }, []);
+  function stopCountdownTimer() {
+    if (countdownIntervalRef.current) {
+      clearInterval(countdownIntervalRef.current);
+      countdownIntervalRef.current = null;
+    }
+  }
+
+  useEffect(() => { initializeApp(); }, []);
 
   async function initializeApp() {
     try {
-      const savedLanguage = await AsyncStorage.getItem(STORAGE_KEYS.LANGUAGE);
-      if (savedLanguage) setLanguageState(savedLanguage as LanguageCode);
+      const savedLang = await AsyncStorage.getItem(STORAGE_KEYS.LANGUAGE);
+      if (savedLang) setLanguageState(savedLang as LanguageCode);
+
       await initializeDatabase();
       const numbers = await initializeMCCService();
       setEmergencyNumbers(numbers);
+
       const gpsGranted = await requestLocationPermissions();
-      setGpsPermissionGranted(gpsGranted);
+      setGpsGranted(gpsGranted);
       if (gpsGranted) await startBackgroundTracking();
+
       await meshRelayManager.initialize();
+
+      // ── Phase 3: Initialize crash detection AFTER mesh relay ──
       crashDetectionEngine.initialize();
-      console.log('[App] Crash detection ready');
+
       setIsInitialized(true);
     } catch (error) {
       console.error('[App] Init failed:', error);
@@ -155,39 +192,54 @@ export default function RootLayout() {
     }
   }
 
-  async function setLanguage(lang: LanguageCode): Promise<void> {
+  async function setLanguage(lang: LanguageCode) {
     setLanguageState(lang);
     await AsyncStorage.setItem(STORAGE_KEYS.LANGUAGE, lang);
   }
 
+  // ── Loading screen ─────────────────────────────────────────
   if (!isInitialized) {
     return (
       <View style={styles.loading}>
-        <StatusBar style="light" />
-        <Text style={styles.loadingTitle}>AETHER</Text>
-        <Text style={styles.loadingSubtitle}>Accident Emergency & Trauma Hyper-Response</Text>
-        <ActivityIndicator size="large" color={Colors.brand.primary} style={styles.spinner} />
-        <Text style={styles.loadingStatus}>Initializing systems...</Text>
+        <StatusBar style="dark" />
+        <View style={styles.loadingInner}>
+          <Text style={styles.loadingBrand}>AETHER</Text>
+          <Text style={styles.loadingSub}>Accident Emergency & Trauma Hyper-Response</Text>
+          <ActivityIndicator size="large" color={Colors.brand.primary} style={styles.spinner} />
+          <Text style={styles.loadingStatus}>Initialising systems…</Text>
+        </View>
       </View>
     );
   }
 
   return (
-    <AppContext.Provider value={{
-      emergencyNumbers, language, setLanguage, isInitialized, gpsPermissionGranted,
-      activeBystanderAlert, clearBystanderAlert: () => setActiveBystanderAlert(null),
-      meshConnected, meshPeerCount,
-      crashState, crashScore, currentGForce, isCountdownVisible, countdownSecondsRemaining, cancelCrashSOS,
-    }}>
-      <StatusBar style="light" />
+    <AppContext.Provider
+      value={{
+        emergencyNumbers,
+        language,
+        setLanguage,
+        isInitialized,
+        gpsPermissionGranted,
+        activeBystanderAlert,
+        clearBystanderAlert: () => setAlert(null),
+        meshConnected,
+        meshPeerCount,
+        crashState,
+        crashConfidence,
+      }}
+    >
+      <StatusBar style="dark" />
+
+      {/* ── Phase 3: Crash Countdown — mounted at root so it overlays everything ── */}
       <CrashCountdown
-        visible={isCountdownVisible}
-        secondsRemaining={countdownSecondsRemaining}
-        totalSeconds={CRASH_THRESHOLDS_CANCEL_WINDOW}
-        confidence={crashScore.confidence}
-        onCancel={cancelCrashSOS}
-        onCountdownComplete={() => {}}
+        visible={countdownVisible}
+        secondsRemaining={secondsRemaining}
+        totalSeconds={5}
+        confidence={crashConfidence}
+        onCancel={() => crashDetectionEngine.cancelSOS()}
+        onCountdownComplete={() => crashDetectionEngine.dispatchSOS()}
       />
+
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       </Stack>
@@ -196,9 +248,35 @@ export default function RootLayout() {
 }
 
 const styles = StyleSheet.create({
-  loading: { flex: 1, backgroundColor: '#0A0A0A', alignItems: 'center', justifyContent: 'center', padding: 24 },
-  loadingTitle: { fontSize: 48, fontWeight: '800', color: '#FF3B30', letterSpacing: 4, marginBottom: 8 },
-  loadingSubtitle: { fontSize: 13, color: '#8E8E93', textAlign: 'center', marginBottom: 48, letterSpacing: 1 },
-  spinner: { marginBottom: 16 },
-  loadingStatus: { fontSize: 13, color: '#8E8E93' },
+  loading: {
+    flex: 1,
+    backgroundColor: Colors.background.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loadingInner: {
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 40,
+  },
+  loadingBrand: {
+    fontSize: 44,
+    fontWeight: '800',
+    color: Colors.brand.primary,
+    letterSpacing: -1.5,
+    marginBottom: 4,
+  },
+  loadingSub: {
+    fontSize: 13,
+    color: Colors.label.secondary,
+    textAlign: 'center',
+    lineHeight: 18,
+    letterSpacing: -0.1,
+    marginBottom: 32,
+  },
+  spinner: { marginBottom: 12 },
+  loadingStatus: {
+    fontSize: 13,
+    color: Colors.label.tertiary,
+  },
 });
