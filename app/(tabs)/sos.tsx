@@ -1,22 +1,18 @@
 /**
- * SOS Screen — Emergency Trigger
+ * SOS Screen — Phase 3 Update
  *
- * Phase 1 builds the MANUAL SOS button here.
- * Phase 3 (Crash Detection) will add automatic detection on top.
+ * Phase 3 redesigns this screen entirely:
+ * - Live sensor readings: g-force meter, confidence bars
+ * - Detection state display (idle / candidate / active)
+ * - Manual SOS button → triggers 5-second countdown (same as auto)
+ * - "Test Crash Detection" button → simulates a confirmed crash (for demo)
+ * - Shake hint: "Shake 3× to trigger"
  *
- * WHAT PHASE 1 SOS DOES:
- * - Shows a large red SOS button
- * - User holds it for 3 seconds to trigger (prevents accidental presses)
- * - Calls the local emergency number immediately
- * - Shows location to user so they can describe it
- *
- * WHAT PHASE 3 WILL ADD HERE:
- * - Automatic crash detection countdown
- * - 5-second cancel window
- * - Mesh relay dispatch
+ * The 5-second countdown modal (CrashCountdown) is managed in _layout.tsx
+ * and appears as a global overlay — it shows on this screen too.
  */
 
-import { useState, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -26,227 +22,271 @@ import {
   Linking,
   Alert,
   Vibration,
+  ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAppContext } from '../_layout';
-import { getLastKnownLocation } from '../../services/GPSService';
-import { Colors, Spacing, Typography, BorderRadius } from '../../theme';
-import { meshRelayManager } from '../../services/MeshRelay/MeshRelayManager';
+import { crashDetectionEngine } from '../../services/CrashDetection/CrashDetectionEngine';
+import { Colors, Spacing, BorderRadius, Shadows } from '../../theme';
+import type { CrashDetectionState, FusionScore } from '../../services/CrashDetection/types';
+
+// State → display label and color
+const STATE_CONFIG: Record<CrashDetectionState, { label: string; color: string; icon: string }> = {
+  idle:        { label: 'Monitoring',      color: Colors.status.success, icon: 'shield-checkmark' },
+  candidate:   { label: 'Suspicious...',   color: Colors.status.warning,  icon: 'warning-outline' },
+  countdown:   { label: 'CRASH DETECTED',  color: Colors.brand.primary,   icon: 'warning' },
+  dispatching: { label: 'Sending SOS...',  color: Colors.brand.primary,   icon: 'send' },
+  cancelled:   { label: 'Cancelled',       color: Colors.text.muted,      icon: 'close-circle' },
+  active_sos:  { label: 'SOS ACTIVE',      color: Colors.brand.primary,   icon: 'radio' },
+};
 
 export default function SOSScreen() {
-  const { emergencyNumbers } = useAppContext();
+  const {
+    emergencyNumbers,
+    crashState,
+    crashScore,
+    currentGForce,
+  } = useAppContext();
 
-  const [isPressed, setIsPressed] = useState(false);
-  const [countdown, setCountdown] = useState(3);
-  const [sosActive, setSOSActive] = useState(false);
-  const [locationText, setLocationText] = useState<string>('Fetching location...');
+  const stateConfig = STATE_CONFIG[crashState] ?? STATE_CONFIG['idle'];
 
-  const scaleAnim = useRef(new Animated.Value(1)).current;
-  const pulseAnim = useRef(new Animated.Value(1)).current;
-  const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const countdownTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+  // Animated pulse for the state indicator dot
+  const dotPulse = useRef(new Animated.Value(1)).current;
 
-  // Pulse animation for the SOS button
-  const startPulse = useCallback(() => {
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulseAnim, {
-          toValue: 1.1,
-          duration: 600,
-          useNativeDriver: true,
-        }),
-        Animated.timing(pulseAnim, {
-          toValue: 1,
-          duration: 600,
-          useNativeDriver: true,
-        }),
-      ])
-    ).start();
-  }, [pulseAnim]);
-
-  // When user starts pressing the SOS button
-  function onPressIn() {
-    setIsPressed(true);
-    Vibration.vibrate(50);
-
-    // Scale up animation
-    Animated.spring(scaleAnim, {
-      toValue: 0.95,
-      useNativeDriver: true,
-    }).start();
-
-    let count = 3;
-    setCountdown(count);
-
-    // Count down from 3
-    countdownTimer.current = setInterval(() => {
-      count -= 1;
-      setCountdown(count);
-
-      if (count <= 0) {
-        clearInterval(countdownTimer.current!);
-        triggerSOS();
-      }
-    }, 1000);
-  }
-
-  // When user releases the SOS button before 3 seconds
-  function onPressOut() {
-    setIsPressed(false);
-    setCountdown(3);
-
-    Animated.spring(scaleAnim, {
-      toValue: 1,
-      useNativeDriver: true,
-    }).start();
-
-    if (countdownTimer.current) {
-      clearInterval(countdownTimer.current);
-    }
-  }
-
-  async function triggerSOS() {
-    setSOSActive(true);
-    Vibration.vibrate([0, 200, 100, 200]);
-
-    // Get location for display
-    const loc = await getLastKnownLocation();
-    if (loc) {
-      setLocationText(
-        `${loc.lat.toFixed(5)}, ${loc.lng.toFixed(5)}\n±${Math.round(loc.accuracy)}m accuracy`
+  useEffect(() => {
+    if (crashState === 'candidate' || crashState === 'active_sos') {
+      const anim = Animated.loop(
+        Animated.sequence([
+          Animated.timing(dotPulse, { toValue: 1.4, duration: 600, useNativeDriver: true }),
+          Animated.timing(dotPulse, { toValue: 1.0, duration: 600, useNativeDriver: true }),
+        ])
       );
+      anim.start();
+      return () => anim.stop();
     } else {
-      setLocationText('Location unavailable — describe your surroundings');
+      dotPulse.setValue(1);
     }
+  }, [crashState]);
 
-    startPulse();
-
-    // Phase 2: Broadcast SOS via mesh relay ← NEW
-    const severity = 3; // Default severity — Phase 3 will calculate from crash force
-    const packet = await meshRelayManager.triggerSOS(severity);
-    
-    if (packet) {
-      console.log(`[SOS Screen] Mesh SOS broadcasted: ${packet.incidentId}`);
-    } else {
-      console.warn('[SOS Screen] Mesh relay unavailable — direct call only');
-    }
-
+  function handleManualSOS() {
     Alert.alert(
-      '🚨 SOS ACTIVATED',
-      `Calling ${emergencyNumbers.ambulance} (Ambulance)\n\nYour location is being relayed to nearby phones.`,
+      'Trigger Manual SOS',
+      'This will start the 5-second cancel countdown, then dispatch SOS.',
       [
-        { text: 'Cancel SOS', style: 'cancel', onPress: cancelSOS },
-        { text: `Call ${emergencyNumbers.ambulance}`, style: 'destructive', onPress: () => Linking.openURL(`tel:${emergencyNumbers.ambulance}`) },
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Trigger SOS',
+          style: 'destructive',
+          onPress: () => {
+            Vibration.vibrate(100);
+            crashDetectionEngine.triggerManualSOS();
+          },
+        },
       ]
     );
   }
 
-  function cancelSOS() {
-    setSOSActive(false);
-    setIsPressed(false);
-    setCountdown(3);
-    pulseAnim.stopAnimation();
-    pulseAnim.setValue(1);
-    Vibration.cancel();
+  function handleTestCrash() {
+    Alert.alert(
+      '🧪 Test Crash Detection',
+      'This simulates a confirmed crash detection for demo/testing. The 5-second countdown will appear. You can cancel it.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Run Test',
+          onPress: () => {
+            Vibration.vibrate([0, 100, 50, 100]);
+            crashDetectionEngine.triggerTestSOS();
+          },
+        },
+      ]
+    );
+  }
+
+  function handleResetSOS() {
+    crashDetectionEngine.resetToIdle();
+  }
+
+  function dialNumber(number: string, label: string) {
+    Alert.alert(
+      `Call ${label}`,
+      `Calling ${number}...`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: `Call ${number}`, style: 'destructive', onPress: () => Linking.openURL(`tel:${number}`) },
+      ]
+    );
   }
 
   return (
-    <View style={styles.container}>
-      {/* Header */}
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={styles.content}
+      showsVerticalScrollIndicator={false}
+    >
       <Text style={styles.title}>Emergency SOS</Text>
-      <Text style={styles.subtitle}>
-        Hold button for 3 seconds to trigger
-      </Text>
 
-      {/* SOS Button */}
-      <View style={styles.buttonContainer}>
-        {/* Outer pulse ring */}
-        {sosActive && (
-          <Animated.View
-            style={[
-              styles.pulseRing,
-              { transform: [{ scale: pulseAnim }] },
-            ]}
-          />
-        )}
-
-        {/* Main SOS button */}
-        <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
-          <TouchableOpacity
-            style={[
-              styles.sosButton,
-              isPressed && styles.sosButtonPressed,
-              sosActive && styles.sosButtonActive,
-            ]}
-            onPressIn={onPressIn}
-            onPressOut={onPressOut}
-            activeOpacity={1}
-          >
-            <Text style={styles.sosButtonText}>SOS</Text>
-            {isPressed && !sosActive && (
-              <Text style={styles.countdownText}>{countdown}</Text>
-            )}
-            {sosActive && (
-              <Text style={styles.activeText}>ACTIVE</Text>
-            )}
-          </TouchableOpacity>
-        </Animated.View>
+      {/* ── Detection State Badge ─────────────────────────────────────── */}
+      <View style={[styles.stateBadge, { borderColor: stateConfig.color + '40' }]}>
+        <Animated.View
+          style={[
+            styles.stateDot,
+            { backgroundColor: stateConfig.color, transform: [{ scale: dotPulse }] },
+          ]}
+        />
+        <Ionicons name={stateConfig.icon as any} size={16} color={stateConfig.color} />
+        <Text style={[styles.stateLabel, { color: stateConfig.color }]}>
+          {stateConfig.label}
+        </Text>
       </View>
 
-      {/* Location display */}
-      <View style={styles.locationCard}>
-        <Ionicons name="location" size={16} color={Colors.brand.accent} />
-        <Text style={styles.locationText}>{locationText}</Text>
+      {/* ── Live Sensor Readings ──────────────────────────────────────── */}
+      <Text style={styles.sectionLabel}>LIVE SENSOR READINGS</Text>
+      <View style={styles.sensorsCard}>
+
+        {/* G-Force Meter */}
+        <View style={styles.sensorRow}>
+          <Text style={styles.sensorName}>G-Force</Text>
+          <View style={styles.barTrack}>
+            <View
+              style={[
+                styles.barFill,
+                {
+                  width: `${Math.min((currentGForce / 4) * 100, 100)}%` as `${number}%`,
+                  backgroundColor: currentGForce > 2 ? Colors.brand.primary : Colors.status.success,
+                },
+              ]}
+            />
+          </View>
+          <Text style={styles.sensorValue}>{currentGForce.toFixed(2)}g</Text>
+        </View>
+
+        {/* Accel Score */}
+        <View style={styles.sensorRow}>
+          <Text style={styles.sensorName}>Accel ×0.4</Text>
+          <View style={styles.barTrack}>
+            <View style={[styles.barFill, {
+              width: `${Math.min(crashScore.accelScore * 100, 100)}%` as `${number}%`,
+              backgroundColor: Colors.brand.accent,
+            }]} />
+          </View>
+          <Text style={styles.sensorValue}>{(crashScore.accelScore * 100).toFixed(0)}%</Text>
+        </View>
+
+        {/* Gyro Score */}
+        <View style={styles.sensorRow}>
+          <Text style={styles.sensorName}>Gyro ×0.3</Text>
+          <View style={styles.barTrack}>
+            <View style={[styles.barFill, {
+              width: `${Math.min(crashScore.gyroScore * 100, 100)}%` as `${number}%`,
+              backgroundColor: '#A855F7',
+            }]} />
+          </View>
+          <Text style={styles.sensorValue}>{(crashScore.gyroScore * 100).toFixed(0)}%</Text>
+        </View>
+
+        {/* Acoustic Score */}
+        <View style={styles.sensorRow}>
+          <Text style={styles.sensorName}>Acoustic ×0.3</Text>
+          <View style={styles.barTrack}>
+            <View style={[styles.barFill, {
+              width: `${Math.min(crashScore.acousticScore * 100, 100)}%` as `${number}%`,
+              backgroundColor: '#F59E0B',
+            }]} />
+          </View>
+          <Text style={styles.sensorValue}>{(crashScore.acousticScore * 100).toFixed(0)}%</Text>
+        </View>
+
+        {/* Confidence (divider line then final score) */}
+        <View style={styles.divider} />
+        <View style={styles.sensorRow}>
+          <Text style={[styles.sensorName, { fontWeight: '700', color: Colors.text.primary }]}>
+            Confidence
+          </Text>
+          <View style={styles.barTrack}>
+            <View style={[styles.barFill, {
+              width: `${Math.min(crashScore.confidence * 100, 100)}%` as `${number}%`,
+              backgroundColor: crashScore.confidence >= 0.75 ? Colors.brand.primary : Colors.status.success,
+            }]} />
+            {/* Threshold line at 75% */}
+            <View style={styles.thresholdLine} />
+          </View>
+          <Text style={[
+            styles.sensorValue,
+            crashScore.confidence >= 0.75 && { color: Colors.brand.primary, fontWeight: '800' },
+          ]}>
+            {(crashScore.confidence * 100).toFixed(0)}%
+          </Text>
+        </View>
+        <Text style={styles.thresholdNote}>← 75% threshold for auto-SOS</Text>
       </View>
 
-      {/* Emergency Numbers Quick Reference */}
-      <View style={styles.quickCallsContainer}>
-        <Text style={styles.quickCallsTitle}>Quick Call</Text>
-        <View style={styles.quickCallsRow}>
-          <QuickCallButton
-            label="Ambulance"
-            number={emergencyNumbers.ambulance}
-            color={Colors.brand.primary}
-          />
-          <QuickCallButton
-            label="Police"
-            number={emergencyNumbers.police}
-            color="#5856D6"
-          />
-          <QuickCallButton
-            label="Fire"
-            number={emergencyNumbers.fire}
-            color="#FF9500"
-          />
+      {/* ── Manual SOS Button ─────────────────────────────────────────── */}
+      <TouchableOpacity
+        style={[
+          styles.sosButton,
+          crashState === 'active_sos' && styles.sosButtonActive,
+        ]}
+        onPress={crashState === 'active_sos' ? handleResetSOS : handleManualSOS}
+        activeOpacity={0.8}
+      >
+        <Ionicons
+          name={crashState === 'active_sos' ? 'close-circle' : 'warning'}
+          size={32}
+          color="#FFFFFF"
+        />
+        <Text style={styles.sosButtonText}>
+          {crashState === 'active_sos' ? 'RESET SOS' : 'MANUAL SOS'}
+        </Text>
+        <Text style={styles.sosButtonHint}>
+          {crashState === 'active_sos'
+            ? 'Tap to return to monitoring'
+            : 'Triggers 5-second countdown'}
+        </Text>
+      </TouchableOpacity>
+
+      {/* ── Quick Emergency Calls ─────────────────────────────────────── */}
+      <Text style={styles.sectionLabel}>QUICK CALL</Text>
+      <View style={styles.quickCallRow}>
+        <QuickCall label="Ambulance" number={emergencyNumbers.ambulance} color={Colors.brand.primary} onPress={() => dialNumber(emergencyNumbers.ambulance, 'Ambulance')} />
+        <QuickCall label="Police"    number={emergencyNumbers.police}    color="#5856D6"              onPress={() => dialNumber(emergencyNumbers.police, 'Police')} />
+        <QuickCall label="Fire"      number={emergencyNumbers.fire}      color="#FF9500"              onPress={() => dialNumber(emergencyNumbers.fire, 'Fire')} />
+      </View>
+
+      {/* ── Phase 3 Info & Test Tools ─────────────────────────────────── */}
+      <Text style={styles.sectionLabel}>TESTING & DEMO</Text>
+      <View style={styles.infoCard}>
+        <View style={styles.infoRow}>
+          <Ionicons name="phone-portrait-outline" size={16} color={Colors.brand.accent} />
+          <Text style={styles.infoText}>
+            <Text style={{ color: Colors.text.primary, fontWeight: '700' }}>Shake trigger: </Text>
+            Shake the phone 3 times rapidly within 2 seconds
+          </Text>
+        </View>
+        <View style={styles.infoRow}>
+          <Ionicons name="analytics-outline" size={16} color={Colors.brand.accent} />
+          <Text style={styles.infoText}>
+            <Text style={{ color: Colors.text.primary, fontWeight: '700' }}>Auto trigger: </Text>
+            Confidence ≥ 75% for 2 consecutive seconds
+          </Text>
         </View>
       </View>
 
-      {/* Instruction */}
-      <View style={styles.instructionCard}>
-        <Ionicons name="information-circle-outline" size={16} color={Colors.text.muted} />
-        <Text style={styles.instructionText}>
-          Phase 3 will add automatic crash detection.{'\n'}
-          This screen will show a 5-second cancel countdown.
-        </Text>
-      </View>
-    </View>
+      <TouchableOpacity style={styles.testButton} onPress={handleTestCrash}>
+        <Ionicons name="flask" size={16} color="#FFD700" />
+        <Text style={styles.testButtonText}>🧪 Simulate Crash (Test Countdown)</Text>
+      </TouchableOpacity>
+
+      <View style={{ height: 40 }} />
+    </ScrollView>
   );
 }
 
-function QuickCallButton({
-  label,
-  number,
-  color,
-}: {
-  label: string;
-  number: string;
-  color: string;
+function QuickCall({ label, number, color, onPress }: {
+  label: string; number: string; color: string; onPress: () => void;
 }) {
   return (
-    <TouchableOpacity
-      style={[styles.quickCall, { borderColor: color + '40' }]}
-      onPress={() => Linking.openURL(`tel:${number}`)}
-    >
+    <TouchableOpacity style={[styles.quickCallBtn, { borderColor: color + '40' }]} onPress={onPress}>
       <Text style={[styles.quickCallNumber, { color }]}>{number}</Text>
       <Text style={styles.quickCallLabel}>{label}</Text>
     </TouchableOpacity>
@@ -254,140 +294,117 @@ function QuickCallButton({
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.background.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: Spacing['2xl'],
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: Colors.text.primary,
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontSize: 14,
-    color: Colors.text.muted,
-    marginBottom: 48,
-    textAlign: 'center',
-  },
-  buttonContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 48,
-  },
-  pulseRing: {
-    position: 'absolute',
-    width: 220,
-    height: 220,
-    borderRadius: 110,
-    borderWidth: 3,
-    borderColor: Colors.brand.primary + '40',
-  },
-  sosButton: {
-    width: 180,
-    height: 180,
-    borderRadius: 90,
-    backgroundColor: Colors.brand.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: Colors.brand.primary,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.5,
-    shadowRadius: 20,
-    elevation: 15,
-  },
-  sosButtonPressed: {
-    backgroundColor: '#CC2F26',
-    shadowOpacity: 0.8,
-    shadowRadius: 30,
-  },
-  sosButtonActive: {
-    shadowOpacity: 0.9,
-    shadowRadius: 40,
-  },
-  sosButtonText: {
-    fontSize: 42,
-    fontWeight: '900',
-    color: '#FFFFFF',
-    letterSpacing: 4,
-  },
-  countdownText: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: 'rgba(255,255,255,0.8)',
-    marginTop: 4,
-  },
-  activeText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: 'rgba(255,255,255,0.8)',
-    letterSpacing: 2,
-    marginTop: 4,
-  },
-  locationCard: {
+  container: { flex: 1, backgroundColor: Colors.background.primary },
+  content: { padding: Spacing.lg, paddingTop: 56 },
+  title: { fontSize: 24, fontWeight: '800', color: Colors.text.primary, marginBottom: Spacing.lg },
+
+  stateBadge: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     gap: 8,
+    alignSelf: 'flex-start',
+    borderWidth: 1,
+    borderRadius: BorderRadius.full,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    marginBottom: Spacing['2xl'],
     backgroundColor: Colors.background.secondary,
-    borderRadius: BorderRadius.md,
-    padding: Spacing.md,
-    marginBottom: 32,
-    width: '100%',
   },
-  locationText: {
-    fontSize: 12,
-    color: Colors.text.secondary,
-    flex: 1,
-    fontFamily: 'monospace',
-  },
-  quickCallsContainer: {
-    width: '100%',
-    marginBottom: 24,
-  },
-  quickCallsTitle: {
+  stateDot: { width: 8, height: 8, borderRadius: 4 },
+  stateLabel: { fontSize: 13, fontWeight: '700', letterSpacing: 0.5 },
+
+  sectionLabel: {
     fontSize: 11,
     fontWeight: '700',
     color: Colors.text.muted,
     letterSpacing: 1,
     textTransform: 'uppercase',
-    marginBottom: 12,
+    marginBottom: Spacing.md,
+    marginTop: Spacing.lg,
   },
-  quickCallsRow: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  quickCall: {
-    flex: 1,
+
+  sensorsCard: {
     backgroundColor: Colors.background.secondary,
-    borderRadius: BorderRadius.md,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.lg,
+    marginBottom: Spacing.lg,
+    ...Shadows.sm,
+  },
+  sensorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+    gap: 8,
+  },
+  sensorName: { fontSize: 11, color: Colors.text.muted, width: 80, fontWeight: '500' },
+  barTrack: {
+    flex: 1,
+    height: 6,
+    backgroundColor: Colors.background.tertiary,
+    borderRadius: 3,
+    overflow: 'visible',
+    position: 'relative',
+  },
+  barFill: { height: '100%', borderRadius: 3 },
+  thresholdLine: {
+    position: 'absolute',
+    left: '75%',
+    top: -3,
+    width: 2,
+    height: 12,
+    backgroundColor: Colors.text.muted,
+    borderRadius: 1,
+  },
+  sensorValue: { fontSize: 11, color: Colors.text.muted, width: 36, textAlign: 'right', fontFamily: 'monospace' },
+  divider: { height: 1, backgroundColor: Colors.border.subtle, marginVertical: 8 },
+  thresholdNote: { fontSize: 10, color: Colors.text.muted, textAlign: 'right', marginTop: 2 },
+
+  sosButton: {
+    backgroundColor: Colors.brand.primary,
+    borderRadius: BorderRadius.xl,
+    paddingVertical: Spacing['2xl'],
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: Spacing.lg,
+    ...Shadows.emergency,
+  },
+  sosButtonActive: { backgroundColor: Colors.status.neutral },
+  sosButtonText: { fontSize: 20, fontWeight: '900', color: '#FFFFFF', letterSpacing: 2 },
+  sosButtonHint: { fontSize: 12, color: 'rgba(255,255,255,0.6)' },
+
+  quickCallRow: { flexDirection: 'row', gap: Spacing.md, marginBottom: Spacing.lg },
+  quickCallBtn: {
+    flex: 1,
     borderWidth: 1,
+    borderRadius: BorderRadius.md,
+    backgroundColor: Colors.background.secondary,
     padding: Spacing.md,
     alignItems: 'center',
+    gap: 4,
   },
-  quickCallNumber: {
-    fontSize: 18,
-    fontWeight: '800',
-  },
-  quickCallLabel: {
-    fontSize: 10,
-    color: Colors.text.muted,
-    marginTop: 2,
-  },
-  instructionCard: {
-    flexDirection: 'row',
-    gap: 8,
-    padding: Spacing.md,
+  quickCallNumber: { fontSize: 18, fontWeight: '800' },
+  quickCallLabel: { fontSize: 10, color: Colors.text.muted, fontWeight: '600' },
+
+  infoCard: {
     backgroundColor: Colors.background.secondary,
-    borderRadius: BorderRadius.md,
-    width: '100%',
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.lg,
+    gap: 10,
+    marginBottom: Spacing.md,
   },
-  instructionText: {
-    fontSize: 12,
-    color: Colors.text.muted,
-    flex: 1,
-    lineHeight: 18,
+  infoRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
+  infoText: { fontSize: 13, color: Colors.text.secondary, flex: 1, lineHeight: 20 },
+
+  testButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#FFD700' + '15',
+    borderWidth: 1,
+    borderColor: '#FFD700' + '40',
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.lg,
   },
+  testButtonText: { fontSize: 14, color: '#FFD700', fontWeight: '600' },
 });

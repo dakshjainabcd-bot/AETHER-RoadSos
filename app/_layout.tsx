@@ -1,13 +1,4 @@
-/**
- * Root Layout — App Entry Point (Updated for Phase 2)
- *
- * CHANGES FROM PHASE 1:
- * - Added meshRelayManager.initialize() to startup sequence
- * - Added activeBystanderAlert state to AppContext
- *   (so any screen can know when an SOS was received nearby)
- */
-
-import { useEffect, useState, createContext, useContext, useRef } from 'react';
+import { useEffect, useState, createContext, useContext, useRef, useCallback } from 'react';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { View, ActivityIndicator, StyleSheet, Text } from 'react-native';
@@ -18,34 +9,33 @@ import { initializeDatabase } from '../services/POIDatabase';
 import { requestLocationPermissions, startBackgroundTracking } from '../services/GPSService';
 import { meshRelayManager } from '../services/MeshRelay/MeshRelayManager';
 import { SOSPacket } from '../services/MeshRelay/types';
-import { STORAGE_KEYS, DEFAULT_EMERGENCY, type LanguageCode } from '../utils/constants';
+import { STORAGE_KEYS, DEFAULT_EMERGENCY, type LanguageCode, CRASH_THRESHOLDS_CANCEL_WINDOW } from '../utils/constants';
 import { Colors } from '../theme';
 
-// ─────────────────────────────────────────────────────────────
-// GLOBAL APP CONTEXT (Phase 1 + Phase 2 additions)
-// ─────────────────────────────────────────────────────────────
+import { crashDetectionEngine } from '../services/CrashDetection/CrashDetectionEngine';
+import { CrashCountdown } from '../components/CrashCountdown';
+import type { CrashDetectionState, FusionScore } from '../services/CrashDetection/types';
 
 interface AppContextType {
-  // Phase 1
   emergencyNumbers: EmergencyNumbers;
   language: LanguageCode;
   setLanguage: (lang: LanguageCode) => Promise<void>;
   isInitialized: boolean;
   gpsPermissionGranted: boolean;
-  // Phase 2 — new additions
   activeBystanderAlert: { packet: SOSPacket; distanceM: number } | null;
   clearBystanderAlert: () => void;
   meshConnected: boolean;
   meshPeerCount: number;
+  crashState: CrashDetectionState;
+  crashScore: FusionScore;
+  currentGForce: number;
+  isCountdownVisible: boolean;
+  countdownSecondsRemaining: number;
+  cancelCrashSOS: () => void;
 }
 
 const AppContext = createContext<AppContextType>({
-  emergencyNumbers: {
-    ...DEFAULT_EMERGENCY,
-    country: 'Unknown',
-    country_code: 'XX',
-    languages: ['en'],
-  },
+  emergencyNumbers: { ...DEFAULT_EMERGENCY, country: 'Unknown', country_code: 'XX', languages: ['en'] },
   language: 'en',
   setLanguage: async () => {},
   isInitialized: false,
@@ -54,109 +44,113 @@ const AppContext = createContext<AppContextType>({
   clearBystanderAlert: () => {},
   meshConnected: false,
   meshPeerCount: 0,
+  crashState: 'idle',
+  crashScore: { accelScore: 0, gyroScore: 0, acousticScore: 0, confidence: 0, gForce: 0 },
+  currentGForce: 0,
+  isCountdownVisible: false,
+  countdownSecondsRemaining: 5,
+  cancelCrashSOS: () => {},
 });
 
-export function useAppContext(): AppContextType {
-  return useContext(AppContext);
-}
-
-// ─────────────────────────────────────────────────────────────
-// ROOT LAYOUT COMPONENT
-// ─────────────────────────────────────────────────────────────
+export function useAppContext(): AppContextType { return useContext(AppContext); }
 
 export default function RootLayout() {
   const [isInitialized, setIsInitialized] = useState(false);
   const [emergencyNumbers, setEmergencyNumbers] = useState<EmergencyNumbers>({
-    ...DEFAULT_EMERGENCY,
-    country: 'Detecting...',
-    country_code: 'XX',
-    languages: ['en'],
+    ...DEFAULT_EMERGENCY, country: 'Detecting...', country_code: 'XX', languages: ['en'],
   });
   const [language, setLanguageState] = useState<LanguageCode>('en');
   const [gpsPermissionGranted, setGpsPermissionGranted] = useState(false);
-
-  // Phase 2 state
-  const [activeBystanderAlert, setActiveBystanderAlert] = useState<{
-    packet: SOSPacket;
-    distanceM: number;
-  } | null>(null);
+  const [activeBystanderAlert, setActiveBystanderAlert] = useState<{ packet: SOSPacket; distanceM: number } | null>(null);
   const [meshConnected, setMeshConnected] = useState(false);
   const [meshPeerCount, setMeshPeerCount] = useState(0);
 
-  useEffect(() => {
-    initializeApp();
-  }, []);
+  const [crashState, setCrashState] = useState<CrashDetectionState>('idle');
+  const [crashScore, setCrashScore] = useState<FusionScore>({ accelScore:0, gyroScore:0, acousticScore:0, confidence:0, gForce:0 });
+  const [currentGForce, setCurrentGForce] = useState(0);
+  const [isCountdownVisible, setIsCountdownVisible] = useState(false);
+  const [countdownSecondsRemaining, setCountdownSeconds] = useState(CRASH_THRESHOLDS_CANCEL_WINDOW);
+  const countdownTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Set up mesh relay event listeners (after component mounts)
+  useEffect(() => { initializeApp(); }, []);
+
   useEffect(() => {
-    // Listen for SOS received events from MeshRelayManager
     const unsubSOS = meshRelayManager.on('SOS_RECEIVED', (event) => {
-      if (event.packet && event.data) {
-        const isNearby = event.data['isNearby'] as boolean;
-        const distanceM = (event.data['distanceM'] as number) ?? 0;
-
-        if (isNearby) {
-          console.log('[Layout] SOS nearby — showing bystander alert');
-          setActiveBystanderAlert({ packet: event.packet, distanceM });
-        }
+      if (event.packet && event.data?.['isNearby']) {
+        setActiveBystanderAlert({ packet: event.packet, distanceM: (event.data['distanceM'] as number) ?? 0 });
       }
     });
-
-    // Listen for simulation connection status
-    const unsubConnected = meshRelayManager.on('SIMULATION_CONNECTED', (event) => {
+    const unsubConn = meshRelayManager.on('SIMULATION_CONNECTED', (event) => {
       setMeshConnected(true);
       setMeshPeerCount((event.data?.['deviceCount'] as number) ?? 0);
     });
-
-    const unsubDisconnected = meshRelayManager.on('SIMULATION_DISCONNECTED', () => {
-      setMeshConnected(false);
-      setMeshPeerCount(0);
+    const unsubDisc = meshRelayManager.on('SIMULATION_DISCONNECTED', () => {
+      setMeshConnected(false); setMeshPeerCount(0);
     });
+    return () => { unsubSOS(); unsubConn(); unsubDisc(); };
+  }, []);
 
+  useEffect(() => {
+    const unsubScore = crashDetectionEngine.on('SCORE_UPDATED', (event) => {
+      if (event.score) {
+        setCrashScore(event.score);
+        setCurrentGForce(event.score.gForce);
+      }
+    });
+    const unsubState = crashDetectionEngine.on('STATE_CHANGED', (event) => {
+      if (event.state) setCrashState(event.state);
+    });
+    const unsubConfirm = crashDetectionEngine.on('CRASH_CONFIRMED', (event) => {
+      if (event.score) setCrashScore(event.score);
+      startCountdown();
+    });
     return () => {
-      unsubSOS();
-      unsubConnected();
-      unsubDisconnected();
+      unsubScore();
+      unsubState();
+      unsubConfirm();
     };
+  }, []);
+
+  const startCountdown = useCallback(() => {
+    setIsCountdownVisible(true);
+    setCountdownSeconds(CRASH_THRESHOLDS_CANCEL_WINDOW);
+    if (countdownTimerRef.current) clearInterval(countdownTimerRef.current);
+    countdownTimerRef.current = setInterval(() => {
+      setCountdownSeconds(prev => {
+        if (prev <= 1) {
+          if (countdownTimerRef.current) clearInterval(countdownTimerRef.current);
+          setIsCountdownVisible(false);
+          crashDetectionEngine.dispatchSOS();
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  }, []);
+
+  const cancelCrashSOS = useCallback(() => {
+    if (countdownTimerRef.current) clearInterval(countdownTimerRef.current);
+    setIsCountdownVisible(false);
+    setCountdownSeconds(CRASH_THRESHOLDS_CANCEL_WINDOW);
+    crashDetectionEngine.cancelSOS();
   }, []);
 
   async function initializeApp() {
     try {
-      console.log('[App] Starting initialization...');
-
-      // Step 1: Load saved language preference
       const savedLanguage = await AsyncStorage.getItem(STORAGE_KEYS.LANGUAGE);
-      if (savedLanguage) {
-        setLanguageState(savedLanguage as LanguageCode);
-      }
-
-      // Step 2: Initialize SQLite database
+      if (savedLanguage) setLanguageState(savedLanguage as LanguageCode);
       await initializeDatabase();
-      console.log('[App] Database initialized');
-
-      // Step 3: Detect country and load emergency numbers
       const numbers = await initializeMCCService();
       setEmergencyNumbers(numbers);
-      console.log(`[App] Emergency numbers loaded for: ${numbers.country}`);
-
-      // Step 4: Request GPS permissions and start tracking
       const gpsGranted = await requestLocationPermissions();
       setGpsPermissionGranted(gpsGranted);
-      if (gpsGranted) {
-        await startBackgroundTracking();
-        console.log('[App] GPS tracking started');
-      }
-
-      // Step 5: Initialize Mesh Relay (Phase 2) ← NEW
-      // We do this AFTER GPS so that crash location is available
+      if (gpsGranted) await startBackgroundTracking();
       await meshRelayManager.initialize();
-      console.log('[App] Mesh relay initialized');
-
+      crashDetectionEngine.initialize();
+      console.log('[App] Crash detection ready');
       setIsInitialized(true);
-      console.log('[App] ✅ Initialization complete');
     } catch (error) {
-      console.error('[App] Initialization failed:', error);
-      // Still show app, just with reduced functionality
+      console.error('[App] Init failed:', error);
       setIsInitialized(true);
     }
   }
@@ -166,13 +160,9 @@ export default function RootLayout() {
     await AsyncStorage.setItem(STORAGE_KEYS.LANGUAGE, lang);
   }
 
-  function clearBystanderAlert(): void {
-    setActiveBystanderAlert(null);
-  }
-
   if (!isInitialized) {
     return (
-      <View style={styles.loadingContainer}>
+      <View style={styles.loading}>
         <StatusBar style="light" />
         <Text style={styles.loadingTitle}>AETHER</Text>
         <Text style={styles.loadingSubtitle}>Accident Emergency & Trauma Hyper-Response</Text>
@@ -183,20 +173,21 @@ export default function RootLayout() {
   }
 
   return (
-    <AppContext.Provider
-      value={{
-        emergencyNumbers,
-        language,
-        setLanguage,
-        isInitialized,
-        gpsPermissionGranted,
-        activeBystanderAlert,
-        clearBystanderAlert,
-        meshConnected,
-        meshPeerCount,
-      }}
-    >
+    <AppContext.Provider value={{
+      emergencyNumbers, language, setLanguage, isInitialized, gpsPermissionGranted,
+      activeBystanderAlert, clearBystanderAlert: () => setActiveBystanderAlert(null),
+      meshConnected, meshPeerCount,
+      crashState, crashScore, currentGForce, isCountdownVisible, countdownSecondsRemaining, cancelCrashSOS,
+    }}>
       <StatusBar style="light" />
+      <CrashCountdown
+        visible={isCountdownVisible}
+        secondsRemaining={countdownSecondsRemaining}
+        totalSeconds={CRASH_THRESHOLDS_CANCEL_WINDOW}
+        confidence={crashScore.confidence}
+        onCancel={cancelCrashSOS}
+        onCountdownComplete={() => {}}
+      />
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       </Stack>
@@ -205,30 +196,9 @@ export default function RootLayout() {
 }
 
 const styles = StyleSheet.create({
-  loadingContainer: {
-    flex: 1,
-    backgroundColor: Colors.background.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 24,
-  },
-  loadingTitle: {
-    fontSize: 48,
-    fontWeight: '800',
-    color: Colors.brand.primary,
-    letterSpacing: 4,
-    marginBottom: 8,
-  },
-  loadingSubtitle: {
-    fontSize: 13,
-    color: Colors.text.muted,
-    textAlign: 'center',
-    marginBottom: 48,
-    letterSpacing: 1,
-  },
+  loading: { flex: 1, backgroundColor: '#0A0A0A', alignItems: 'center', justifyContent: 'center', padding: 24 },
+  loadingTitle: { fontSize: 48, fontWeight: '800', color: '#FF3B30', letterSpacing: 4, marginBottom: 8 },
+  loadingSubtitle: { fontSize: 13, color: '#8E8E93', textAlign: 'center', marginBottom: 48, letterSpacing: 1 },
   spinner: { marginBottom: 16 },
-  loadingStatus: {
-    fontSize: 13,
-    color: Colors.text.muted,
-  },
+  loadingStatus: { fontSize: 13, color: '#8E8E93' },
 });

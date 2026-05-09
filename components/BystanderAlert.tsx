@@ -100,6 +100,7 @@ export function BystanderAlert({
   }
 
   function navigateTocrash() {
+    if (!packet) return;
     const url = `geo:${packet.lat},${packet.lng}?q=${packet.lat},${packet.lng}(Accident Scene)`;
     Linking.openURL(url).catch(() => {
       Linking.openURL(`https://maps.google.com/?q=${packet.lat},${packet.lng}`);
