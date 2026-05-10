@@ -24,7 +24,6 @@ import {
 import { searchPOI, type POI } from '../../services/POIDatabase';
 import { POI_TYPES } from '../../utils/constants';
 import { Colors, Layout } from '../../theme';
-import { BystanderAlert } from '../../components/BystanderAlert';
 import { EmergencyNumbers } from '../../components/EmergencyNumbers';
 import { POICard } from '../../components/POICard';
 
@@ -32,8 +31,6 @@ export default function HomeScreen() {
   const {
     emergencyNumbers,
     gpsPermissionGranted,
-    activeBystanderAlert,
-    clearBystanderAlert,
   } = useAppContext();
 
   const [location, setLocation] = useState<StoredLocation | null>(null);
@@ -71,16 +68,7 @@ export default function HomeScreen() {
   }
 
   return (
-    <>
-      {/* Bystander Alert — logic unchanged */}
-      <BystanderAlert
-        packet={activeBystanderAlert?.packet ?? null}
-        distanceM={activeBystanderAlert?.distanceM ?? 0}
-        emergencyAmbulanceNumber={emergencyNumbers.ambulance}
-        onDismiss={clearBystanderAlert}
-      />
-
-      <ScrollView
+    <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
@@ -131,7 +119,6 @@ export default function HomeScreen() {
 
         <View style={{ height: 20 }} />
       </ScrollView>
-    </>
   );
 }
 

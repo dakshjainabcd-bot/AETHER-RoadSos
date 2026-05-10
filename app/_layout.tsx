@@ -23,6 +23,7 @@ import { SOSPacket } from '../services/MeshRelay/types';
 import { crashDetectionEngine } from '../services/CrashDetection/CrashDetectionEngine';
 import type { CrashDetectionState } from '../services/CrashDetection/types';
 import { CrashCountdown } from '../components/CrashCountdown';
+import { BystanderAlert } from '../components/BystanderAlert';
 import { STORAGE_KEYS, DEFAULT_EMERGENCY, type LanguageCode } from '../utils/constants';
 import { Colors } from '../theme';
 
@@ -240,8 +241,20 @@ export default function RootLayout() {
         onCountdownComplete={() => crashDetectionEngine.dispatchSOS()}
       />
 
+      {/* ── Phase 2: Bystander Alert — mounted at root so it fires from ANY tab ── */}
+      <BystanderAlert
+        packet={activeBystanderAlert?.packet ?? null}
+        distanceM={activeBystanderAlert?.distanceM ?? 0}
+        emergencyAmbulanceNumber={emergencyNumbers.ambulance}
+        onDismiss={() => setAlert(null)}
+      />
+
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen
+          name="bystander"
+          options={{ headerShown: false, presentation: 'modal' }}
+        />
       </Stack>
     </AppContext.Provider>
   );

@@ -8,7 +8,6 @@
  */
 
 import React, { useEffect, useRef } from 'react';
-import { router } from 'expo-router';
 import {
   Modal,
   View,
@@ -84,13 +83,6 @@ export function BystanderAlert({
   const severityLabel  = severityLabels[packet.severity] ?? 'Unknown';
   const severityColor  = severityColors[packet.severity] ?? Colors.brand.primary;
 
-  function handleOpenBystAI() {
-    router.push({
-      pathname: '/bystander' as any,
-      params: { incidentTimestamp: packet!.timestamp.toString() },
-    });
-  }
-
   return (
     <Modal visible={!!packet} animationType="none" transparent statusBarTranslucent>
       {/* Backdrop */}
@@ -152,16 +144,6 @@ export function BystanderAlert({
             >
               <Ionicons name="navigate-outline" size={18} color={Colors.brand.accent} />
               <Text style={styles.navBtnText}>Navigate to Crash Site</Text>
-            </TouchableOpacity>
-
-            {/* BystAI — First Aid Coach */}
-            <TouchableOpacity
-              style={styles.bystAIBtn}
-              onPress={handleOpenBystAI}
-              activeOpacity={0.85}
-            >
-              <Ionicons name="medical" size={20} color={Colors.status.success} />
-              <Text style={styles.bystAIBtnText}>Guide Me — First Aid Coach</Text>
             </TouchableOpacity>
 
             {/* Good Samaritan banner */}
@@ -337,24 +319,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '600',
     color: Colors.brand.accent,
-  },
-
-  bystAIBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: `${Colors.status.success}12`,
-    borderRadius: BorderRadius.xl,
-    paddingVertical: 14,
-    borderWidth: 1,
-    borderColor: `${Colors.status.success}30`,
-    marginBottom: 12,
-  },
-  bystAIBtnText: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: Colors.status.success,
   },
 
   // Good Samaritan
