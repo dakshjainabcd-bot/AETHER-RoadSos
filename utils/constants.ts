@@ -113,7 +113,7 @@ export const MESH = {
  *
  * Keep the port as 3001. Only change the IP.
  */
-export const SIMULATION_SERVER_URL = 'ws://172.17.3.232:3001'; // ← CHANGE THIS IP
+export const SIMULATION_SERVER_URL = 'ws://172.17.11.42:3001'; // ← CHANGE THIS IP
 
 // Re-exported for use in _layout.tsx (countdown seconds)
 export const CRASH_THRESHOLDS_CANCEL_WINDOW = 5;
