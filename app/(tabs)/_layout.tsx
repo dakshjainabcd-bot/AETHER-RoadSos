@@ -121,7 +121,22 @@ export default function TabsLayout() {
           ),
         }}
       />
-
+      {/* Multilingual Testing */}
+      <Tabs.Screen
+        name="multilingual"
+        options={{
+          title: 'Language',
+          tabBarIcon: ({ color, focused }) => (
+            <View style={[styles.tabIcon, focused && styles.tabIconActive]}>
+              <Ionicons
+                name={focused ? 'language' : 'language-outline'}
+                size={22}
+                color={color}
+              />
+            </View>
+          ),
+        }}
+      />
       {/* Settings */}
       <Tabs.Screen
         name="settings"

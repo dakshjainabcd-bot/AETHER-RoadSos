@@ -21,6 +21,7 @@ import { requestLocationPermissions, startBackgroundTracking } from '../services
 import { meshRelayManager } from '../services/MeshRelay/MeshRelayManager';
 import { SOSPacket } from '../services/MeshRelay/types';
 import { crashDetectionEngine } from '../services/CrashDetection/CrashDetectionEngine';
+import { multilingualBridge } from '../services/MultilingualBridge';
 import type { CrashDetectionState } from '../services/CrashDetection/types';
 import { CrashCountdown } from '../components/CrashCountdown';
 import { STORAGE_KEYS, DEFAULT_EMERGENCY, type LanguageCode } from '../utils/constants';
@@ -48,11 +49,11 @@ interface AppContextType {
 const AppContext = createContext<AppContextType>({
   emergencyNumbers: { ...DEFAULT_EMERGENCY, country: 'Unknown', country_code: 'XX', languages: ['en'] },
   language: 'en',
-  setLanguage: async () => {},
+  setLanguage: async () => { },
   isInitialized: false,
   gpsPermissionGranted: false,
   activeBystanderAlert: null,
-  clearBystanderAlert: () => {},
+  clearBystanderAlert: () => { },
   meshConnected: false,
   meshPeerCount: 0,
   crashState: 'idle',
@@ -68,36 +69,36 @@ export function useAppContext(): AppContextType {
 // ─────────────────────────────────────────────────────────────
 
 export default function RootLayout() {
-  const [isInitialized, setIsInitialized]       = useState(false);
-  const [emergencyNumbers, setEmergencyNumbers]  = useState<EmergencyNumbers>({
+  const [isInitialized, setIsInitialized] = useState(false);
+  const [emergencyNumbers, setEmergencyNumbers] = useState<EmergencyNumbers>({
     ...DEFAULT_EMERGENCY,
     country: 'Detecting…',
     country_code: 'XX',
     languages: ['en'],
   });
-  const [language, setLanguageState]             = useState<LanguageCode>('en');
-  const [gpsPermissionGranted, setGpsGranted]    = useState(false);
-  const [activeBystanderAlert, setAlert]         = useState<{ packet: SOSPacket; distanceM: number } | null>(null);
-  const [meshConnected, setMeshConnected]        = useState(false);
-  const [meshPeerCount, setMeshPeerCount]        = useState(0);
+  const [language, setLanguageState] = useState<LanguageCode>('en');
+  const [gpsPermissionGranted, setGpsGranted] = useState(false);
+  const [activeBystanderAlert, setAlert] = useState<{ packet: SOSPacket; distanceM: number } | null>(null);
+  const [meshConnected, setMeshConnected] = useState(false);
+  const [meshPeerCount, setMeshPeerCount] = useState(0);
 
   // ── Phase 3 crash detection state ────────────────────────
-  const [crashState, setCrashState]              = useState<CrashDetectionState>('idle');
-  const [crashConfidence, setCrashConfidence]    = useState(0);
-  const [countdownVisible, setCountdownVisible]  = useState(false);
-  const [secondsRemaining, setSecondsRemaining]  = useState(5);
+  const [crashState, setCrashState] = useState<CrashDetectionState>('idle');
+  const [crashConfidence, setCrashConfidence] = useState(0);
+  const [countdownVisible, setCountdownVisible] = useState(false);
+  const [secondsRemaining, setSecondsRemaining] = useState(5);
   const countdownIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // ── Mesh relay event subscriptions ───────────────────────
   useEffect(() => {
     const unsubSOS = meshRelayManager.on('SOS_RECEIVED', (event) => {
       if (event.packet && event.data) {
-        const isNearby  = event.data['isNearby'] as boolean;
+        const isNearby = event.data['isNearby'] as boolean;
         const distanceM = (event.data['distanceM'] as number) ?? 0;
         if (isNearby) setAlert({ packet: event.packet, distanceM });
       }
     });
-    const unsubOn  = meshRelayManager.on('SIMULATION_CONNECTED', (e) => {
+    const unsubOn = meshRelayManager.on('SIMULATION_CONNECTED', (e) => {
       setMeshConnected(true);
       setMeshPeerCount((e.data?.['deviceCount'] as number) ?? 0);
     });
@@ -184,6 +185,9 @@ export default function RootLayout() {
 
       // ── Phase 3: Initialize crash detection AFTER mesh relay ──
       crashDetectionEngine.initialize();
+      // ── Phase 5: Initialize multilingual bridge ──
+      await multilingualBridge.initialize(language);
+      console.log('[App] Phase 5 multilingual bridge initialized');
 
       setIsInitialized(true);
     } catch (error) {
@@ -195,6 +199,7 @@ export default function RootLayout() {
   async function setLanguage(lang: LanguageCode) {
     setLanguageState(lang);
     await AsyncStorage.setItem(STORAGE_KEYS.LANGUAGE, lang);
+    multilingualBridge.setLanguage(lang as SupportedLanguageCode);
   }
 
   // ── Loading screen ─────────────────────────────────────────
