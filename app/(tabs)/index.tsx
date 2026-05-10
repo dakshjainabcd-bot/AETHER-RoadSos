@@ -31,6 +31,9 @@ export default function HomeScreen() {
   const {
     emergencyNumbers,
     gpsPermissionGranted,
+    meshConnected,
+    meshPeerCount,
+    crashState,
   } = useAppContext();
 
   const [location, setLocation] = useState<StoredLocation | null>(null);
@@ -85,6 +88,12 @@ export default function HomeScreen() {
           <Text style={styles.brandName}>AETHER</Text>
         </View>
 
+        {/* ── Mesh Status Pill ────────────────────────────────── */}
+        <MeshPill connected={meshConnected} peers={meshPeerCount} />
+
+        {/* ── Crash Detection Pill ─────────────────────────────── */}
+        <CrashDetectionPill state={crashState} />
+
         {/* ── Emergency Numbers ──────────────────────────────── */}
         <Text style={styles.sectionLabel}>EMERGENCY NUMBERS</Text>
         <EmergencyNumbers emergencyNumbers={emergencyNumbers} />
@@ -116,6 +125,12 @@ export default function HomeScreen() {
             </View>
           </View>
         )}
+
+        {/* ── Offline Badge ───────────────────────────────────── */}
+        <View style={styles.offlineBadge}>
+          <Ionicons name="wifi-outline" size={11} color="#3DA566" />
+          <Text style={styles.offlineBadgeText}>Works fully offline · No internet required</Text>
+        </View>
 
         <View style={{ height: 20 }} />
       </ScrollView>
@@ -168,6 +183,38 @@ function MiniChart() {
           ]}
         />
       ))}
+    </View>
+  );
+}
+
+// ── Mesh + Crash Detection Pills ──────────────────────────────────────────────
+
+function MeshPill({ connected, peers }: { connected: boolean; peers: number }) {
+  const color = connected ? '#007AFF' : '#888888';
+  const text = connected
+    ? `Mesh active · ${peers} device${peers !== 1 ? 's' : ''} online`
+    : 'Mesh offline';
+  return (
+    <View style={[styles.statusPill, { borderColor: `${color}30`, backgroundColor: `${color}0D` }]}>
+      <View style={[styles.statusDot, { backgroundColor: color }]} />
+      <Text style={[styles.statusText, { color }]}>{text}</Text>
+    </View>
+  );
+}
+
+function CrashDetectionPill({ state }: { state: string }) {
+  const isCandidate = state === 'candidate';
+  const isEmergency = state === 'countdown' || state === 'dispatching' || state === 'active_sos';
+  const color = isEmergency ? Colors.brand.primary : isCandidate ? Colors.status.warning : '#3DA566';
+  const label = isEmergency
+    ? '🚨 Crash Detected'
+    : isCandidate
+    ? '⚠️ Impact candidate'
+    : '🛡  Crash Detection · Monitoring';
+  return (
+    <View style={[styles.statusPill, { borderColor: `${color}30`, backgroundColor: `${color}0D`, marginBottom: 20 }]}>
+      <View style={[styles.statusDot, { backgroundColor: color }]} />
+      <Text style={[styles.statusText, { color }]}>{label}</Text>
     </View>
   );
 }
@@ -333,5 +380,48 @@ const styles = StyleSheet.create({
   locationWarnText: {
     fontSize: 13,
     color: '#888888',
+  },
+
+  // ── Status pills (Mesh + Crash Detection) ──────────────────
+  statusPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    alignSelf: 'flex-start',
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 999,
+    borderWidth: 1,
+    marginBottom: 6,
+  },
+  statusDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  statusText: {
+    fontSize: 11,
+    fontWeight: '500',
+    letterSpacing: -0.1,
+  },
+
+  // ── Offline badge ──────────────────────────────────────────
+  offlineBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    alignSelf: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    backgroundColor: 'rgba(61, 165, 102, 0.08)',
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: 'rgba(61, 165, 102, 0.15)',
+    marginTop: 8,
+  },
+  offlineBadgeText: {
+    fontSize: 11,
+    color: '#3DA566',
+    fontWeight: '500',
   },
 });
