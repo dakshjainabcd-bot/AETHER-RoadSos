@@ -16,7 +16,9 @@
         "NSLocationWhenInUseUsageDescription": "AETHER needs your location to find nearby emergency services and detect accidents.",
         "NSLocationAlwaysAndWhenInUseUsageDescription": "AETHER runs in the background to detect accidents and keep your last location updated.",
         "NSLocationAlwaysUsageDescription": "AETHER needs background location to detect accidents even when the app is closed.",
-        "NSMicrophoneUsageDescription": "AETHER uses the microphone to detect crash sounds and provide CPR coaching.",
+        "NSMicrophoneUsageDescription": "AETHER uses the microphone to detect crash sounds, provide CPR coaching, and process voice commands.",
+        "NSCameraUsageDescription": "AETHER uses the camera to photograph accident victims so BystAI can analyse injuries and guide first aid.",
+        "NSPhotoLibraryUsageDescription": "AETHER may access your photo library to select injury photos for BystAI analysis.",
         "NSBluetoothAlwaysUsageDescription": "AETHER uses Bluetooth to relay SOS signals to nearby phones without internet.",
         "NSBluetoothPeripheralUsageDescription": "AETHER uses Bluetooth to relay SOS signals to nearby phones without internet.",
         "UIBackgroundModes": [
@@ -47,8 +49,12 @@
         "RECEIVE_BOOT_COMPLETED",
         "VIBRATE",
         "WAKE_LOCK",
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE",
         "android.permission.ACCESS_COARSE_LOCATION",
-        "android.permission.ACCESS_FINE_LOCATION"
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.CAMERA"
       ]
     },
     "plugins": [
@@ -60,6 +66,13 @@
           "locationAlwaysPermission": "AETHER needs background location to detect accidents even when the app is closed.",
           "locationWhenInUsePermission": "AETHER needs your location to find nearby emergency services and detect accidents.",
           "isAndroidBackgroundLocationEnabled": true
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "AETHER may access your photo library to select injury photos for BystAI analysis.",
+          "cameraPermission": "AETHER uses the camera to photograph accident victims so BystAI can analyse injuries and guide first aid."
         }
       ]
     ],

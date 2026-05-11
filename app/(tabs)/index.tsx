@@ -1,9 +1,9 @@
 /**
- * Home Screen — Premium iOS Design
+ * Home Screen — Phase 4
  *
- * Design language: Apple Health / Apple Music home screen.
- * White background, large bold AETHER title, colored emergency number cards,
- * clean nearest-services list, floating nav clearance at bottom.
+ * BystanderAlert has been moved to _layout.tsx (root level) so it sits
+ * above the tab navigator and can open BystAIModal without z-index issues.
+ * This file no longer renders BystanderAlert — that is intentional.
  */
 
 import { useState, useCallback } from 'react';
@@ -13,8 +13,6 @@ import {
   ScrollView,
   StyleSheet,
   TouchableOpacity,
-  Linking,
-  Alert,
   RefreshControl,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -28,27 +26,27 @@ import {
 } from '../../services/GPSService';
 import { searchPOI, type POI } from '../../services/POIDatabase';
 import { POI_TYPES } from '../../utils/constants';
-import { Colors, Spacing, BorderRadius, Shadows, Layout } from '../../theme';
-import { BystanderAlert } from '../../components/BystanderAlert';
+import { Colors, BorderRadius, Shadows, Spacing, Layout } from '../../theme';
 import { EmergencyNumbers } from '../../components/EmergencyNumbers';
 import { GPSIndicator } from '../../components/GPSIndicator';
 import { POICard } from '../../components/POICard';
+import type { CrashDetectionState } from '../../services/CrashDetection/types';
 
 export default function HomeScreen() {
   const {
     emergencyNumbers,
     gpsPermissionGranted,
-    activeBystanderAlert,
-    clearBystanderAlert,
     meshConnected,
     meshPeerCount,
     crashState,
   } = useAppContext();
 
-  const [location, setLocation] = useState<StoredLocation | null>(null);
+  // BystanderAlert and BystAI are now managed in _layout.tsx — not here.
+
+  const [location, setLocation]         = useState<StoredLocation | null>(null);
   const [nearestHospital, setNearestHospital] = useState<POI | null>(null);
-  const [nearestPolice, setNearestPolice] = useState<POI | null>(null);
-  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [nearestPolice, setNearestPolice]     = useState<POI | null>(null);
+  const [isRefreshing, setIsRefreshing]       = useState(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -80,96 +78,83 @@ export default function HomeScreen() {
   }
 
   return (
-    <>
-      {/* Bystander Alert modal — unchanged logic */}
-      <BystanderAlert
-        packet={activeBystanderAlert?.packet ?? null}
-        distanceM={activeBystanderAlert?.distanceM ?? 0}
-        emergencyAmbulanceNumber={emergencyNumbers.ambulance}
-        onDismiss={clearBystanderAlert}
-      />
+    <ScrollView
+      style={styles.scroll}
+      contentContainerStyle={styles.content}
+      showsVerticalScrollIndicator={false}
+      refreshControl={
+        <RefreshControl
+          refreshing={isRefreshing}
+          onRefresh={onRefresh}
+          tintColor={Colors.brand.primary}
+        />
+      }
+    >
+      {/* ── Header ──────────────────────────────────────────── */}
+      <View style={styles.header}>
+        <View style={styles.titleBlock}>
+          <Text style={styles.brandName}>AETHER</Text>
+          <Text style={styles.brandSub}>{emergencyNumbers.country}</Text>
+        </View>
+        <GPSIndicator location={location} />
+      </View>
 
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={isRefreshing}
-            onRefresh={onRefresh}
-            tintColor={Colors.brand.primary}
-          />
-        }
-      >
-        {/* ── Header ──────────────────────────────────────────── */}
-        <View style={styles.header}>
-          <View style={styles.titleBlock}>
-            {/* Large title like Apple Music "Home" */}
-            <Text style={styles.brandName}>AETHER</Text>
-            <Text style={styles.brandSub}>{emergencyNumbers.country}</Text>
+      {/* ── Mesh Status Pill ────────────────────────────────── */}
+      <MeshPill connected={meshConnected} peers={meshPeerCount} />
+
+      {/* ── Crash Detection Pill ─────────────────────────────── */}
+      <CrashDetectionPill state={crashState} />
+
+      {/* ── Emergency Numbers ───────────────────────────────── */}
+      <Text style={styles.sectionHeader}>Emergency Numbers</Text>
+      <EmergencyNumbers emergencyNumbers={emergencyNumbers} />
+
+      {/* ── Nearest Services ────────────────────────────────── */}
+      <Text style={styles.sectionHeader}>Nearest</Text>
+
+      {!gpsPermissionGranted && <LocationWarning />}
+
+      <View style={styles.poiList}>
+        {nearestHospital && <POICard poi={nearestHospital} />}
+        {nearestPolice && (
+          <View style={styles.poiGap}>
+            <POICard poi={nearestPolice} />
           </View>
-          <GPSIndicator location={location} />
-        </View>
-
-        {/* ── Mesh Status Pill ────────────────────────────────── */}
-        <MeshPill connected={meshConnected} peers={meshPeerCount} />
-
-        {/* ── Crash Detection Pill ─────────────────────────────── */}
-        <CrashDetectionPill state={crashState} />
-
-        {/* ── Emergency Numbers ───────────────────────────────── */}
-        <Text style={styles.sectionHeader}>Emergency Numbers</Text>
-        <EmergencyNumbers emergencyNumbers={emergencyNumbers} />
-
-        {/* ── Nearest Services ────────────────────────────────── */}
-        <Text style={styles.sectionHeader}>Nearest</Text>
-
-        {!gpsPermissionGranted && (
-          <LocationWarning />
         )}
+        {!nearestHospital && !nearestPolice && gpsPermissionGranted && (
+          <View style={styles.emptyPOI}>
+            <Text style={styles.emptyPOIText}>Searching nearby services…</Text>
+          </View>
+        )}
+      </View>
 
-        <View style={styles.poiList}>
-          {nearestHospital && <POICard poi={nearestHospital} />}
-          {nearestPolice && (
-            <View style={styles.poiGap}>
-              <POICard poi={nearestPolice} />
-            </View>
-          )}
-          {!nearestHospital && !nearestPolice && gpsPermissionGranted && (
-            <View style={styles.emptyPOI}>
-              <Text style={styles.emptyPOIText}>Searching nearby services…</Text>
-            </View>
-          )}
-        </View>
+      {/* ── Offline Badge ───────────────────────────────────── */}
+      <View style={styles.offlineBadge}>
+        <Ionicons name="wifi-outline" size={11} color={Colors.status.success} />
+        <Text style={styles.offlineBadgeText}>Works fully offline · No internet required</Text>
+      </View>
 
-        {/* ── Offline Badge ───────────────────────────────────── */}
-        <View style={styles.offlineBadge}>
-          <Ionicons name="wifi-outline" size={11} color={Colors.status.success} />
-          <Text style={styles.offlineBadgeText}>Works fully offline · No internet required</Text>
-        </View>
-
-        <View style={{ height: 20 }} />
-      </ScrollView>
-    </>
+      <View style={{ height: 20 }} />
+    </ScrollView>
   );
 }
 
-// ── Sub-components ───────────────────────────────────────────────────────────
+// ── Sub-components ────────────────────────────────────────────────────────────
 
 function MeshPill({ connected, peers }: { connected: boolean; peers: number }) {
   const color = connected ? Colors.brand.accent : Colors.status.neutral;
-  const text = connected
+  const text  = connected
     ? `Mesh active · ${peers} device${peers !== 1 ? 's' : ''} online`
     : 'Mesh offline';
   return (
     <View style={[styles.meshPill, { borderColor: `${color}30`, backgroundColor: `${color}0D` }]}>
-      <View style={[styles.meshDot, { backgroundColor: connected ? color : Colors.status.neutral }]} />
+      <View style={[styles.meshDot, { backgroundColor: color }]} />
       <Text style={[styles.meshText, { color }]}>{text}</Text>
     </View>
   );
 }
 
-function CrashDetectionPill({ state }: { state: string }) {
+function CrashDetectionPill({ state }: { state: CrashDetectionState }) {
   const isCandidate = state === 'candidate';
   const isEmergency = state === 'countdown' || state === 'dispatching' || state === 'active_sos';
   const color = isEmergency
@@ -183,7 +168,12 @@ function CrashDetectionPill({ state }: { state: string }) {
     ? '⚠️ Impact candidate'
     : '🛡  Crash Detection · Monitoring';
   return (
-    <View style={[styles.meshPill, { borderColor: `${color}30`, backgroundColor: `${color}0D`, marginBottom: 20 }]}>
+    <View
+      style={[
+        styles.meshPill,
+        { borderColor: `${color}30`, backgroundColor: `${color}0D`, marginBottom: 20 },
+      ]}
+    >
       <View style={[styles.meshDot, { backgroundColor: color }]} />
       <Text style={[styles.meshText, { color }]}>{label}</Text>
     </View>
@@ -199,7 +189,7 @@ function LocationWarning() {
   );
 }
 
-// ── Styles ───────────────────────────────────────────────────────────────────
+// ── Styles ────────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
   scroll: {
@@ -211,8 +201,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: Layout.HORIZONTAL_PADDING,
     paddingBottom: Layout.CONTENT_BOTTOM_PADDING,
   },
-
-  // Header
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -222,7 +210,6 @@ const styles = StyleSheet.create({
   titleBlock: {
     gap: 2,
   },
-  // Large title — matches "Home" placement in Apple Music
   brandName: {
     fontSize: 40,
     fontWeight: '800',
@@ -236,8 +223,6 @@ const styles = StyleSheet.create({
     fontWeight: '400',
     letterSpacing: -0.1,
   },
-
-  // Mesh pill
   meshPill: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -259,8 +244,6 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     letterSpacing: -0.1,
   },
-
-  // Section header (like "EMERGENCY NUMBERS" in the sketch)
   sectionHeader: {
     fontSize: 11,
     fontWeight: '700',
@@ -270,14 +253,11 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     marginTop: 4,
   },
-
-  // POI list
   poiList: {
     gap: 10,
     marginBottom: 28,
   },
   poiGap: {},
-
   emptyPOI: {
     backgroundColor: Colors.background.elevated,
     borderRadius: BorderRadius.xl,
@@ -289,8 +269,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: Colors.label.secondary,
   },
-
-  // Offline badge
   offlineBadge: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -308,8 +286,6 @@ const styles = StyleSheet.create({
     color: Colors.status.success,
     fontWeight: '500',
   },
-
-  // Location warning
   locationWarn: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -1,0 +1,220 @@
+{
+  "cardiac_arrest": {
+    "id": "cardiac_arrest",
+    "name": "Cardiac Arrest",
+    "subtitle": "Not breathing — CPR required immediately",
+    "icon": "heart",
+    "iconColor": "#FF3B30",
+    "severity": 5,
+    "callAmbulance": true,
+    "cprRequired": true,
+    "steps": [
+      {
+        "id": "ca1",
+        "title": "Shout for Help NOW",
+        "description": "Point at a specific person: 'YOU — in the blue shirt — call 108 immediately!' This prevents the bystander effect where everyone assumes someone else will help.",
+        "warning": false
+      },
+      {
+        "id": "ca2",
+        "title": "Confirm — No Breathing",
+        "description": "Look at the chest (rising?), listen near the mouth, feel for breath on your cheek. Do this for no more than 10 seconds.",
+        "warning": false
+      },
+      {
+        "id": "ca3",
+        "title": "Position Your Hands",
+        "description": "Kneel beside them. Place the heel of one hand on the CENTER of their chest (on the breastbone). Place your other hand on top and interlace your fingers.",
+        "warning": false
+      },
+      {
+        "id": "ca4",
+        "title": "Compress HARD and FAST",
+        "description": "Push the chest down at least 5 cm (2 inches). Release fully between compressions. Rate: 100–120 per minute. Think of 'Stayin' Alive' by Bee Gees.",
+        "warning": false
+      },
+      {
+        "id": "ca5",
+        "title": "Do Not Stop",
+        "description": "Continue CPR until: the ambulance arrives, the person starts breathing normally, or you are too exhausted to continue. If another person is present, swap every 2 minutes.",
+        "warning": false
+      }
+    ],
+    "doNot": [
+      "Do NOT stop CPR until ambulance personnel take over",
+      "Do NOT give food or water at any time",
+      "Do NOT leave them alone even for a moment",
+      "Do NOT panic — CPR does not need to be perfect to save a life"
+    ]
+  },
+  "head_trauma": {
+    "id": "head_trauma",
+    "name": "Head Trauma",
+    "subtitle": "Unconscious but breathing",
+    "icon": "medical",
+    "iconColor": "#FF6B35",
+    "severity": 4,
+    "callAmbulance": true,
+    "cprRequired": false,
+    "steps": [
+      {
+        "id": "ht1",
+        "title": "WARNING — Do NOT Move Them",
+        "description": "A head trauma victim may also have a spinal injury. Moving the neck can cause permanent paralysis. Keep them exactly where they are.",
+        "warning": true
+      },
+      {
+        "id": "ht2",
+        "title": "Protect the Airway",
+        "description": "If unconscious but breathing, ONLY IF no spinal risk suspected: gently roll them to their side (recovery position) to prevent choking on vomit. Support the head throughout.",
+        "warning": false
+      },
+      {
+        "id": "ht3",
+        "title": "Control Head Bleeding",
+        "description": "Press a clean cloth gently over any head wound. Apply steady, gentle pressure. Do NOT press directly on the skull if it feels uneven or sunken.",
+        "warning": false
+      },
+      {
+        "id": "ht4",
+        "title": "Monitor Breathing Every 30 Seconds",
+        "description": "Watch the chest rise. Count their breaths. Normal is 12–20 per minute. If breathing becomes irregular or stops, begin CPR immediately.",
+        "warning": false
+      }
+    ],
+    "doNot": [
+      "Do NOT remove a helmet — this risks further injury",
+      "Do NOT give anything to eat or drink",
+      "Do NOT shake or slap them to wake them up",
+      "Do NOT put anything in their mouth"
+    ]
+  },
+  "fracture": {
+    "id": "fracture",
+    "name": "Fracture or Severe Bleeding",
+    "subtitle": "Broken bone or significant blood loss",
+    "icon": "bandage",
+    "iconColor": "#FF9500",
+    "severity": 3,
+    "callAmbulance": true,
+    "cprRequired": false,
+    "steps": [
+      {
+        "id": "fr1",
+        "title": "Stop the Bleeding First",
+        "description": "Apply firm, direct pressure with the cleanest material available — a shirt, dupatta, anything. Press hard and continuously. Do NOT lift the cloth to check; apply more material on top if needed.",
+        "warning": false
+      },
+      {
+        "id": "fr2",
+        "title": "Support — Do Not Straighten",
+        "description": "Support the injured limb in the exact position you found it using your hands or folded clothing. A broken bone that is bent should STAY bent until paramedics arrive.",
+        "warning": false
+      },
+      {
+        "id": "fr3",
+        "title": "Raise the Limb If Possible",
+        "description": "Gently elevate the injured arm or leg above the level of the heart. This reduces blood flow to the area and slows blood loss significantly.",
+        "warning": false
+      },
+      {
+        "id": "fr4",
+        "title": "Prevent Shock",
+        "description": "Lay them down flat if possible. Cover with a blanket or coat to maintain body temperature. Talk to them calmly and reassure them constantly.",
+        "warning": false
+      }
+    ],
+    "doNot": [
+      "Do NOT attempt to push a bone back into place",
+      "Do NOT remove any object that is embedded in a wound",
+      "Do NOT apply a tight tourniquet unless bleeding cannot be stopped otherwise",
+      "Do NOT offer food or water"
+    ]
+  },
+  "burns": {
+    "id": "burns",
+    "name": "Burns",
+    "subtitle": "Heat, chemical, or friction burns",
+    "icon": "flame",
+    "iconColor": "#FF9500",
+    "severity": 3,
+    "callAmbulance": true,
+    "cprRequired": false,
+    "steps": [
+      {
+        "id": "bu1",
+        "title": "Cool the Burn — Full 20 Minutes",
+        "description": "Pour cool (not cold, not iced) running water continuously over the burned area for a full 20 minutes. Use a water bottle, tap, stream — any clean water source. Timing is critical.",
+        "warning": false
+      },
+      {
+        "id": "bu2",
+        "title": "Remove Clothing and Jewelry",
+        "description": "Carefully and gently remove clothing, rings, watches, and other items near the burn. Do this ONLY if they are not stuck to the skin. If stuck, leave them and tell the paramedics.",
+        "warning": false
+      },
+      {
+        "id": "bu3",
+        "title": "Cover the Burn Loosely",
+        "description": "After the 20-minute cooling, cover the burned area with clean cling film laid flat (not wrapped), or a clean plastic bag. If unavailable, a clean non-fluffy cloth works.",
+        "warning": false
+      },
+      {
+        "id": "bu4",
+        "title": "Prevent Shock and Hypothermia",
+        "description": "Cover the REST of the body (not the burn) with a blanket. Cooling the burn while keeping the body warm is critical — burns cause rapid heat loss.",
+        "warning": false
+      }
+    ],
+    "doNot": [
+      "Do NOT use ice — it causes further tissue damage",
+      "Do NOT apply butter, oil, toothpaste, or any cream",
+      "Do NOT burst blisters that form",
+      "Do NOT use fluffy cotton wool directly on the burn",
+      "Do NOT wrap cling film around a limb — lay it flat only"
+    ]
+  },
+  "spinal": {
+    "id": "spinal",
+    "name": "Spinal Injury",
+    "subtitle": "Neck or back injury — extreme caution required",
+    "icon": "body",
+    "iconColor": "#5856D6",
+    "severity": 5,
+    "callAmbulance": true,
+    "cprRequired": false,
+    "steps": [
+      {
+        "id": "sp1",
+        "title": "STOP — Absolute No Movement",
+        "description": "Do NOT move the person under any circumstances. A misaligned spine can sever the spinal cord — permanent paralysis can result from even a small movement. This is the most important instruction.",
+        "warning": true
+      },
+      {
+        "id": "sp2",
+        "title": "Stabilize the Head",
+        "description": "Kneel directly behind their head. Place both hands firmly on either side of the skull (not the neck). Hold their head in the position you found it. Do not try to straighten it.",
+        "warning": false
+      },
+      {
+        "id": "sp3",
+        "title": "Keep Them Calm and Still",
+        "description": "Talk to them calmly and clearly: 'You are safe. Help is coming. It is very important that you stay completely still. Do not try to move.'",
+        "warning": false
+      },
+      {
+        "id": "sp4",
+        "title": "Monitor Breathing Continuously",
+        "description": "Watch their chest and listen for breathing every 30 seconds. If they stop breathing, CPR becomes the priority — you must begin compressions even with a spinal injury.",
+        "warning": false
+      }
+    ],
+    "doNot": [
+      "Do NOT move the head, neck, or spine for any reason",
+      "Do NOT try to straighten or reposition the body",
+      "Do NOT remove a helmet — this is a spinal precaution",
+      "Do NOT give food or water",
+      "Do NOT leave them to go get help — send someone else"
+    ]
+  }
+}
