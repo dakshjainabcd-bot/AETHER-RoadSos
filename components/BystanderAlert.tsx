@@ -1,10 +1,11 @@
 /**
  * BystanderAlert — Premium Light-theme full-screen modal
  *
- * Shown when a crash is detected within 500m.
- * White card design matching the new light iOS aesthetic.
- * Emergency red accent for urgency.
- * Logic unchanged from original.
+ * Phase 4 change: added primary "Help Victim" button that opens BystAIModal.
+ * The "Call Ambulance" button is now secondary — still present but below the
+ * Help Victim CTA, because guiding bystanders is the primary action.
+ *
+ * onHelpPress prop wires this to the BystAI launch in _layout.tsx.
  */
 
 import React, { useEffect, useRef } from 'react';
@@ -28,6 +29,8 @@ interface BystanderAlertProps {
   distanceM: number;
   emergencyAmbulanceNumber: string;
   onDismiss: () => void;
+  /** NEW — Phase 4: called when user taps "Help Victim → Open BystAI" */
+  onHelpPress: () => void;
 }
 
 export function BystanderAlert({
@@ -35,9 +38,10 @@ export function BystanderAlert({
   distanceM,
   emergencyAmbulanceNumber,
   onDismiss,
+  onHelpPress,
 }: BystanderAlertProps) {
-  const pulseAnim  = useRef(new Animated.Value(1)).current;
-  const slideAnim  = useRef(new Animated.Value(60)).current;
+  const pulseAnim   = useRef(new Animated.Value(1)).current;
+  const slideAnim   = useRef(new Animated.Value(60)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -45,13 +49,11 @@ export function BystanderAlert({
 
     Vibration.vibrate([0, 300, 100, 300, 100, 300]);
 
-    // Slide-in entrance
     Animated.parallel([
       Animated.spring(slideAnim, { toValue: 0, useNativeDriver: true, tension: 60, friction: 10 }),
       Animated.timing(opacityAnim, { toValue: 1, duration: 300, useNativeDriver: true }),
     ]).start();
 
-    // Pulse the alert icon
     const pulse = Animated.loop(
       Animated.sequence([
         Animated.timing(pulseAnim, { toValue: 1.12, duration: 700, useNativeDriver: true }),
@@ -79,9 +81,22 @@ export function BystanderAlert({
   const timeText   = minutesAgo === 0 ? 'Just now' : `${minutesAgo} min ago`;
 
   const severityLabels = ['', 'Minor', 'Moderate', 'Serious', 'Severe', 'Critical'];
-  const severityColors = ['', Colors.status.success, Colors.status.warning, '#FF6B35', Colors.brand.primary, '#CC0000'];
-  const severityLabel  = severityLabels[packet.severity] ?? 'Unknown';
-  const severityColor  = severityColors[packet.severity] ?? Colors.brand.primary;
+  const severityColors = [
+    '',
+    Colors.status.success,
+    Colors.status.warning,
+    '#FF6B35',
+    Colors.brand.primary,
+    '#CC0000',
+  ];
+  const severityLabel = severityLabels[packet.severity] ?? 'Unknown';
+  const severityColor = severityColors[packet.severity] ?? Colors.brand.primary;
+
+  /** Dismiss alert AND open BystAI immediately */
+  const handleHelpPress = () => {
+    onDismiss();      // close the alert sheet first so BystAI is unobstructed
+    onHelpPress();    // open BystAI modal
+  };
 
   return (
     <Modal visible={!!packet} animationType="none" transparent statusBarTranslucent>
@@ -90,21 +105,14 @@ export function BystanderAlert({
 
       {/* Bottom sheet card */}
       <View style={styles.sheetWrap}>
-        <Animated.View
-          style={[
-            styles.sheet,
-            { transform: [{ translateY: slideAnim }] },
-          ]}
-        >
+        <Animated.View style={[styles.sheet, { transform: [{ translateY: slideAnim }] }]}>
           {/* Sheet handle */}
           <View style={styles.handle} />
 
           <ScrollView showsVerticalScrollIndicator={false} bounces={false}>
             {/* Alert header */}
             <View style={styles.alertHeader}>
-              <Animated.View
-                style={[styles.alertIconWrap, { transform: [{ scale: pulseAnim }] }]}
-              >
+              <Animated.View style={[styles.alertIconWrap, { transform: [{ scale: pulseAnim }] }]}>
                 <Ionicons name="warning" size={28} color="#FFFFFF" />
               </Animated.View>
               <View style={styles.alertHeaderText}>
@@ -113,21 +121,33 @@ export function BystanderAlert({
               </View>
             </View>
 
-            {/* Info cards — two-col grid */}
+            {/* Info grid */}
             <View style={styles.infoGrid}>
-              <InfoTile icon="location" color={Colors.brand.accent} label="Distance" value={distanceText} />
-              <InfoTile icon="time"     color={Colors.label.secondary} label="Reported" value={timeText} />
-              <InfoTile icon="pulse"    color={severityColor}          label="Severity"  value={`${severityLabel} (${packet.severity}/5)`} valueColor={severityColor} />
-              <InfoTile icon="git-branch" color={Colors.label.secondary} label="Via" value={packet.hopCount === 0 ? 'Direct' : `${packet.hopCount} relay hop${packet.hopCount > 1 ? 's' : ''}`} />
+              <InfoTile icon="location"   color={Colors.brand.accent}    label="Distance" value={distanceText} />
+              <InfoTile icon="time"       color={Colors.label.secondary}  label="Reported" value={timeText} />
+              <InfoTile icon="pulse"      color={severityColor}           label="Severity"
+                value={`${severityLabel} (${packet.severity}/5)`} valueColor={severityColor} />
+              <InfoTile icon="git-branch" color={Colors.label.secondary}  label="Via"
+                value={packet.hopCount === 0 ? 'Direct' : `${packet.hopCount} relay hop${packet.hopCount > 1 ? 's' : ''}`} />
             </View>
 
-            {/* Primary CTA */}
+            {/* ── PRIMARY CTA: Help Victim (Phase 4) ─────────────── */}
+            <TouchableOpacity style={styles.helpBtn} onPress={handleHelpPress} activeOpacity={0.85}>
+              <Ionicons name="medical" size={20} color="#FFFFFF" />
+              <View style={styles.helpBtnText}>
+                <Text style={styles.helpBtnTitle}>Help Victim — Open BystAI</Text>
+                <Text style={styles.helpBtnSub}>Step-by-step first aid guidance</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color="#FFFFFF" />
+            </TouchableOpacity>
+
+            {/* ── SECONDARY: Call ambulance ───────────────────────── */}
             <TouchableOpacity
               style={styles.callBtn}
               onPress={() => Linking.openURL(`tel:${emergencyAmbulanceNumber}`)}
               activeOpacity={0.85}
             >
-              <Ionicons name="call" size={20} color="#FFFFFF" />
+              <Ionicons name="call" size={18} color={Colors.brand.primary} />
               <Text style={styles.callBtnText}>Call {emergencyAmbulanceNumber} — Ambulance</Text>
             </TouchableOpacity>
 
@@ -171,7 +191,7 @@ export function BystanderAlert({
   );
 }
 
-// ── Sub-component ───────────────────────────────────────────────────────────
+// ── Sub-component ────────────────────────────────────────────────────────────
 
 function InfoTile({
   icon, color, label, value, valueColor,
@@ -189,7 +209,7 @@ function InfoTile({
   );
 }
 
-// ── Styles ──────────────────────────────────────────────────────────────────
+// ── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
   backdrop: {
@@ -281,28 +301,56 @@ const styles = StyleSheet.create({
     letterSpacing: -0.2,
   },
 
-  // Buttons
-  callBtn: {
+  // ── PRIMARY: Help Victim / BystAI ────────────────────────────────────────
+  helpBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 10,
+    gap: 12,
     backgroundColor: Colors.brand.primary,
     borderRadius: BorderRadius.xl,
     paddingVertical: 16,
-    marginBottom: 12,
+    paddingHorizontal: 16,
+    marginBottom: 10,
     shadowColor: Colors.brand.primary,
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.30,
     shadowRadius: 14,
     elevation: 10,
   },
-  callBtnText: {
+  helpBtnText: {
+    flex: 1,
+  },
+  helpBtnTitle: {
     fontSize: 16,
     fontWeight: '700',
     color: '#FFFFFF',
-    letterSpacing: -0.2,
   },
+  helpBtnSub: {
+    fontSize: 11,
+    color: 'rgba(255,255,255,0.70)',
+    marginTop: 2,
+  },
+
+  // ── SECONDARY: Call ambulance ─────────────────────────────────────────────
+  callBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    backgroundColor: `${Colors.brand.primary}10`,
+    borderRadius: BorderRadius.xl,
+    borderWidth: 1,
+    borderColor: `${Colors.brand.primary}30`,
+    paddingVertical: 14,
+    marginBottom: 10,
+  },
+  callBtnText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: Colors.brand.primary,
+  },
+
+  // Navigate
   navBtn: {
     flexDirection: 'row',
     alignItems: 'center',

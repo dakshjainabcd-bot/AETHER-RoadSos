@@ -122,3 +122,15 @@ export const CRASH_DETECTION = {
   COOLDOWN_MS: 30 * 60 * 1000, // 30 minute cooldown between SOS events
   SEVERITY_THRESHOLDS: { MINOR: 3, LOW: 5, MODERATE: 8, SEVERE: 12 }, // g-force thresholds for severity 1-5
 };
+
+// ─── Phase 4: BystAI — Anthropic API Key ─────────────────────────────────────
+//
+// HOW TO GET YOUR KEY:
+//   1. Go to https://console.anthropic.com/
+//   2. Create an API key under "API Keys"
+//   3. Paste it below replacing YOUR_API_KEY_HERE
+//
+// SECURITY NOTE: For hackathon/demo use only. In production, API calls
+// should go through your own backend server, never directly from the app.
+//
+export const ANTHROPIC_API_KEY = 'YOUR_API_KEY_HERE'; // ← PASTE YOUR KEY HERE
