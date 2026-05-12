@@ -67,13 +67,6 @@
           "locationWhenInUsePermission": "AETHER needs your location to find nearby emergency services and detect accidents.",
           "isAndroidBackgroundLocationEnabled": true
         }
-      ],
-      [
-        "expo-image-picker",
-        {
-          "photosPermission": "AETHER may access your photo library to select injury photos for BystAI analysis.",
-          "cameraPermission": "AETHER uses the camera to photograph accident victims so BystAI can analyse injuries and guide first aid."
-        }
       ]
     ],
     "experiments": {

@@ -137,6 +137,19 @@ export default function TabsLayout() {
           ),
         }}
       />
+      <Tabs.Screen
+        name="blackbox"
+        options={{
+          title: 'BlackBox',
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons
+              name={focused ? 'cube' : 'cube-outline'}
+              size={28}
+              color={color}
+            />
+          ),
+        }}
+      />
       {/* Settings */}
       <Tabs.Screen
         name="settings"

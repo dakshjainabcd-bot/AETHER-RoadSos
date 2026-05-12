@@ -10,6 +10,7 @@
  *   - preAlertState exposed via context
  */
 
+import { getBlackBoxManager } from '@/services/BlackBox';
 import { useEffect, useState, useRef, createContext, useContext } from 'react';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -22,6 +23,7 @@ import { requestLocationPermissions, startBackgroundTracking, getLastKnownLocati
 import { meshRelayManager } from '../services/MeshRelay/MeshRelayManager';
 import { SOSPacket } from '../services/MeshRelay/types';
 import { crashDetectionEngine } from '../services/CrashDetection/CrashDetectionEngine';
+import { multilingualBridge } from '../services/MultilingualBridge';
 import type { CrashDetectionState } from '../services/CrashDetection/types';
 import { CrashCountdown } from '../components/CrashCountdown';
 import { STORAGE_KEYS, DEFAULT_EMERGENCY, type LanguageCode } from '../utils/constants';
@@ -223,6 +225,34 @@ export default function RootLayout() {
       setIsInitialized(true);
     }
   }
+
+  // ── Phase 7: Initialize Black Box system (separate useEffect) ──
+  // TEMPORARILY DISABLED for debugging - will enable after testing core app
+  /*
+  useEffect(() => {
+    if (!isInitialized) return;
+    
+    const initBlackBox = async () => {
+      try {
+        console.log('[App] Initializing Black Box...');
+        const blackBox = getBlackBoxManager();
+        console.log('[App] BlackBox manager retrieved');
+        
+        await blackBox.initialize();
+        console.log('[App] Black Box initialized');
+
+        // Start recording automatically
+        await blackBox.startRecording();
+        console.log('[App] Black Box recording started');
+      } catch (error) {
+        console.error('[App] Black Box initialization failed:', error);
+        console.error('[App] Stack:', (error as any).stack);
+      }
+    };
+
+    initBlackBox();
+  }, [isInitialized]);
+  */
 
   async function setLanguage(lang: LanguageCode) {
     setLanguageState(lang);

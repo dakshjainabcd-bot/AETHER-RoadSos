@@ -55,7 +55,7 @@ class MultilingualBridgeManager {
 
   /** Start recording a voice command */
   async recordVoiceCommand(): Promise<void> {
-    await whisperSTT.startRecording(30000);
+    await whisperSTT.startRecording();
   }
 
   /** Stop recording and return the transcription */
