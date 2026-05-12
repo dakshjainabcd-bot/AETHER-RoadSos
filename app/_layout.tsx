@@ -1,14 +1,13 @@
 /**
- * Root Layout — Phase 4 Integration
+ * Root Layout — Phase 6 Integration
  *
- * Phase 2: MeshRelay events, BystanderAlert
- * Phase 3: CrashDetectionEngine, CrashCountdown modal
- * Phase 4 additions:
- *  - bystAIVisible + bystAIPacket state
- *  - BystAIModal mounted here at ROOT (same pattern as CrashCountdown)
- *    so it sits above the tab navigator and never gets clipped
- *  - openBystAI / closeBystAI exposed via AppContext
- *  - BystanderAlert receives onHelpPress → openBystAI
+ * Phase 1: MCC, GPS, SQLite
+ * Phase 2: Mesh Relay
+ * Phase 3: Crash Detection
+ * Phase 6: Hospital Pre-Alert (HPP) — NEW
+ *   - injuryType state
+ *   - setInjuryType() calls TraumaMatch + HospitalPreAlert
+ *   - preAlertState exposed via context
  */
 
 import { useEffect, useState, useRef, createContext, useContext } from 'react';
@@ -19,21 +18,21 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { initializeMCCService, type EmergencyNumbers } from '../services/MCCService';
 import { initializeDatabase } from '../services/POIDatabase';
-import { requestLocationPermissions, startBackgroundTracking } from '../services/GPSService';
+import { requestLocationPermissions, startBackgroundTracking, getLastKnownLocation } from '../services/GPSService';
 import { meshRelayManager } from '../services/MeshRelay/MeshRelayManager';
 import { SOSPacket } from '../services/MeshRelay/types';
 import { crashDetectionEngine } from '../services/CrashDetection/CrashDetectionEngine';
-import { multilingualBridge } from '../services/MultilingualBridge';
-import type { SupportedLanguageCode } from '../services/MultilingualBridge/Types';
 import type { CrashDetectionState } from '../services/CrashDetection/types';
 import { CrashCountdown } from '../components/CrashCountdown';
-import { BystanderAlert } from '../components/BystanderAlert';
-import { BystAIModal } from '../components/BystAIModal';       // ← Phase 4
 import { STORAGE_KEYS, DEFAULT_EMERGENCY, type LanguageCode } from '../utils/constants';
 import { Colors } from '../theme';
 
+// ── Phase 6 imports ───────────────────────────────────────────────────────────
+import { hospitalPreAlert, type PreAlertState } from '../services/HospitalPreAlert';
+import { matchHospital, type InjuryType } from '../services/TraumaMatch';
+
 // ─────────────────────────────────────────────────────────────────────────────
-// GLOBAL APP CONTEXT — Phase 4 extended
+// GLOBAL APP CONTEXT — Phase 6 extended
 // ─────────────────────────────────────────────────────────────────────────────
 
 interface AppContextType {
@@ -49,30 +48,41 @@ interface AppContextType {
   // Phase 3
   crashState: CrashDetectionState;
   crashConfidence: number;
-  // Phase 4 — BystAI
-  openBystAI: (packet: SOSPacket) => void;
-  closeBystAI: () => void;
+  // Phase 6 — NEW
+  injuryType: InjuryType | null;
+  setInjuryType: (type: InjuryType) => Promise<void>;
+  preAlertState: PreAlertState;
+  clearPreAlert: () => void;
 }
 
+const DEFAULT_PREALERT_STATE: PreAlertState = {
+  status: 'idle',
+  hospitalName: '',
+  hospitalPhone: '',
+  distanceText: '',
+  etaMinutes: 0,
+  injuryType: '',
+  sentAt: null,
+  acknowledgedAt: null,
+  incidentId: '',
+};
+
 const AppContext = createContext<AppContextType>({
-  emergencyNumbers: {
-    ...DEFAULT_EMERGENCY,
-    country: 'Unknown',
-    country_code: 'XX',
-    languages: ['en'],
-  },
+  emergencyNumbers: { ...DEFAULT_EMERGENCY, country: 'Unknown', country_code: 'XX', languages: ['en'] },
   language: 'en',
-  setLanguage: async () => { },
+  setLanguage: async () => {},
   isInitialized: false,
   gpsPermissionGranted: false,
   activeBystanderAlert: null,
-  clearBystanderAlert: () => { },
+  clearBystanderAlert: () => {},
   meshConnected: false,
   meshPeerCount: 0,
   crashState: 'idle',
   crashConfidence: 0,
-  openBystAI: () => {},
-  closeBystAI: () => {},
+  injuryType: null,
+  setInjuryType: async () => {},
+  preAlertState: DEFAULT_PREALERT_STATE,
+  clearPreAlert: () => {},
 });
 
 export function useAppContext(): AppContextType {
@@ -97,38 +107,29 @@ export default function RootLayout() {
   const [meshConnected, setMeshConnected]        = useState(false);
   const [meshPeerCount, setMeshPeerCount]        = useState(0);
 
-  // ── Phase 3 crash detection state ────────────────────────
+  // Phase 3
   const [crashState, setCrashState]              = useState<CrashDetectionState>('idle');
   const [crashConfidence, setCrashConfidence]    = useState(0);
   const [countdownVisible, setCountdownVisible]  = useState(false);
   const [secondsRemaining, setSecondsRemaining]  = useState(5);
   const countdownIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // ── Phase 4: BystAI state ─────────────────────────────────────────────────
-  const [bystAIVisible, setBystAIVisible]       = useState(false);
-  const [bystAIPacket, setBystAIPacket]         = useState<SOSPacket | null>(null);
+  // Phase 6 — NEW
+  const [injuryType, setInjuryTypeState]         = useState<InjuryType | null>(null);
+  const [preAlertState, setPreAlertState]        = useState<PreAlertState>(
+    hospitalPreAlert.getState()
+  );
 
-  const openBystAI = (packet: SOSPacket) => {
-    setBystAIPacket(packet);
-    setBystAIVisible(true);
-  };
-
-  const closeBystAI = () => {
-    setBystAIVisible(false);
-    // Keep the packet for a tick so the modal can animate out gracefully
-    setTimeout(() => setBystAIPacket(null), 400);
-  };
-
-  // ── Mesh relay event subscriptions ───────────────────────────────────────
+  // ── Mesh relay event subscriptions ───────────────────────────────────
   useEffect(() => {
     const unsubSOS = meshRelayManager.on('SOS_RECEIVED', (event) => {
       if (event.packet && event.data) {
-        const isNearby = event.data['isNearby'] as boolean;
+        const isNearby  = event.data['isNearby'] as boolean;
         const distanceM = (event.data['distanceM'] as number) ?? 0;
         if (isNearby) setAlert({ packet: event.packet, distanceM });
       }
     });
-    const unsubOn = meshRelayManager.on('SIMULATION_CONNECTED', (e) => {
+    const unsubOn  = meshRelayManager.on('SIMULATION_CONNECTED', (e) => {
       setMeshConnected(true);
       setMeshPeerCount((e.data?.['deviceCount'] as number) ?? 0);
     });
@@ -139,34 +140,29 @@ export default function RootLayout() {
     return () => { unsubSOS(); unsubOn(); unsubOff(); };
   }, []);
 
-  // ── Phase 3: Crash detection event subscriptions ─────────────────────────
+  // ── Phase 3: Crash detection event subscriptions ─────────────────────
   useEffect(() => {
     const unsubConfirmed = crashDetectionEngine.on('CRASH_CONFIRMED', () => {
       setSecondsRemaining(5);
       setCountdownVisible(true);
       startCountdownTimer();
     });
-
     const unsubState = crashDetectionEngine.on('STATE_CHANGED', (event) => {
       if (event.state) setCrashState(event.state);
     });
-
     const unsubScore = crashDetectionEngine.on('SCORE_UPDATED', (event) => {
       if (event.score) setCrashConfidence(event.score.confidence);
     });
-
     const unsubCancelled = crashDetectionEngine.on('CRASH_CANCELLED', () => {
       stopCountdownTimer();
       setCountdownVisible(false);
       setSecondsRemaining(5);
     });
-
     const unsubDispatched = crashDetectionEngine.on('SOS_DISPATCHED', () => {
       stopCountdownTimer();
       setCountdownVisible(false);
       setSecondsRemaining(5);
     });
-
     return () => {
       unsubConfirmed();
       unsubState();
@@ -176,13 +172,23 @@ export default function RootLayout() {
     };
   }, []);
 
+  // ── Phase 6: Subscribe to HospitalPreAlert state changes ─────────────
+  useEffect(() => {
+    const unsub = hospitalPreAlert.subscribe((state) => {
+      setPreAlertState({ ...state });
+    });
+    return () => unsub();
+  }, []);
+
   function startCountdownTimer() {
     stopCountdownTimer();
     let secs = 5;
     countdownIntervalRef.current = setInterval(() => {
       secs -= 1;
       setSecondsRemaining(secs);
-      if (secs <= 0) stopCountdownTimer();
+      if (secs <= 0) {
+        stopCountdownTimer();
+      }
     }, 1000);
   }
 
@@ -193,7 +199,6 @@ export default function RootLayout() {
     }
   }
 
-  // ── App initialization ────────────────────────────────────────────────────
   useEffect(() => { initializeApp(); }, []);
 
   async function initializeApp() {
@@ -210,11 +215,7 @@ export default function RootLayout() {
       if (gpsGranted) await startBackgroundTracking();
 
       await meshRelayManager.initialize();
-
       crashDetectionEngine.initialize();
-      // ── Phase 5: Initialize multilingual bridge ──
-      await multilingualBridge.initialize(language);
-      console.log('[App] Phase 5 multilingual bridge initialized');
 
       setIsInitialized(true);
     } catch (error) {
@@ -226,10 +227,41 @@ export default function RootLayout() {
   async function setLanguage(lang: LanguageCode) {
     setLanguageState(lang);
     await AsyncStorage.setItem(STORAGE_KEYS.LANGUAGE, lang);
-    multilingualBridge.setLanguage(lang as SupportedLanguageCode);
   }
 
-  // ── Loading screen ────────────────────────────────────────────────────────
+  // ── Phase 6: setInjuryType ────────────────────────────────────────────
+  // Called when bystander taps an injury chip.
+  // Runs TraumaMatch → finds hospital → sends pre-alert.
+  async function setInjuryType(type: InjuryType) {
+    setInjuryTypeState(type);
+
+    // Get crash GPS
+    const loc = await getLastKnownLocation();
+    if (!loc) {
+      console.warn('[HPP] No GPS available for hospital match — using demo coords');
+      // Demo fallback: use Chennai coords so the registry always returns results
+      const demoLat = 13.0585;
+      const demoLng = 80.2596;
+      const result = matchHospital(demoLat, demoLng, type);
+      const incidentId = `hpptest_${Date.now()}`;
+      await hospitalPreAlert.sendPreAlert(result, incidentId, 3);
+      return;
+    }
+
+    const result = matchHospital(loc.lat, loc.lng, type);
+    const incidentId = `hpptest_${Date.now()}`;
+    await hospitalPreAlert.sendPreAlert(result, incidentId, 3);
+  }
+
+  // ── Phase 6: clearPreAlert ─────────────────────────────────────────────
+  // Resets injury selector and pre-alert state.
+  function clearPreAlert() {
+    setInjuryTypeState(null);
+    hospitalPreAlert.reset();
+    setPreAlertState(hospitalPreAlert.getState());
+  }
+
+  // ── Loading screen ─────────────────────────────────────────────────────
   if (!isInitialized) {
     return (
       <View style={styles.loading}>
@@ -258,13 +290,16 @@ export default function RootLayout() {
         meshPeerCount,
         crashState,
         crashConfidence,
-        openBystAI,
-        closeBystAI,
+        // Phase 6
+        injuryType,
+        setInjuryType,
+        preAlertState,
+        clearPreAlert,
       }}
     >
       <StatusBar style="dark" />
 
-      {/* ── Phase 3: CrashCountdown — overlays everything ───────────────── */}
+      {/* Phase 3: Crash Countdown — mounted at root so it overlays everything */}
       <CrashCountdown
         visible={countdownVisible}
         secondsRemaining={secondsRemaining}
@@ -272,37 +307,6 @@ export default function RootLayout() {
         confidence={crashConfidence}
         onCancel={() => crashDetectionEngine.cancelSOS()}
         onCountdownComplete={() => crashDetectionEngine.dispatchSOS()}
-      />
-
-      {/* ── Phase 4: BystAI modal — mounted at root, above tab nav ─────── */}
-      {/*
-        Mounted HERE (not inside a tab screen) for two reasons:
-        1. It must overlay the entire app including the floating tab bar
-        2. It receives state from AppContext and can be opened from anywhere
-           (BystanderAlert, future SOS screen, etc.)
-      */}
-      <BystAIModal
-        visible={bystAIVisible}
-        packet={bystAIPacket}
-        emergencyAmbulanceNumber={emergencyNumbers.ambulance}
-        onClose={closeBystAI}
-      />
-
-      {/*
-        ── Phase 4: BystanderAlert — also at root ──────────────────────────
-        Moved from inside index.tsx to here so it shares the same stacking
-        context as BystAIModal. onHelpPress opens BystAI with the packet.
-      */}
-      <BystanderAlert
-        packet={activeBystanderAlert?.packet ?? null}
-        distanceM={activeBystanderAlert?.distanceM ?? 0}
-        emergencyAmbulanceNumber={emergencyNumbers.ambulance}
-        onDismiss={() => setAlert(null)}
-        onHelpPress={() => {
-          if (activeBystanderAlert?.packet) {
-            openBystAI(activeBystanderAlert.packet);
-          }
-        }}
       />
 
       <Stack screenOptions={{ headerShown: false }}>

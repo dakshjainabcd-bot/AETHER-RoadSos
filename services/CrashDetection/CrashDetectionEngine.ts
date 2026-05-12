@@ -194,7 +194,12 @@ class CrashDetectionEngine {
     // crash threshold. This gives the acoustic detector a head start.
     if (accelScore > 0.3 && !this.acousticActive) {
       this.acousticActive = true;
-      this.acousticDetector.activate().then(() => {
+      this.acousticDetector.activate().then((started) => {
+        if (!started) {
+          // Mic is busy (WhisperSTT active) — don't retry until next window naturally
+          this.acousticActive = false;
+          return;
+        }
         // Auto-deactivate after 3 seconds to save battery
         setTimeout(async () => {
           await this.acousticDetector.deactivate();

@@ -36,7 +36,7 @@ import * as Speech from 'expo-speech';
 
 import { SOSPacket } from '../services/MeshRelay/types';
 import { Colors, BorderRadius, Shadows, Spacing } from '../theme';
-import { ANTHROPIC_API_KEY } from '../utils/constants';
+import { analyseInjuryPhoto } from '../services/BystAI/BystAIService';
 import {
   getFirstQuestion,
   getQuestion,
@@ -224,7 +224,7 @@ export function BystAIModal({
 
       if (!result.canceled && result.assets?.[0]?.base64) {
         setPhase('analyzing');
-        await analyzeWithClaude(result.assets[0].base64);
+        await analyzeWithGemini(result.assets[0].base64);
       }
     } catch (error) {
       console.error('[BystAI] Camera error:', error);
@@ -233,71 +233,21 @@ export function BystAIModal({
     }
   };
 
-  const analyzeWithClaude = async (base64Image: string) => {
+  const analyzeWithGemini = async (base64Image: string) => {
     try {
-      if (!ANTHROPIC_API_KEY || ANTHROPIC_API_KEY === 'YOUR_API_KEY_HERE') {
-        throw new Error('API key not configured');
+      const parsed = await analyseInjuryPhoto(base64Image, 'image/jpeg');
+      
+      if (!parsed) {
+        throw new Error('Gemini analysis failed or returned null');
       }
 
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': ANTHROPIC_API_KEY,
-          'anthropic-version': '2023-06-01',
-        },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-6',
-          max_tokens: 600,
-          messages: [
-            {
-              role: 'user',
-              content: [
-                {
-                  type: 'image',
-                  source: {
-                    type: 'base64',
-                    media_type: 'image/jpeg',
-                    data: base64Image,
-                  },
-                },
-                {
-                  type: 'text',
-                  text: `You are an emergency medical triage AI helping a bystander at a road accident scene. 
-Analyse this photo of an accident victim and provide first aid guidance.
-Return ONLY a valid JSON object — no markdown, no explanation, no backticks:
-{"injury_type":"string (e.g. Head Trauma, Severe Bleeding)","severity":3,"first_aid_steps":["step1","step2","step3"],"do_not_do":["item1","item2"],"call_ambulance":true,"cpr_needed":false}
-Severity: 1=minor, 2=moderate, 3=serious, 4=severe, 5=critical.`,
-                },
-              ],
-            },
-          ],
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
-
-      const data = await response.json();
-      const rawText: string = data.content?.[0]?.text ?? '';
-      const cleaned = rawText.replace(/```json|```/g, '').trim();
-      const parsed = JSON.parse(cleaned) as {
-        injury_type: string;
-        severity: number;
-        first_aid_steps: string[];
-        do_not_do: string[];
-        call_ambulance: boolean;
-        cpr_needed: boolean;
-      };
-
-      const sev = Math.max(1, Math.min(5, parsed.severity ?? 3)) as 1 | 2 | 3 | 4 | 5;
+      const sev = Math.max(1, Math.min(5, parsed.severity_1_to_5 ?? 3)) as 1 | 2 | 3 | 4 | 5;
 
       setProtocol({
         id: 'ai_result',
         injuryType: parsed.injury_type ?? 'Unknown Injury',
         severity: sev,
-        cprNeeded: Boolean(parsed.cpr_needed),
+        cprNeeded: parsed.injury_type === 'cardiac' || parsed.injury_type === 'unconscious',
         callAmbulance: Boolean(parsed.call_ambulance),
         steps: Array.isArray(parsed.first_aid_steps) ? parsed.first_aid_steps : [],
         doNots: Array.isArray(parsed.do_not_do) ? parsed.do_not_do : [],
@@ -305,7 +255,7 @@ Severity: 1=minor, 2=moderate, 3=serious, 4=severe, 5=critical.`,
       });
       setPhase('results');
     } catch (error) {
-      console.error('[BystAI] Claude API error:', error);
+      console.error('[BystAI] Gemini API error:', error);
       setApiError(true);
       // Seamless fallback to offline questions
       startOfflineQuestions();

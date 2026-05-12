@@ -1,12 +1,11 @@
 /**
- * SOS Screen — Phase 3 Integrated
+ * SOS Screen — Phase 6 Integrated
  *
- * Phase 2: Manual hold-to-activate SOS button + quick dial row.
- * Phase 3 additions:
- *  - Hold button calls crashDetectionEngine.triggerManualSOS()
- *    (goes through the full 5-second CrashCountdown pipeline)
- *  - Live confidence meter strip below the button (subtle, always visible)
- *  - Crash detection status pill (Monitoring / Candidate / Active)
+ * Phase 3: Manual hold-to-activate + sensor confidence meter
+ * Phase 6 additions (NEW):
+ *   - InjuryTypeSelector shown when crashState = active_sos
+ *   - HospitalMatchCard shown when injuryType is selected
+ *   - clearPreAlert() called when user dismisses the active SOS
  */
 
 import { useState, useRef, useCallback, useEffect } from 'react';
@@ -18,6 +17,7 @@ import {
   Animated,
   Linking,
   Vibration,
+  ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAppContext } from '../_layout';
@@ -25,15 +25,28 @@ import { Colors, Spacing, BorderRadius, Layout } from '../../theme';
 import { crashDetectionEngine } from '../../services/CrashDetection/CrashDetectionEngine';
 import type { CrashDetectionState, FusionScore } from '../../services/CrashDetection/types';
 
-export default function SOSScreen() {
-  const { emergencyNumbers, crashState, crashConfidence } = useAppContext();
+// Phase 6 components
+import { InjuryTypeSelector } from '../../components/InjuryTypeSelector';
+import { HospitalMatchCard } from '../../components/HospitalMatchCard';
+import type { InjuryType } from '../../services/TraumaMatch';
 
-  // ── Manual SOS button UI state (visual affordance only) ──────────────
+export default function SOSScreen() {
+  const {
+    emergencyNumbers,
+    crashState,
+    crashConfidence,
+    // Phase 6
+    injuryType,
+    setInjuryType,
+    preAlertState,
+    clearPreAlert,
+  } = useAppContext();
+
+  // ── Manual SOS button UI state ────────────────────────────────────────
   const [isPressed, setIsPressed]       = useState(false);
   const [countdown, setCountdown]       = useState(3);
-  const [locationText, setLocationText] = useState<string>('Tap & hold to activate');
 
-  // ── Live sensor score for the confidence meter ────────────────────────
+  // ── Live sensor score ─────────────────────────────────────────────────
   const [liveScore, setLiveScore] = useState<FusionScore>({
     accelScore: 0, gyroScore: 0, acousticScore: 0, confidence: 0, gForce: 0,
   });
@@ -89,7 +102,6 @@ export default function SOSScreen() {
           ]),
         ])
       );
-
     makeRing(ring1, ringOpacity1, 0).start();
     makeRing(ring2, ringOpacity2, 500).start();
     makeRing(ring3, ringOpacity3, 1000).start();
@@ -115,8 +127,6 @@ export default function SOSScreen() {
       Vibration.vibrate(30);
       if (count <= 0) {
         clearInterval(countdownTimerRef.current!);
-        // ── Phase 3: Hand off to CrashDetectionEngine ────────────────
-        // This triggers the full 5-second CrashCountdown pipeline
         crashDetectionEngine.triggerManualSOS();
         Animated.spring(buttonScale, { toValue: 1, useNativeDriver: true }).start();
         setIsPressed(false);
@@ -133,11 +143,28 @@ export default function SOSScreen() {
     Animated.spring(buttonScale, { toValue: 1, useNativeDriver: true }).start();
   }
 
-  // ── Detection status pill config ─────────────────────────────────────
+  // ── Phase 6: Handle injury type selection ─────────────────────────────
+  function handleInjurySelect(type: InjuryType) {
+    setInjuryType(type);
+  }
+
+  // ── Phase 6: Dismiss active SOS ───────────────────────────────────────
+  function handleDismissSOS() {
+    clearPreAlert();
+    crashDetectionEngine.resetToIdle();
+  }
+
   const statusConfig = getCrashStatusConfig(crashState);
 
+  // Show hospital card once a hospital has been searched (sending/sent/acknowledged/failed)
+  const showHospitalCard = preAlertState.status !== 'idle';
+
   return (
-    <View style={styles.container}>
+    <ScrollView
+      style={styles.scroll}
+      contentContainerStyle={styles.content}
+      showsVerticalScrollIndicator={false}
+    >
       {/* ── Header ──────────────────────────────────────────────── */}
       <View style={styles.header}>
         <Text style={styles.title}>Emergency SOS</Text>
@@ -148,11 +175,7 @@ export default function SOSScreen() {
 
       {/* ── Crash Detection Status Pill ─────────────────────────── */}
       <View style={[styles.detectionPill, { borderColor: `${statusConfig.color}30`, backgroundColor: `${statusConfig.color}0D` }]}>
-        <View style={[styles.detectionDot, {
-          backgroundColor: statusConfig.color,
-          // Pulse the dot when in candidate state
-          opacity: crashState === 'candidate' ? 0.8 : 1,
-        }]} />
+        <View style={[styles.detectionDot, { backgroundColor: statusConfig.color }]} />
         <Text style={[styles.detectionText, { color: statusConfig.color }]}>
           {statusConfig.label}
         </Text>
@@ -160,7 +183,6 @@ export default function SOSScreen() {
 
       {/* ── Button Area ─────────────────────────────────────────── */}
       <View style={styles.buttonArea}>
-        {/* Expanding rings (visible when active) */}
         {[
           { scale: ring1, opacity: ringOpacity1 },
           { scale: ring2, opacity: ringOpacity2 },
@@ -170,15 +192,11 @@ export default function SOSScreen() {
             key={i}
             style={[
               styles.ring,
-              {
-                transform: [{ scale: r.scale }],
-                opacity: r.opacity,
-              },
+              { transform: [{ scale: r.scale }], opacity: r.opacity },
             ]}
           />
         ))}
 
-        {/* Main SOS circle */}
         <Animated.View style={{ transform: [{ scale: buttonScale }] }}>
           <TouchableOpacity
             onPressIn={onPressIn}
@@ -201,6 +219,50 @@ export default function SOSScreen() {
       {/* ── Live Sensor Confidence Meter ────────────────────────── */}
       <SensorMeter score={liveScore} />
 
+      {/* ── Phase 6: Injury Type Selector ───────────────────────── */}
+      {/* Show when SOS is active AND no injury type selected yet AND no hospital card */}
+      {sosActive && !injuryType && !showHospitalCard && (
+        <View style={styles.section}>
+          <InjuryTypeSelector
+            selected={injuryType}
+            onSelect={handleInjurySelect}
+          />
+        </View>
+      )}
+
+      {/* Show selector as disabled (greyed) once type is picked and hospital found */}
+      {sosActive && injuryType && showHospitalCard && (
+        <View style={styles.section}>
+          <InjuryTypeSelector
+            selected={injuryType}
+            onSelect={() => {}} // locked after selection
+            disabled={true}
+          />
+        </View>
+      )}
+
+      {/* ── Phase 6: Hospital Match Card ─────────────────────────── */}
+      {showHospitalCard && (
+        <View style={styles.section}>
+          <HospitalMatchCard
+            alertState={preAlertState}
+            isSpecialistMatch={true}
+            requiredCapabilities={
+              injuryType
+                ? require('../../services/TraumaMatch').getRequiredCapabilities(injuryType)
+                : []
+            }
+          />
+        </View>
+      )}
+
+      {/* ── Phase 6: Dismiss SOS (shown only when active) ────────── */}
+      {sosActive && (
+        <TouchableOpacity style={styles.dismissBtn} onPress={handleDismissSOS} activeOpacity={0.7}>
+          <Text style={styles.dismissText}>I am safe — dismiss SOS</Text>
+        </TouchableOpacity>
+      )}
+
       {/* ── Quick dial row ──────────────────────────────────────── */}
       <View style={styles.dialRow}>
         <QuickDial label="Ambulance" number={emergencyNumbers.ambulance} color={Colors.brand.primary} />
@@ -209,11 +271,11 @@ export default function SOSScreen() {
       </View>
 
       <View style={{ height: Layout.CONTENT_BOTTOM_PADDING }} />
-    </View>
+    </ScrollView>
   );
 }
 
-// ── Helper: crash detection status pill config ───────────────────────────────
+// ── Helper functions ─────────────────────────────────────────────────────────
 
 function getCrashStatusConfig(state: CrashDetectionState): { color: string; label: string } {
   switch (state) {
@@ -237,7 +299,6 @@ function getCrashStatusConfig(state: CrashDetectionState): { color: string; labe
 // ── Sub-components ───────────────────────────────────────────────────────────
 
 function SensorMeter({ score }: { score: FusionScore }) {
-  // Only show meter when there's meaningful activity
   const isActive = score.confidence > 0.02 || score.gForce > 0.1;
   if (!isActive) return (
     <View style={styles.meterContainer}>
@@ -286,16 +347,18 @@ function QuickDial({ label, number, color }: { label: string; number: string; co
 // ── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  container: {
+  scroll: {
     flex: 1,
     backgroundColor: Colors.background.primary,
+  },
+  content: {
     alignItems: 'center',
+    paddingHorizontal: Layout.HORIZONTAL_PADDING,
   },
 
   header: {
     width: '100%',
     paddingTop: Layout.STATUS_BAR_HEIGHT + 4,
-    paddingHorizontal: Layout.HORIZONTAL_PADDING,
     marginBottom: 16,
   },
   title: {
@@ -311,13 +374,12 @@ const styles = StyleSheet.create({
     fontWeight: '400',
   },
 
-  // ── Detection pill ──────────────────────────────────────────────────
+  // Detection pill
   detectionPill: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
     alignSelf: 'flex-start',
-    marginLeft: Layout.HORIZONTAL_PADDING,
     paddingHorizontal: 12,
     paddingVertical: 5,
     borderRadius: BorderRadius.full,
@@ -335,7 +397,7 @@ const styles = StyleSheet.create({
     letterSpacing: -0.1,
   },
 
-  // ── Button area ─────────────────────────────────────────────────────
+  // Button area
   buttonArea: {
     width: 260,
     height: 260,
@@ -399,11 +461,10 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
 
-  // ── Sensor meter ────────────────────────────────────────────────────
+  // Sensor meter
   meterContainer: {
     width: '100%',
-    paddingHorizontal: Layout.HORIZONTAL_PADDING,
-    marginBottom: 28,
+    marginBottom: 24,
     gap: 5,
   },
   meterIdle: {
@@ -459,12 +520,33 @@ const styles = StyleSheet.create({
     color: Colors.label.tertiary,
   },
 
-  // ── Quick dial ──────────────────────────────────────────────────────
+  // Phase 6 section wrapper
+  section: {
+    width: '100%',
+    marginBottom: 16,
+  },
+
+  // Dismiss SOS button
+  dismissBtn: {
+    width: '100%',
+    paddingVertical: 14,
+    borderRadius: BorderRadius.xl,
+    backgroundColor: Colors.fill.secondary,
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  dismissText: {
+    fontSize: 14,
+    color: Colors.label.secondary,
+    fontWeight: '500',
+  },
+
+  // Quick dial
   dialRow: {
     flexDirection: 'row',
     gap: 10,
-    paddingHorizontal: Layout.HORIZONTAL_PADDING,
     width: '100%',
+    marginBottom: 12,
   },
   dialChip: {
     flex: 1,
