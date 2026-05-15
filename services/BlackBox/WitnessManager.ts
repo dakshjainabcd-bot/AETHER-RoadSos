@@ -1,5 +1,5 @@
 /**
- * Phase 7: Witness Manager
+ * Phase 8: Witness Manager
  * 
  * When an accident happens, nearby phones can help by sharing their sensor data.
  * This module:

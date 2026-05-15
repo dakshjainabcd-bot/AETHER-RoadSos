@@ -227,7 +227,7 @@ export default function RootLayout() {
     }
   }
 
-  // ── Phase 7: Initialize Black Box system (separate useEffect) ──
+  // ── Phase 8: Initialize Black Box system (separate useEffect) ──
   // TEMPORARILY DISABLED for debugging - will enable after testing core app
   /*
   useEffect(() => {

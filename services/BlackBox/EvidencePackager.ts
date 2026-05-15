@@ -1,5 +1,5 @@
 /**
- * Phase 7: Evidence Packager
+ * Phase 8: Evidence Packager
  * 
  * This module assembles all evidence into a complete package:
  * 1. Victim's sensor data (from crashed phone)

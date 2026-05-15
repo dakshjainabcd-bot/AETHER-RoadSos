@@ -1,5 +1,5 @@
 /**
- * Phase 7: Black Box Evidence System - Type Definitions
+ * Phase 8: Black Box Evidence System - Type Definitions
  * 
  * This file defines all the data structures used in the black box system.
  * Think of it as the "contract" that all components follow.

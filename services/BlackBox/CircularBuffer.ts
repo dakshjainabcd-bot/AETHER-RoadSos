@@ -1,5 +1,5 @@
 /**
- * Phase 7: Circular Buffer Implementation
+ * Phase 8: Circular Buffer Implementation
  * 
  * A circular buffer (ring buffer) is like a conveyor belt that loops back on itself.
  * - New data pushes out old data automatically

@@ -1,5 +1,5 @@
 /**
- * Phase 7: Sensor Data Collector
+ * Phase 8: Sensor Data Collector
  * 
  * This module collects data from phone sensors:
  * 1. Accelerometer - detects phone movement (shakes, sudden stops)

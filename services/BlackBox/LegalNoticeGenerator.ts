@@ -1,5 +1,5 @@
 /**
- * Phase 7: Legal Notice Generator
+ * Phase 8: Legal Notice Generator
  * 
  * When an accident happens due to road conditions, victims have legal rights
  * to claim compensation from road authorities. This module:
