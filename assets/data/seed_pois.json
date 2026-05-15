@@ -1,0 +1,3825 @@
+[
+  {
+    "id": "seed_h001",
+    "type": "hospital",
+    "name": "AIIMS New Delhi",
+    "lat": 28.5672,
+    "lng": 77.21,
+    "phone": "011-26588500",
+    "hours": "24/7",
+    "capabilities": [
+      "trauma",
+      "neurosurgery",
+      "burn_unit",
+      "cath_lab",
+      "paediatric_icu",
+      "blood_bank",
+      "ct_scan",
+      "emergency",
+      "ventilator"
+    ],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_h002",
+    "type": "hospital",
+    "name": "Safdarjung Hospital",
+    "lat": 28.5686,
+    "lng": 77.206,
+    "phone": "011-26730000",
+    "hours": "24/7",
+    "capabilities": [
+      "trauma",
+      "neurosurgery",
+      "burn_unit",
+      "blood_bank",
+      "ct_scan",
+      "emergency",
+      "ventilator"
+    ],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_h003",
+    "type": "hospital",
+    "name": "Sir Ganga Ram Hospital",
+    "lat": 28.6408,
+    "lng": 77.1877,
+    "phone": "011-25750000",
+    "hours": "24/7",
+    "capabilities": [
+      "trauma",
+      "neurosurgery",
+      "cath_lab",
+      "blood_bank",
+      "ct_scan",
+      "emergency",
+      "ventilator"
+    ],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_h004",
+    "type": "hospital",
+    "name": "Fortis Escorts Heart Institute",
+    "lat": 28.5641,
+    "lng": 77.2757,
+    "phone": "011-47135000",
+    "hours": "24/7",
+    "capabilities": [
+      "cath_lab",
+      "cardiac_surgery",
+      "ct_scan",
+      "emergency",
+      "ventilator",
+      "blood_bank"
+    ],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_h005",
+    "type": "hospital",
+    "name": "Apollo Hospital Sarita Vihar",
+    "lat": 28.5341,
+    "lng": 77.2887,
+    "phone": "011-71791090",
+    "hours": "24/7",
+    "capabilities": [
+      "trauma",
+      "neurosurgery",
+      "cath_lab",
+      "burn_unit",
+      "blood_bank",
+      "ct_scan",
+      "emergency",
+      "ventilator"
+    ],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_h006",
+    "type": "hospital",
+    "name": "Max Super Speciality Hospital Saket",
+    "lat": 28.5239,
+    "lng": 77.209,
+    "phone": "011-26515050",
+    "hours": "24/7",
+    "capabilities": [
+      "trauma",
+      "neurosurgery",
+      "cath_lab",
+      "blood_bank",
+      "ct_scan",
+      "emergency",
+      "ventilator"
+    ],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_h007",
+    "type": "hospital",
+    "name": "Medanta The Medicity Gurugram",
+    "lat": 28.4467,
+    "lng": 77.0436,
+    "phone": "0124-4141414",
+    "hours": "24/7",
+    "capabilities": [
+      "trauma",
+      "neurosurgery",
+      "cath_lab",
+      "burn_unit",
+      "paediatric_icu",
+      "blood_bank",
+      "ct_scan",
+      "emergency",
+      "ventilator"
+    ],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_h008",
+    "type": "hospital",
+    "name": "Artemis Hospital Gurugram",
+    "lat": 28.4595,
+    "lng": 77.0266,
+    "phone": "0124-4511111",
+    "hours": "24/7",
+    "capabilities": [
+      "trauma",
+      "neurosurgery",
+      "cath_lab",
+      "blood_bank",
+      "ct_scan",
+      "emergency",
+      "ventilator"
+    ],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_h009",
+    "type": "hospital",
+    "name": "Lilavati Hospital Bandra",
+    "lat": 19.0506,
+    "lng": 72.8258,
+    "phone": "022-26751000",
+    "hours": "24/7",
+    "capabilities": [
+      "trauma",
+      "neurosurgery",
+      "cath_lab",
+      "blood_bank",
+      "ct_scan",
+      "emergency",
+      "ventilator"
+    ],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_h010",
+    "type": "hospital",
+    "name": "KEM Hospital Parel",
+    "lat": 18.9986,
+    "lng": 72.8414,
+    "phone": "022-24136051",
+    "hours": "24/7",
+    "capabilities": [
+      "trauma",
+      "neurosurgery",
+      "burn_unit",
+      "blood_bank",
+      "ct_scan",
+      "emergency",
+      "ventilator"
+    ],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_h011",
+    "type": "hospital",
+    "name": "Kokilaben Dhirubhai Ambani Hospital",
+    "lat": 19.131,
+    "lng": 72.8266,
+    "phone": "022-42696969",
+    "hours": "24/7",
+    "capabilities": [
+      "trauma",
+      "neurosurgery",
+      "cath_lab",
+      "paediatric_icu",
+      "blood_bank",
+      "ct_scan",
+      "emergency",
+      "ventilator"
+    ],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_h012",
+    "type": "hospital",
+    "name": "Hinduja Hospital Mahim",
+    "lat": 19.0364,
+    "lng": 72.8406,
+    "phone": "022-24452222",
+    "hours": "24/7",
+    "capabilities": [
+      "trauma",
+      "neurosurgery",
+      "cath_lab",
+      "blood_bank",
+      "ct_scan",
+      "emergency",
+      "ventilator"
+    ],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_h013",
+    "type": "hospital",
+    "name": "Seven Hills Hospital Mumbai",
+    "lat": 19.0716,
+    "lng": 72.8856,
+    "phone": "022-67676767",
+    "hours": "24/7",
+    "capabilities": [
+      "trauma",
+      "neurosurgery",
+      "cath_lab",
+      "blood_bank",
+      "ct_scan",
+      "emergency",
+      "ventilator"
+    ],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_h014",
+    "type": "hospital",
+    "name": "Manipal Hospital HAL Airport Road",
+    "lat": 12.9539,
+    "lng": 77.649,
+    "phone": "080-25023000",
+    "hours": "24/7",
+    "capabilities": [
+      "trauma",
+      "neurosurgery",
+      "cath_lab",
+      "burn_unit",
+      "blood_bank",
+      "ct_scan",
+      "emergency",
+      "ventilator"
+    ],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_h015",
+    "type": "hospital",
+    "name": "St John's Medical College Hospital",
+    "lat": 12.9353,
+    "lng": 77.618,
+    "phone": "080-22065000",
+    "hours": "24/7",
+    "capabilities": [
+      "trauma",
+      "neurosurgery",
+      "burn_unit",
+      "blood_bank",
+      "ct_scan",
+      "emergency",
+      "ventilator"
+    ],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_h016",
+    "type": "hospital",
+    "name": "Narayana Health City Bommasandra",
+    "lat": 12.8438,
+    "lng": 77.672,
+    "phone": "080-71222222",
+    "hours": "24/7",
+    "capabilities": [
+      "trauma",
+      "neurosurgery",
+      "cath_lab",
+      "paediatric_icu",
+      "blood_bank",
+      "ct_scan",
+      "emergency",
+      "ventilator"
+    ],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_h017",
+    "type": "hospital",
+    "name": "Apollo Hospital Bannerghatta Road",
+    "lat": 12.8941,
+    "lng": 77.5965,
+    "phone": "080-26304050",
+    "hours": "24/7",
+    "capabilities": [
+      "trauma",
+      "neurosurgery",
+      "cath_lab",
+      "blood_bank",
+      "ct_scan",
+      "emergency",
+      "ventilator"
+    ],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_h018",
+    "type": "hospital",
+    "name": "Sakra World Hospital Bellandur",
+    "lat": 12.9317,
+    "lng": 77.6776,
+    "phone": "080-49694969",
+    "hours": "24/7",
+    "capabilities": [
+      "trauma",
+      "neurosurgery",
+      "cath_lab",
+      "blood_bank",
+      "ct_scan",
+      "emergency",
+      "ventilator"
+    ],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_h019",
+    "type": "hospital",
+    "name": "Apollo Hospital Greams Road",
+    "lat": 13.0565,
+    "lng": 80.2517,
+    "phone": "044-28290200",
+    "hours": "24/7",
+    "capabilities": [
+      "trauma",
+      "neurosurgery",
+      "cath_lab",
+      "burn_unit",
+      "blood_bank",
+      "ct_scan",
+      "emergency",
+      "ventilator"
+    ],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_h020",
+    "type": "hospital",
+    "name": "MIOT International Chennai",
+    "lat": 13.0165,
+    "lng": 80.1726,
+    "phone": "044-42002288",
+    "hours": "24/7",
+    "capabilities": [
+      "trauma",
+      "neurosurgery",
+      "cath_lab",
+      "blood_bank",
+      "ct_scan",
+      "emergency",
+      "ventilator"
+    ],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_h021",
+    "type": "hospital",
+    "name": "Sri Ramachandra Medical Centre",
+    "lat": 13.0347,
+    "lng": 80.1685,
+    "phone": "044-45928888",
+    "hours": "24/7",
+    "capabilities": [
+      "trauma",
+      "neurosurgery",
+      "cath_lab",
+      "burn_unit",
+      "paediatric_icu",
+      "blood_bank",
+      "ct_scan",
+      "emergency",
+      "ventilator"
+    ],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_h022",
+    "type": "hospital",
+    "name": "Kauvery Hospital Chennai",
+    "lat": 13.0609,
+    "lng": 80.2561,
+    "phone": "044-40006000",
+    "hours": "24/7",
+    "capabilities": [
+      "trauma",
+      "cath_lab",
+      "blood_bank",
+      "ct_scan",
+      "emergency",
+      "ventilator"
+    ],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_h023",
+    "type": "hospital",
+    "name": "Government General Hospital Chennai",
+    "lat": 13.083,
+    "lng": 80.2785,
+    "phone": "044-25305000",
+    "hours": "24/7",
+    "capabilities": [
+      "trauma",
+      "neurosurgery",
+      "burn_unit",
+      "blood_bank",
+      "ct_scan",
+      "emergency",
+      "ventilator"
+    ],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_h024",
+    "type": "hospital",
+    "name": "Apollo Hospital Jubilee Hills",
+    "lat": 17.426,
+    "lng": 78.4099,
+    "phone": "040-23607777",
+    "hours": "24/7",
+    "capabilities": [
+      "trauma",
+      "neurosurgery",
+      "cath_lab",
+      "blood_bank",
+      "ct_scan",
+      "emergency",
+      "ventilator"
+    ],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_h025",
+    "type": "hospital",
+    "name": "NIMS Hyderabad",
+    "lat": 17.3992,
+    "lng": 78.4654,
+    "phone": "040-23489000",
+    "hours": "24/7",
+    "capabilities": [
+      "trauma",
+      "neurosurgery",
+      "burn_unit",
+      "blood_bank",
+      "ct_scan",
+      "emergency",
+      "ventilator"
+    ],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_h026",
+    "type": "hospital",
+    "name": "AIG Hospitals Gachibowli",
+    "lat": 17.4399,
+    "lng": 78.3491,
+    "phone": "040-42444444",
+    "hours": "24/7",
+    "capabilities": [
+      "trauma",
+      "cath_lab",
+      "blood_bank",
+      "ct_scan",
+      "emergency",
+      "ventilator"
+    ],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_h027",
+    "type": "hospital",
+    "name": "Yashoda Hospital Secunderabad",
+    "lat": 17.4503,
+    "lng": 78.5016,
+    "phone": "040-45674567",
+    "hours": "24/7",
+    "capabilities": [
+      "trauma",
+      "neurosurgery",
+      "cath_lab",
+      "blood_bank",
+      "ct_scan",
+      "emergency",
+      "ventilator"
+    ],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_h028",
+    "type": "hospital",
+    "name": "SSKM Hospital Kolkata",
+    "lat": 22.5386,
+    "lng": 88.3503,
+    "phone": "033-22041054",
+    "hours": "24/7",
+    "capabilities": [
+      "trauma",
+      "neurosurgery",
+      "burn_unit",
+      "blood_bank",
+      "ct_scan",
+      "emergency",
+      "ventilator"
+    ],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_h029",
+    "type": "hospital",
+    "name": "Apollo Gleneagles Hospital Kolkata",
+    "lat": 22.5437,
+    "lng": 88.3835,
+    "phone": "033-23201234",
+    "hours": "24/7",
+    "capabilities": [
+      "trauma",
+      "neurosurgery",
+      "cath_lab",
+      "blood_bank",
+      "ct_scan",
+      "emergency",
+      "ventilator"
+    ],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_h030",
+    "type": "hospital",
+    "name": "Medica Superspecialty Hospital",
+    "lat": 22.5145,
+    "lng": 88.39,
+    "phone": "033-66520000",
+    "hours": "24/7",
+    "capabilities": [
+      "trauma",
+      "neurosurgery",
+      "cath_lab",
+      "blood_bank",
+      "ct_scan",
+      "emergency",
+      "ventilator"
+    ],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_h031",
+    "type": "hospital",
+    "name": "Ruby Hall Clinic Pune",
+    "lat": 18.5284,
+    "lng": 73.8822,
+    "phone": "020-66455000",
+    "hours": "24/7",
+    "capabilities": [
+      "trauma",
+      "neurosurgery",
+      "cath_lab",
+      "blood_bank",
+      "ct_scan",
+      "emergency",
+      "ventilator"
+    ],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_h032",
+    "type": "hospital",
+    "name": "Jehangir Hospital Pune",
+    "lat": 18.5308,
+    "lng": 73.878,
+    "phone": "020-66819999",
+    "hours": "24/7",
+    "capabilities": [
+      "trauma",
+      "cath_lab",
+      "blood_bank",
+      "ct_scan",
+      "emergency",
+      "ventilator"
+    ],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_h033",
+    "type": "hospital",
+    "name": "Deenanath Mangeshkar Hospital",
+    "lat": 18.5201,
+    "lng": 73.8374,
+    "phone": "020-49150000",
+    "hours": "24/7",
+    "capabilities": [
+      "trauma",
+      "neurosurgery",
+      "cath_lab",
+      "blood_bank",
+      "ct_scan",
+      "emergency",
+      "ventilator"
+    ],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_h034",
+    "type": "hospital",
+    "name": "Civil Hospital Ahmedabad",
+    "lat": 23.0395,
+    "lng": 72.5889,
+    "phone": "079-22680812",
+    "hours": "24/7",
+    "capabilities": [
+      "trauma",
+      "neurosurgery",
+      "burn_unit",
+      "blood_bank",
+      "ct_scan",
+      "emergency",
+      "ventilator"
+    ],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_h035",
+    "type": "hospital",
+    "name": "Apollo Hospital Ahmedabad",
+    "lat": 23.0452,
+    "lng": 72.5302,
+    "phone": "079-66701800",
+    "hours": "24/7",
+    "capabilities": [
+      "trauma",
+      "neurosurgery",
+      "cath_lab",
+      "blood_bank",
+      "ct_scan",
+      "emergency",
+      "ventilator"
+    ],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_h036",
+    "type": "hospital",
+    "name": "Amrita Institute of Medical Sciences Kochi",
+    "lat": 10.0386,
+    "lng": 76.3219,
+    "phone": "0484-2801234",
+    "hours": "24/7",
+    "capabilities": [
+      "trauma",
+      "neurosurgery",
+      "cath_lab",
+      "burn_unit",
+      "paediatric_icu",
+      "blood_bank",
+      "ct_scan",
+      "emergency",
+      "ventilator"
+    ],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_h037",
+    "type": "hospital",
+    "name": "Aster Medcity Kochi",
+    "lat": 9.9785,
+    "lng": 76.2991,
+    "phone": "0484-6699999",
+    "hours": "24/7",
+    "capabilities": [
+      "trauma",
+      "neurosurgery",
+      "cath_lab",
+      "blood_bank",
+      "ct_scan",
+      "emergency",
+      "ventilator"
+    ],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_h038",
+    "type": "hospital",
+    "name": "SGPGI Lucknow",
+    "lat": 26.8373,
+    "lng": 80.9908,
+    "phone": "0522-2668005",
+    "hours": "24/7",
+    "capabilities": [
+      "trauma",
+      "neurosurgery",
+      "cath_lab",
+      "burn_unit",
+      "blood_bank",
+      "ct_scan",
+      "emergency",
+      "ventilator"
+    ],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_h039",
+    "type": "hospital",
+    "name": "KGMU Lucknow",
+    "lat": 26.8598,
+    "lng": 80.9362,
+    "phone": "0522-2257540",
+    "hours": "24/7",
+    "capabilities": [
+      "trauma",
+      "neurosurgery",
+      "burn_unit",
+      "blood_bank",
+      "ct_scan",
+      "emergency",
+      "ventilator"
+    ],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_h040",
+    "type": "hospital",
+    "name": "Christian Medical College Vellore",
+    "lat": 12.933,
+    "lng": 79.1333,
+    "phone": "0416-2281000",
+    "hours": "24/7",
+    "capabilities": [
+      "trauma",
+      "neurosurgery",
+      "cath_lab",
+      "burn_unit",
+      "paediatric_icu",
+      "blood_bank",
+      "ct_scan",
+      "emergency",
+      "ventilator"
+    ],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_h041",
+    "type": "hospital",
+    "name": "Kovai Medical Center Coimbatore",
+    "lat": 11.0297,
+    "lng": 76.9654,
+    "phone": "0422-4323800",
+    "hours": "24/7",
+    "capabilities": [
+      "trauma",
+      "neurosurgery",
+      "cath_lab",
+      "blood_bank",
+      "ct_scan",
+      "emergency",
+      "ventilator"
+    ],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_h042",
+    "type": "hospital",
+    "name": "PSG Hospitals Coimbatore",
+    "lat": 11.0256,
+    "lng": 76.9782,
+    "phone": "0422-2570170",
+    "hours": "24/7",
+    "capabilities": [
+      "trauma",
+      "cath_lab",
+      "blood_bank",
+      "ct_scan",
+      "emergency",
+      "ventilator"
+    ],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_h043",
+    "type": "hospital",
+    "name": "Government Hospital Hosur",
+    "lat": 12.734,
+    "lng": 77.8266,
+    "phone": "04344-242277",
+    "hours": "24/7",
+    "capabilities": [
+      "emergency",
+      "blood_bank",
+      "ct_scan"
+    ],
+    "country_code": "IN",
+    "confidence": 0.9
+  },
+  {
+    "id": "seed_h044",
+    "type": "hospital",
+    "name": "Narayana Multispeciality Hospital Hosur",
+    "lat": 12.7201,
+    "lng": 77.8312,
+    "phone": "04344-257000",
+    "hours": "24/7",
+    "capabilities": [
+      "trauma",
+      "emergency",
+      "ct_scan",
+      "blood_bank",
+      "ventilator"
+    ],
+    "country_code": "IN",
+    "confidence": 0.9
+  },
+  {
+    "id": "seed_h045",
+    "type": "hospital",
+    "name": "Sri Gokulam Hospital Hosur",
+    "lat": 12.7278,
+    "lng": 77.835,
+    "phone": "04344-244444",
+    "hours": "24/7",
+    "capabilities": [
+      "emergency",
+      "ct_scan",
+      "blood_bank"
+    ],
+    "country_code": "IN",
+    "confidence": 0.85
+  },
+  {
+    "id": "seed_h046",
+    "type": "hospital",
+    "name": "Government District Hospital Krishnagiri",
+    "lat": 12.5202,
+    "lng": 78.2136,
+    "phone": "04343-231101",
+    "hours": "24/7",
+    "capabilities": [
+      "trauma",
+      "emergency",
+      "blood_bank",
+      "ct_scan",
+      "ventilator"
+    ],
+    "country_code": "IN",
+    "confidence": 0.9
+  },
+  {
+    "id": "seed_h047",
+    "type": "hospital",
+    "name": "SRM Global Hospital Guduvanchery",
+    "lat": 12.8485,
+    "lng": 80.0517,
+    "phone": "044-47434743",
+    "hours": "24/7",
+    "capabilities": [
+      "trauma",
+      "cath_lab",
+      "blood_bank",
+      "ct_scan",
+      "emergency",
+      "ventilator"
+    ],
+    "country_code": "IN",
+    "confidence": 0.9
+  },
+  {
+    "id": "seed_h048",
+    "type": "hospital",
+    "name": "Shri Balaji Action Medical Institute Delhi",
+    "lat": 28.6867,
+    "lng": 77.1014,
+    "phone": "011-42888888",
+    "hours": "24/7",
+    "capabilities": [
+      "trauma",
+      "neurosurgery",
+      "cath_lab",
+      "blood_bank",
+      "ct_scan",
+      "emergency",
+      "ventilator"
+    ],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_h049",
+    "type": "hospital",
+    "name": "Fortis Hospital Mulund Mumbai",
+    "lat": 19.1722,
+    "lng": 72.9598,
+    "phone": "022-67994444",
+    "hours": "24/7",
+    "capabilities": [
+      "trauma",
+      "cath_lab",
+      "blood_bank",
+      "ct_scan",
+      "emergency",
+      "ventilator"
+    ],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_h050",
+    "type": "hospital",
+    "name": "Manipal Hospital Whitefield Bangalore",
+    "lat": 12.9819,
+    "lng": 77.7499,
+    "phone": "080-40202020",
+    "hours": "24/7",
+    "capabilities": [
+      "trauma",
+      "neurosurgery",
+      "cath_lab",
+      "blood_bank",
+      "ct_scan",
+      "emergency",
+      "ventilator"
+    ],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_p001",
+    "type": "police",
+    "name": "Connaught Place Police Station",
+    "lat": 28.6329,
+    "lng": 77.2195,
+    "phone": "011-23341630",
+    "hours": "24/7",
+    "capabilities": [],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_p002",
+    "type": "police",
+    "name": "Saket Police Station Delhi",
+    "lat": 28.5219,
+    "lng": 77.2068,
+    "phone": "011-29563103",
+    "hours": "24/7",
+    "capabilities": [],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_p003",
+    "type": "police",
+    "name": "Bandra Police Station Mumbai",
+    "lat": 19.0596,
+    "lng": 72.8295,
+    "phone": "022-26420441",
+    "hours": "24/7",
+    "capabilities": [],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_p004",
+    "type": "police",
+    "name": "Colaba Police Station Mumbai",
+    "lat": 18.9136,
+    "lng": 72.8327,
+    "phone": "022-22150021",
+    "hours": "24/7",
+    "capabilities": [],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_p005",
+    "type": "police",
+    "name": "Indiranagar Police Station Bangalore",
+    "lat": 12.976,
+    "lng": 77.6408,
+    "phone": "080-22943551",
+    "hours": "24/7",
+    "capabilities": [],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_p006",
+    "type": "police",
+    "name": "Koramangala Police Station Bangalore",
+    "lat": 12.9352,
+    "lng": 77.6245,
+    "phone": "080-22943619",
+    "hours": "24/7",
+    "capabilities": [],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_p007",
+    "type": "police",
+    "name": "Anna Nagar Police Station Chennai",
+    "lat": 13.0878,
+    "lng": 80.21,
+    "phone": "044-23620560",
+    "hours": "24/7",
+    "capabilities": [],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_p008",
+    "type": "police",
+    "name": "Adyar Police Station Chennai",
+    "lat": 13.0012,
+    "lng": 80.2565,
+    "phone": "044-24423304",
+    "hours": "24/7",
+    "capabilities": [],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_p009",
+    "type": "police",
+    "name": "Banjara Hills Police Station Hyderabad",
+    "lat": 17.4156,
+    "lng": 78.4347,
+    "phone": "040-27809911",
+    "hours": "24/7",
+    "capabilities": [],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_p010",
+    "type": "police",
+    "name": "Gachibowli Police Station Hyderabad",
+    "lat": 17.4434,
+    "lng": 78.3498,
+    "phone": "040-27853070",
+    "hours": "24/7",
+    "capabilities": [],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_p011",
+    "type": "police",
+    "name": "Park Street Police Station Kolkata",
+    "lat": 22.5516,
+    "lng": 88.3525,
+    "phone": "033-22278844",
+    "hours": "24/7",
+    "capabilities": [],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_p012",
+    "type": "police",
+    "name": "Shivajinagar Police Station Pune",
+    "lat": 18.5314,
+    "lng": 73.8476,
+    "phone": "020-25532400",
+    "hours": "24/7",
+    "capabilities": [],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_p013",
+    "type": "police",
+    "name": "Hosur Town Police Station",
+    "lat": 12.7415,
+    "lng": 77.8261,
+    "phone": "04344-242200",
+    "hours": "24/7",
+    "capabilities": [],
+    "country_code": "IN",
+    "confidence": 0.95
+  },
+  {
+    "id": "seed_p014",
+    "type": "police",
+    "name": "Mathigiri Police Station Hosur",
+    "lat": 12.7586,
+    "lng": 77.8487,
+    "phone": "04344-274100",
+    "hours": "24/7",
+    "capabilities": [],
+    "country_code": "IN",
+    "confidence": 0.9
+  },
+  {
+    "id": "seed_p015",
+    "type": "police",
+    "name": "Krishnagiri Police Station",
+    "lat": 12.521,
+    "lng": 78.2154,
+    "phone": "04343-231200",
+    "hours": "24/7",
+    "capabilities": [],
+    "country_code": "IN",
+    "confidence": 0.9
+  },
+  {
+    "id": "seed_p016",
+    "type": "police",
+    "name": "Electronic City Police Station Bangalore",
+    "lat": 12.8415,
+    "lng": 77.6748,
+    "phone": "080-22943660",
+    "hours": "24/7",
+    "capabilities": [],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_p017",
+    "type": "police",
+    "name": "Sector 29 Police Station Gurugram",
+    "lat": 28.4601,
+    "lng": 77.05,
+    "phone": "0124-2222200",
+    "hours": "24/7",
+    "capabilities": [],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_p018",
+    "type": "police",
+    "name": "Viman Nagar Police Station Pune",
+    "lat": 18.5679,
+    "lng": 73.9143,
+    "phone": "020-25532441",
+    "hours": "24/7",
+    "capabilities": [],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_p019",
+    "type": "police",
+    "name": "Salt Lake Police Station Kolkata",
+    "lat": 22.5831,
+    "lng": 88.4115,
+    "phone": "033-23372020",
+    "hours": "24/7",
+    "capabilities": [],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_p020",
+    "type": "police",
+    "name": "Royapettah Police Station Chennai",
+    "lat": 13.0601,
+    "lng": 80.2628,
+    "phone": "044-28365050",
+    "hours": "24/7",
+    "capabilities": [],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_p021",
+    "type": "police",
+    "name": "Malviya Nagar Police Station Delhi",
+    "lat": 28.5368,
+    "lng": 77.2154,
+    "phone": "011-29552700",
+    "hours": "24/7",
+    "capabilities": [],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_p022",
+    "type": "police",
+    "name": "Juhu Police Station Mumbai",
+    "lat": 19.1002,
+    "lng": 72.8369,
+    "phone": "022-26204301",
+    "hours": "24/7",
+    "capabilities": [],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_p023",
+    "type": "police",
+    "name": "Whitefield Police Station Bangalore",
+    "lat": 12.9698,
+    "lng": 77.75,
+    "phone": "080-22943679",
+    "hours": "24/7",
+    "capabilities": [],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_p024",
+    "type": "police",
+    "name": "Begumpet Police Station Hyderabad",
+    "lat": 17.4436,
+    "lng": 78.4636,
+    "phone": "040-27852666",
+    "hours": "24/7",
+    "capabilities": [],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_p025",
+    "type": "police",
+    "name": "Noida Sector 20 Police Station",
+    "lat": 28.5707,
+    "lng": 77.321,
+    "phone": "0120-2422295",
+    "hours": "24/7",
+    "capabilities": [],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_t001",
+    "type": "towing",
+    "name": "Delhi Traffic Police Towing",
+    "lat": 28.627,
+    "lng": 77.219,
+    "phone": "011-25844444",
+    "hours": "24/7",
+    "capabilities": [
+      "heavy_vehicle",
+      "car",
+      "bike"
+    ],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_t002",
+    "type": "towing",
+    "name": "Quick Tow Mumbai",
+    "lat": 19.076,
+    "lng": 72.8777,
+    "phone": "9820123456",
+    "hours": "24/7",
+    "capabilities": [
+      "car",
+      "bike"
+    ],
+    "country_code": "IN",
+    "confidence": 0.85
+  },
+  {
+    "id": "seed_t003",
+    "type": "towing",
+    "name": "Bangalore City Towing Service",
+    "lat": 12.9716,
+    "lng": 77.5946,
+    "phone": "9900123456",
+    "hours": "24/7",
+    "capabilities": [
+      "car",
+      "bike",
+      "heavy_vehicle"
+    ],
+    "country_code": "IN",
+    "confidence": 0.85
+  },
+  {
+    "id": "seed_t004",
+    "type": "towing",
+    "name": "Chennai Crane & Towing",
+    "lat": 13.0827,
+    "lng": 80.2707,
+    "phone": "9841123456",
+    "hours": "24/7",
+    "capabilities": [
+      "car",
+      "bike",
+      "heavy_vehicle"
+    ],
+    "country_code": "IN",
+    "confidence": 0.85
+  },
+  {
+    "id": "seed_t005",
+    "type": "towing",
+    "name": "Hyderabad Towing & Recovery",
+    "lat": 17.385,
+    "lng": 78.4867,
+    "phone": "9848123456",
+    "hours": "24/7",
+    "capabilities": [
+      "car",
+      "bike"
+    ],
+    "country_code": "IN",
+    "confidence": 0.85
+  },
+  {
+    "id": "seed_t006",
+    "type": "towing",
+    "name": "NH44 Towing Hosur",
+    "lat": 12.719,
+    "lng": 77.838,
+    "phone": "9944123456",
+    "hours": "24/7",
+    "capabilities": [
+      "car",
+      "bike",
+      "heavy_vehicle"
+    ],
+    "country_code": "IN",
+    "confidence": 0.85
+  },
+  {
+    "id": "seed_t007",
+    "type": "towing",
+    "name": "Krishnagiri Highway Towing",
+    "lat": 12.5255,
+    "lng": 78.229,
+    "phone": "9943123456",
+    "hours": "24/7",
+    "capabilities": [
+      "car",
+      "bike",
+      "heavy_vehicle"
+    ],
+    "country_code": "IN",
+    "confidence": 0.85
+  },
+  {
+    "id": "seed_t008",
+    "type": "towing",
+    "name": "Gurugram 24hr Towing",
+    "lat": 28.4595,
+    "lng": 77.0266,
+    "phone": "9810123456",
+    "hours": "24/7",
+    "capabilities": [
+      "car",
+      "bike"
+    ],
+    "country_code": "IN",
+    "confidence": 0.85
+  },
+  {
+    "id": "seed_t009",
+    "type": "towing",
+    "name": "Pune Towing Services",
+    "lat": 18.5204,
+    "lng": 73.8567,
+    "phone": "9822123456",
+    "hours": "24/7",
+    "capabilities": [
+      "car",
+      "bike",
+      "heavy_vehicle"
+    ],
+    "country_code": "IN",
+    "confidence": 0.85
+  },
+  {
+    "id": "seed_t010",
+    "type": "towing",
+    "name": "Kolkata Road Recovery",
+    "lat": 22.5726,
+    "lng": 88.3639,
+    "phone": "9830123456",
+    "hours": "24/7",
+    "capabilities": [
+      "car",
+      "bike"
+    ],
+    "country_code": "IN",
+    "confidence": 0.85
+  },
+  {
+    "id": "seed_t011",
+    "type": "towing",
+    "name": "Kochi Vehicle Towing",
+    "lat": 9.9312,
+    "lng": 76.2673,
+    "phone": "9847123456",
+    "hours": "24/7",
+    "capabilities": [
+      "car",
+      "bike"
+    ],
+    "country_code": "IN",
+    "confidence": 0.85
+  },
+  {
+    "id": "seed_t012",
+    "type": "towing",
+    "name": "Ahmedabad Towing Co",
+    "lat": 23.0225,
+    "lng": 72.5714,
+    "phone": "9825123456",
+    "hours": "24/7",
+    "capabilities": [
+      "car",
+      "bike",
+      "heavy_vehicle"
+    ],
+    "country_code": "IN",
+    "confidence": 0.85
+  },
+  {
+    "id": "seed_t013",
+    "type": "towing",
+    "name": "Electronic City Towing Bangalore",
+    "lat": 12.835,
+    "lng": 77.6762,
+    "phone": "9901123456",
+    "hours": "24/7",
+    "capabilities": [
+      "car",
+      "bike"
+    ],
+    "country_code": "IN",
+    "confidence": 0.85
+  },
+  {
+    "id": "seed_t014",
+    "type": "towing",
+    "name": "Whitefield Towing Bangalore",
+    "lat": 12.9722,
+    "lng": 77.7509,
+    "phone": "9902123456",
+    "hours": "24/7",
+    "capabilities": [
+      "car",
+      "bike"
+    ],
+    "country_code": "IN",
+    "confidence": 0.85
+  },
+  {
+    "id": "seed_t015",
+    "type": "towing",
+    "name": "NH48 Bangalore-Delhi Towing Point",
+    "lat": 13.1207,
+    "lng": 77.5876,
+    "phone": "9986123456",
+    "hours": "24/7",
+    "capabilities": [
+      "car",
+      "bike",
+      "heavy_vehicle"
+    ],
+    "country_code": "IN",
+    "confidence": 0.8
+  },
+  {
+    "id": "seed_t016",
+    "type": "towing",
+    "name": "Noida Towing Service",
+    "lat": 28.5355,
+    "lng": 77.391,
+    "phone": "9811123456",
+    "hours": "24/7",
+    "capabilities": [
+      "car",
+      "bike"
+    ],
+    "country_code": "IN",
+    "confidence": 0.85
+  },
+  {
+    "id": "seed_t017",
+    "type": "towing",
+    "name": "Guwahati City Towing",
+    "lat": 26.1445,
+    "lng": 91.7362,
+    "phone": "9854123456",
+    "hours": "24/7",
+    "capabilities": [
+      "car",
+      "bike"
+    ],
+    "country_code": "IN",
+    "confidence": 0.8
+  },
+  {
+    "id": "seed_t018",
+    "type": "towing",
+    "name": "Jaipur Breakdown Towing",
+    "lat": 26.9124,
+    "lng": 75.7873,
+    "phone": "9829123456",
+    "hours": "24/7",
+    "capabilities": [
+      "car",
+      "bike",
+      "heavy_vehicle"
+    ],
+    "country_code": "IN",
+    "confidence": 0.85
+  },
+  {
+    "id": "seed_t019",
+    "type": "towing",
+    "name": "Coimbatore Towing",
+    "lat": 11.0168,
+    "lng": 76.9558,
+    "phone": "9842123456",
+    "hours": "24/7",
+    "capabilities": [
+      "car",
+      "bike"
+    ],
+    "country_code": "IN",
+    "confidence": 0.85
+  },
+  {
+    "id": "seed_t020",
+    "type": "towing",
+    "name": "Vellore Highway Towing",
+    "lat": 12.9165,
+    "lng": 79.1325,
+    "phone": "9843123456",
+    "hours": "24/7",
+    "capabilities": [
+      "car",
+      "bike",
+      "heavy_vehicle"
+    ],
+    "country_code": "IN",
+    "confidence": 0.8
+  },
+  {
+    "id": "seed_pu001",
+    "type": "puncture",
+    "name": "Rajesh Tyre Works Hosur",
+    "lat": 12.7295,
+    "lng": 77.822,
+    "phone": "9944234567",
+    "hours": "08:00-22:00",
+    "capabilities": [
+      "tubeless",
+      "tube",
+      "bike",
+      "car"
+    ],
+    "country_code": "IN",
+    "confidence": 0.85
+  },
+  {
+    "id": "seed_pu002",
+    "type": "puncture",
+    "name": "Sri Murugan Tyre Centre Hosur",
+    "lat": 12.7412,
+    "lng": 77.8335,
+    "phone": "9943234567",
+    "hours": "07:00-22:00",
+    "capabilities": [
+      "tubeless",
+      "tube",
+      "bike",
+      "car"
+    ],
+    "country_code": "IN",
+    "confidence": 0.85
+  },
+  {
+    "id": "seed_pu003",
+    "type": "puncture",
+    "name": "NH44 Tyre Repair Mathigiri",
+    "lat": 12.759,
+    "lng": 77.851,
+    "phone": "9945234567",
+    "hours": "24/7",
+    "capabilities": [
+      "tubeless",
+      "tube",
+      "heavy_vehicle",
+      "car"
+    ],
+    "country_code": "IN",
+    "confidence": 0.85
+  },
+  {
+    "id": "seed_pu004",
+    "type": "puncture",
+    "name": "Krishnagiri Tyre Shop",
+    "lat": 12.524,
+    "lng": 78.2185,
+    "phone": "9943334567",
+    "hours": "08:00-21:00",
+    "capabilities": [
+      "tubeless",
+      "tube",
+      "bike",
+      "car"
+    ],
+    "country_code": "IN",
+    "confidence": 0.8
+  },
+  {
+    "id": "seed_pu005",
+    "type": "puncture",
+    "name": "Anand Tyres Indiranagar Bangalore",
+    "lat": 12.9784,
+    "lng": 77.6408,
+    "phone": "9880234567",
+    "hours": "08:00-22:00",
+    "capabilities": [
+      "tubeless",
+      "tube",
+      "car"
+    ],
+    "country_code": "IN",
+    "confidence": 0.85
+  },
+  {
+    "id": "seed_pu006",
+    "type": "puncture",
+    "name": "Speed Tyre Koramangala Bangalore",
+    "lat": 12.9354,
+    "lng": 77.6245,
+    "phone": "9880334567",
+    "hours": "24/7",
+    "capabilities": [
+      "tubeless",
+      "tube",
+      "car",
+      "bike"
+    ],
+    "country_code": "IN",
+    "confidence": 0.85
+  },
+  {
+    "id": "seed_pu007",
+    "type": "puncture",
+    "name": "Whitefield Tyre Fix Bangalore",
+    "lat": 12.9716,
+    "lng": 77.75,
+    "phone": "9880434567",
+    "hours": "08:00-21:00",
+    "capabilities": [
+      "tubeless",
+      "tube",
+      "car"
+    ],
+    "country_code": "IN",
+    "confidence": 0.8
+  },
+  {
+    "id": "seed_pu008",
+    "type": "puncture",
+    "name": "Electronic City Tyre Bangalore",
+    "lat": 12.841,
+    "lng": 77.675,
+    "phone": "9880534567",
+    "hours": "07:00-23:00",
+    "capabilities": [
+      "tubeless",
+      "tube",
+      "car",
+      "heavy_vehicle"
+    ],
+    "country_code": "IN",
+    "confidence": 0.85
+  },
+  {
+    "id": "seed_pu009",
+    "type": "puncture",
+    "name": "Saket Tyre Works Delhi",
+    "lat": 28.522,
+    "lng": 77.209,
+    "phone": "9810234567",
+    "hours": "08:00-22:00",
+    "capabilities": [
+      "tubeless",
+      "tube",
+      "car"
+    ],
+    "country_code": "IN",
+    "confidence": 0.85
+  },
+  {
+    "id": "seed_pu010",
+    "type": "puncture",
+    "name": "Andheri Tyre Shop Mumbai",
+    "lat": 19.1136,
+    "lng": 72.8697,
+    "phone": "9820234567",
+    "hours": "07:00-22:00",
+    "capabilities": [
+      "tubeless",
+      "tube",
+      "car",
+      "bike"
+    ],
+    "country_code": "IN",
+    "confidence": 0.85
+  },
+  {
+    "id": "seed_pu011",
+    "type": "puncture",
+    "name": "Banjara Hills Tyre Hyderabad",
+    "lat": 17.421,
+    "lng": 78.4397,
+    "phone": "9848234567",
+    "hours": "08:00-21:00",
+    "capabilities": [
+      "tubeless",
+      "tube",
+      "car"
+    ],
+    "country_code": "IN",
+    "confidence": 0.85
+  },
+  {
+    "id": "seed_pu012",
+    "type": "puncture",
+    "name": "Kothrud Tyre Centre Pune",
+    "lat": 18.5074,
+    "lng": 73.8077,
+    "phone": "9822234567",
+    "hours": "08:00-22:00",
+    "capabilities": [
+      "tubeless",
+      "tube",
+      "car",
+      "bike"
+    ],
+    "country_code": "IN",
+    "confidence": 0.85
+  },
+  {
+    "id": "seed_pu013",
+    "type": "puncture",
+    "name": "Alwarpet Tyre Chennai",
+    "lat": 13.0358,
+    "lng": 80.2541,
+    "phone": "9841234567",
+    "hours": "08:00-21:00",
+    "capabilities": [
+      "tubeless",
+      "tube",
+      "car"
+    ],
+    "country_code": "IN",
+    "confidence": 0.85
+  },
+  {
+    "id": "seed_pu014",
+    "type": "puncture",
+    "name": "Kochi Tyre Works Edapally",
+    "lat": 10.022,
+    "lng": 76.3088,
+    "phone": "9847234567",
+    "hours": "08:00-21:00",
+    "capabilities": [
+      "tubeless",
+      "tube",
+      "car",
+      "bike"
+    ],
+    "country_code": "IN",
+    "confidence": 0.85
+  },
+  {
+    "id": "seed_pu015",
+    "type": "puncture",
+    "name": "Gurugram NH48 Tyre Shop",
+    "lat": 28.422,
+    "lng": 77.012,
+    "phone": "9810334567",
+    "hours": "24/7",
+    "capabilities": [
+      "tubeless",
+      "tube",
+      "car",
+      "heavy_vehicle"
+    ],
+    "country_code": "IN",
+    "confidence": 0.85
+  },
+  {
+    "id": "seed_pu016",
+    "type": "puncture",
+    "name": "Vellore Road Tyre Repair",
+    "lat": 12.92,
+    "lng": 79.14,
+    "phone": "9943434567",
+    "hours": "07:00-22:00",
+    "capabilities": [
+      "tubeless",
+      "tube",
+      "car",
+      "heavy_vehicle"
+    ],
+    "country_code": "IN",
+    "confidence": 0.8
+  },
+  {
+    "id": "seed_pu017",
+    "type": "puncture",
+    "name": "Coimbatore Avinashi Road Tyres",
+    "lat": 11.038,
+    "lng": 77.049,
+    "phone": "9842234567",
+    "hours": "07:00-22:00",
+    "capabilities": [
+      "tubeless",
+      "tube",
+      "car",
+      "heavy_vehicle"
+    ],
+    "country_code": "IN",
+    "confidence": 0.85
+  },
+  {
+    "id": "seed_pu018",
+    "type": "puncture",
+    "name": "Velachery Tyre Chennai",
+    "lat": 12.9815,
+    "lng": 80.218,
+    "phone": "9841334567",
+    "hours": "08:00-22:00",
+    "capabilities": [
+      "tubeless",
+      "tube",
+      "car"
+    ],
+    "country_code": "IN",
+    "confidence": 0.85
+  },
+  {
+    "id": "seed_pu019",
+    "type": "puncture",
+    "name": "Kondapur Tyre Hyderabad",
+    "lat": 17.4605,
+    "lng": 78.3688,
+    "phone": "9848334567",
+    "hours": "08:00-21:00",
+    "capabilities": [
+      "tubeless",
+      "tube",
+      "car"
+    ],
+    "country_code": "IN",
+    "confidence": 0.85
+  },
+  {
+    "id": "seed_pu020",
+    "type": "puncture",
+    "name": "Gariahat Tyre Kolkata",
+    "lat": 22.515,
+    "lng": 88.366,
+    "phone": "9830234567",
+    "hours": "08:00-21:00",
+    "capabilities": [
+      "tubeless",
+      "tube",
+      "car",
+      "bike"
+    ],
+    "country_code": "IN",
+    "confidence": 0.85
+  },
+  {
+    "id": "seed_g001",
+    "type": "petrol",
+    "name": "Indian Oil Hosur Main Road",
+    "lat": 12.7355,
+    "lng": 77.8285,
+    "phone": "9944345678",
+    "hours": "24/7",
+    "capabilities": [
+      "petrol",
+      "diesel",
+      "ev_charging"
+    ],
+    "country_code": "IN",
+    "confidence": 0.9
+  },
+  {
+    "id": "seed_g002",
+    "type": "petrol",
+    "name": "HPCL Hosur Bypass",
+    "lat": 12.7185,
+    "lng": 77.841,
+    "phone": "9944445678",
+    "hours": "06:00-23:00",
+    "capabilities": [
+      "petrol",
+      "diesel"
+    ],
+    "country_code": "IN",
+    "confidence": 0.9
+  },
+  {
+    "id": "seed_g003",
+    "type": "petrol",
+    "name": "BPCL Mathigiri Hosur",
+    "lat": 12.757,
+    "lng": 77.849,
+    "phone": "9944545678",
+    "hours": "24/7",
+    "capabilities": [
+      "petrol",
+      "diesel",
+      "cng"
+    ],
+    "country_code": "IN",
+    "confidence": 0.9
+  },
+  {
+    "id": "seed_g004",
+    "type": "petrol",
+    "name": "Indian Oil Electronic City Bangalore",
+    "lat": 12.8398,
+    "lng": 77.6728,
+    "phone": "9880645678",
+    "hours": "24/7",
+    "capabilities": [
+      "petrol",
+      "diesel",
+      "ev_charging"
+    ],
+    "country_code": "IN",
+    "confidence": 0.9
+  },
+  {
+    "id": "seed_g005",
+    "type": "petrol",
+    "name": "HPCL Koramangala Bangalore",
+    "lat": 12.9279,
+    "lng": 77.6271,
+    "phone": "9880745678",
+    "hours": "24/7",
+    "capabilities": [
+      "petrol",
+      "diesel"
+    ],
+    "country_code": "IN",
+    "confidence": 0.9
+  },
+  {
+    "id": "seed_g006",
+    "type": "petrol",
+    "name": "BPCL Whitefield Bangalore",
+    "lat": 12.9789,
+    "lng": 77.748,
+    "phone": "9880845678",
+    "hours": "24/7",
+    "capabilities": [
+      "petrol",
+      "diesel",
+      "cng"
+    ],
+    "country_code": "IN",
+    "confidence": 0.9
+  },
+  {
+    "id": "seed_g007",
+    "type": "petrol",
+    "name": "Indian Oil Connaught Place Delhi",
+    "lat": 28.631,
+    "lng": 77.2177,
+    "phone": "9810445678",
+    "hours": "24/7",
+    "capabilities": [
+      "petrol",
+      "diesel",
+      "cng"
+    ],
+    "country_code": "IN",
+    "confidence": 0.9
+  },
+  {
+    "id": "seed_g008",
+    "type": "petrol",
+    "name": "HPCL Bandra Mumbai",
+    "lat": 19.0534,
+    "lng": 72.8299,
+    "phone": "9820445678",
+    "hours": "24/7",
+    "capabilities": [
+      "petrol",
+      "diesel"
+    ],
+    "country_code": "IN",
+    "confidence": 0.9
+  },
+  {
+    "id": "seed_g009",
+    "type": "petrol",
+    "name": "BPCL Anna Nagar Chennai",
+    "lat": 13.0912,
+    "lng": 80.2101,
+    "phone": "9841445678",
+    "hours": "24/7",
+    "capabilities": [
+      "petrol",
+      "diesel",
+      "ev_charging"
+    ],
+    "country_code": "IN",
+    "confidence": 0.9
+  },
+  {
+    "id": "seed_g010",
+    "type": "petrol",
+    "name": "Indian Oil Jubilee Hills Hyderabad",
+    "lat": 17.4249,
+    "lng": 78.4016,
+    "phone": "9848445678",
+    "hours": "24/7",
+    "capabilities": [
+      "petrol",
+      "diesel",
+      "cng"
+    ],
+    "country_code": "IN",
+    "confidence": 0.9
+  },
+  {
+    "id": "seed_g011",
+    "type": "petrol",
+    "name": "HPCL Park Street Kolkata",
+    "lat": 22.5508,
+    "lng": 88.3502,
+    "phone": "9830445678",
+    "hours": "24/7",
+    "capabilities": [
+      "petrol",
+      "diesel"
+    ],
+    "country_code": "IN",
+    "confidence": 0.9
+  },
+  {
+    "id": "seed_g012",
+    "type": "petrol",
+    "name": "BPCL Shivajinagar Pune",
+    "lat": 18.5295,
+    "lng": 73.8487,
+    "phone": "9822445678",
+    "hours": "24/7",
+    "capabilities": [
+      "petrol",
+      "diesel",
+      "cng"
+    ],
+    "country_code": "IN",
+    "confidence": 0.9
+  },
+  {
+    "id": "seed_g013",
+    "type": "petrol",
+    "name": "Indian Oil Edapally Kochi",
+    "lat": 10.0245,
+    "lng": 76.3114,
+    "phone": "9847445678",
+    "hours": "24/7",
+    "capabilities": [
+      "petrol",
+      "diesel",
+      "ev_charging"
+    ],
+    "country_code": "IN",
+    "confidence": 0.9
+  },
+  {
+    "id": "seed_g014",
+    "type": "petrol",
+    "name": "HPCL Gurugram Sector 14",
+    "lat": 28.4655,
+    "lng": 77.0311,
+    "phone": "9810545678",
+    "hours": "24/7",
+    "capabilities": [
+      "petrol",
+      "diesel",
+      "cng",
+      "ev_charging"
+    ],
+    "country_code": "IN",
+    "confidence": 0.9
+  },
+  {
+    "id": "seed_g015",
+    "type": "petrol",
+    "name": "Indian Oil Krishnagiri NH44",
+    "lat": 12.5195,
+    "lng": 78.2225,
+    "phone": "9943545678",
+    "hours": "24/7",
+    "capabilities": [
+      "petrol",
+      "diesel"
+    ],
+    "country_code": "IN",
+    "confidence": 0.9
+  },
+  {
+    "id": "seed_g016",
+    "type": "petrol",
+    "name": "BPCL Avinashi Road Coimbatore",
+    "lat": 11.036,
+    "lng": 77.042,
+    "phone": "9842445678",
+    "hours": "24/7",
+    "capabilities": [
+      "petrol",
+      "diesel",
+      "ev_charging"
+    ],
+    "country_code": "IN",
+    "confidence": 0.9
+  },
+  {
+    "id": "seed_g017",
+    "type": "petrol",
+    "name": "Indian Oil Velachery Chennai",
+    "lat": 12.975,
+    "lng": 80.2215,
+    "phone": "9841545678",
+    "hours": "24/7",
+    "capabilities": [
+      "petrol",
+      "diesel",
+      "cng"
+    ],
+    "country_code": "IN",
+    "confidence": 0.9
+  },
+  {
+    "id": "seed_g018",
+    "type": "petrol",
+    "name": "HPCL Kondapur Hyderabad",
+    "lat": 17.4595,
+    "lng": 78.3655,
+    "phone": "9848545678",
+    "hours": "24/7",
+    "capabilities": [
+      "petrol",
+      "diesel",
+      "ev_charging"
+    ],
+    "country_code": "IN",
+    "confidence": 0.9
+  },
+  {
+    "id": "seed_g019",
+    "type": "petrol",
+    "name": "BPCL Noida Sector 62",
+    "lat": 28.6272,
+    "lng": 77.3687,
+    "phone": "9811445678",
+    "hours": "24/7",
+    "capabilities": [
+      "petrol",
+      "diesel",
+      "cng"
+    ],
+    "country_code": "IN",
+    "confidence": 0.9
+  },
+  {
+    "id": "seed_g020",
+    "type": "petrol",
+    "name": "Indian Oil Vellore NH48",
+    "lat": 12.92,
+    "lng": 79.138,
+    "phone": "9843545678",
+    "hours": "24/7",
+    "capabilities": [
+      "petrol",
+      "diesel"
+    ],
+    "country_code": "IN",
+    "confidence": 0.9
+  },
+  {
+    "id": "seed_bb001",
+    "type": "blood_bank",
+    "name": "AIIMS Blood Bank Delhi",
+    "lat": 28.5678,
+    "lng": 77.2105,
+    "phone": "011-26593308",
+    "hours": "24/7",
+    "capabilities": [
+      "O+",
+      "O-",
+      "A+",
+      "A-",
+      "B+",
+      "B-",
+      "AB+",
+      "AB-",
+      "platelets",
+      "plasma"
+    ],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_bb002",
+    "type": "blood_bank",
+    "name": "KEM Hospital Blood Bank Mumbai",
+    "lat": 18.999,
+    "lng": 72.8415,
+    "phone": "022-24136052",
+    "hours": "24/7",
+    "capabilities": [
+      "O+",
+      "O-",
+      "A+",
+      "A-",
+      "B+",
+      "B-",
+      "AB+",
+      "AB-",
+      "platelets",
+      "plasma"
+    ],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_bb003",
+    "type": "blood_bank",
+    "name": "Victoria Hospital Blood Bank Bangalore",
+    "lat": 12.968,
+    "lng": 77.5736,
+    "phone": "080-26703700",
+    "hours": "24/7",
+    "capabilities": [
+      "O+",
+      "O-",
+      "A+",
+      "A-",
+      "B+",
+      "B-",
+      "AB+",
+      "AB-",
+      "platelets"
+    ],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_bb004",
+    "type": "blood_bank",
+    "name": "Government General Hospital Blood Bank Chennai",
+    "lat": 13.0832,
+    "lng": 80.2788,
+    "phone": "044-25305001",
+    "hours": "24/7",
+    "capabilities": [
+      "O+",
+      "O-",
+      "A+",
+      "A-",
+      "B+",
+      "B-",
+      "AB+",
+      "AB-",
+      "platelets",
+      "plasma"
+    ],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_bb005",
+    "type": "blood_bank",
+    "name": "NIMS Blood Bank Hyderabad",
+    "lat": 17.4,
+    "lng": 78.466,
+    "phone": "040-23489001",
+    "hours": "24/7",
+    "capabilities": [
+      "O+",
+      "O-",
+      "A+",
+      "A-",
+      "B+",
+      "B-",
+      "AB+",
+      "AB-",
+      "platelets",
+      "plasma"
+    ],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_bb006",
+    "type": "blood_bank",
+    "name": "SSKM Blood Bank Kolkata",
+    "lat": 22.539,
+    "lng": 88.351,
+    "phone": "033-22041055",
+    "hours": "24/7",
+    "capabilities": [
+      "O+",
+      "O-",
+      "A+",
+      "A-",
+      "B+",
+      "B-",
+      "AB+",
+      "AB-",
+      "platelets"
+    ],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_bb007",
+    "type": "blood_bank",
+    "name": "Rotary Blood Bank Pune",
+    "lat": 18.5319,
+    "lng": 73.8609,
+    "phone": "020-26440041",
+    "hours": "24/7",
+    "capabilities": [
+      "O+",
+      "O-",
+      "A+",
+      "A-",
+      "B+",
+      "B-",
+      "AB+",
+      "AB-",
+      "platelets",
+      "plasma"
+    ],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_bb008",
+    "type": "blood_bank",
+    "name": "CMC Blood Bank Vellore",
+    "lat": 12.9335,
+    "lng": 79.1338,
+    "phone": "0416-2281001",
+    "hours": "24/7",
+    "capabilities": [
+      "O+",
+      "O-",
+      "A+",
+      "A-",
+      "B+",
+      "B-",
+      "AB+",
+      "AB-",
+      "platelets",
+      "plasma"
+    ],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_bb009",
+    "type": "blood_bank",
+    "name": "Hosur Government Hospital Blood Bank",
+    "lat": 12.7342,
+    "lng": 77.827,
+    "phone": "04344-242277",
+    "hours": "24/7",
+    "capabilities": [
+      "O+",
+      "A+",
+      "B+",
+      "AB+",
+      "O-"
+    ],
+    "country_code": "IN",
+    "confidence": 0.85
+  },
+  {
+    "id": "seed_bb010",
+    "type": "blood_bank",
+    "name": "Amrita Blood Bank Kochi",
+    "lat": 10.0388,
+    "lng": 76.3222,
+    "phone": "0484-2801235",
+    "hours": "24/7",
+    "capabilities": [
+      "O+",
+      "O-",
+      "A+",
+      "A-",
+      "B+",
+      "B-",
+      "AB+",
+      "AB-",
+      "platelets",
+      "plasma"
+    ],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_am001",
+    "type": "ambulance",
+    "name": "108 Emergency Ambulance Hosur",
+    "lat": 12.735,
+    "lng": 77.826,
+    "phone": "108",
+    "hours": "24/7",
+    "capabilities": [
+      "als",
+      "bls",
+      "oxygen",
+      "defibrillator"
+    ],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_am002",
+    "type": "ambulance",
+    "name": "108 Emergency Ambulance Krishnagiri",
+    "lat": 12.521,
+    "lng": 78.2145,
+    "phone": "108",
+    "hours": "24/7",
+    "capabilities": [
+      "als",
+      "bls",
+      "oxygen"
+    ],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_am003",
+    "type": "ambulance",
+    "name": "Narayana Health Ambulance Bangalore",
+    "lat": 12.844,
+    "lng": 77.6718,
+    "phone": "1800-425-5508",
+    "hours": "24/7",
+    "capabilities": [
+      "als",
+      "bls",
+      "oxygen",
+      "defibrillator",
+      "nicu"
+    ],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_am004",
+    "type": "ambulance",
+    "name": "Apollo Ambulance Chennai",
+    "lat": 13.0567,
+    "lng": 80.252,
+    "phone": "1066",
+    "hours": "24/7",
+    "capabilities": [
+      "als",
+      "bls",
+      "oxygen",
+      "defibrillator"
+    ],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_am005",
+    "type": "ambulance",
+    "name": "CATS Ambulance Delhi",
+    "lat": 28.628,
+    "lng": 77.219,
+    "phone": "102",
+    "hours": "24/7",
+    "capabilities": [
+      "als",
+      "bls",
+      "oxygen",
+      "defibrillator"
+    ],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_am006",
+    "type": "ambulance",
+    "name": "108 GVK EMRI Mumbai",
+    "lat": 19.076,
+    "lng": 72.8777,
+    "phone": "108",
+    "hours": "24/7",
+    "capabilities": [
+      "als",
+      "bls",
+      "oxygen",
+      "defibrillator"
+    ],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_am007",
+    "type": "ambulance",
+    "name": "Ziqitza Ambulance Hyderabad",
+    "lat": 17.385,
+    "lng": 78.4867,
+    "phone": "1298",
+    "hours": "24/7",
+    "capabilities": [
+      "als",
+      "bls",
+      "oxygen",
+      "defibrillator"
+    ],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_am008",
+    "type": "ambulance",
+    "name": "108 Ambulance Kolkata",
+    "lat": 22.5726,
+    "lng": 88.3639,
+    "phone": "108",
+    "hours": "24/7",
+    "capabilities": [
+      "als",
+      "bls",
+      "oxygen"
+    ],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_am009",
+    "type": "ambulance",
+    "name": "Medanta Ambulance Gurugram",
+    "lat": 28.447,
+    "lng": 77.044,
+    "phone": "0124-4141414",
+    "hours": "24/7",
+    "capabilities": [
+      "als",
+      "bls",
+      "oxygen",
+      "defibrillator",
+      "nicu"
+    ],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_am010",
+    "type": "ambulance",
+    "name": "108 Ambulance Coimbatore",
+    "lat": 11.0168,
+    "lng": 76.9558,
+    "phone": "108",
+    "hours": "24/7",
+    "capabilities": [
+      "als",
+      "bls",
+      "oxygen",
+      "defibrillator"
+    ],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_ho051",
+    "type": "hospital",
+    "name": "Manipal Hospital Old Airport Road Bangalore",
+    "lat": 12.9601,
+    "lng": 77.648,
+    "phone": "080-25023000",
+    "hours": "24/7",
+    "capabilities": [
+      "neurosurgery",
+      "cath_lab",
+      "ct_scan",
+      "blood_bank",
+      "icu",
+      "emergency",
+      "ventilator",
+      "burn_unit"
+    ],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_ho052",
+    "type": "hospital",
+    "name": "Narayana Health City Bommasandra Bangalore",
+    "lat": 12.8411,
+    "lng": 77.6816,
+    "phone": "1800-843-6500",
+    "hours": "24/7",
+    "capabilities": [
+      "cath_lab",
+      "neurosurgery",
+      "ct_scan",
+      "blood_bank",
+      "icu",
+      "emergency",
+      "ventilator",
+      "paediatric_icu"
+    ],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_ho053",
+    "type": "hospital",
+    "name": "Fortis Hospital Bannerghatta Road Bangalore",
+    "lat": 12.8838,
+    "lng": 77.5975,
+    "phone": "080-66214444",
+    "hours": "24/7",
+    "capabilities": [
+      "cath_lab",
+      "neurosurgery",
+      "ct_scan",
+      "blood_bank",
+      "icu",
+      "emergency",
+      "ventilator"
+    ],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_ho054",
+    "type": "hospital",
+    "name": "Apollo Hospital Bannerghatta Road Bangalore",
+    "lat": 12.8997,
+    "lng": 77.5978,
+    "phone": "1860-500-1066",
+    "hours": "24/7",
+    "capabilities": [
+      "cath_lab",
+      "neurosurgery",
+      "ct_scan",
+      "blood_bank",
+      "icu",
+      "emergency",
+      "ventilator",
+      "burn_unit"
+    ],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_ho055",
+    "type": "hospital",
+    "name": "St John's Medical College Hospital Koramangala Bangalore",
+    "lat": 12.9248,
+    "lng": 77.6214,
+    "phone": "080-22065000",
+    "hours": "24/7",
+    "capabilities": [
+      "emergency",
+      "ct_scan",
+      "blood_bank",
+      "icu",
+      "ventilator",
+      "neurosurgery"
+    ],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_ho056",
+    "type": "hospital",
+    "name": "Bowring and Lady Curzon Hospital Shivajinagar Bangalore",
+    "lat": 12.9798,
+    "lng": 77.6103,
+    "phone": "080-25588500",
+    "hours": "24/7",
+    "capabilities": [
+      "emergency",
+      "ct_scan",
+      "blood_bank",
+      "icu"
+    ],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_ho057",
+    "type": "hospital",
+    "name": "NIMHANS Hosur Road Bangalore",
+    "lat": 12.9418,
+    "lng": 77.596,
+    "phone": "080-46110007",
+    "hours": "24/7",
+    "capabilities": [
+      "neurosurgery",
+      "ct_scan",
+      "icu",
+      "emergency"
+    ],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_ho058",
+    "type": "hospital",
+    "name": "Sakra World Hospital Marathahalli Bangalore",
+    "lat": 12.9554,
+    "lng": 77.7,
+    "phone": "080-49694969",
+    "hours": "24/7",
+    "capabilities": [
+      "cath_lab",
+      "neurosurgery",
+      "ct_scan",
+      "blood_bank",
+      "icu",
+      "emergency",
+      "ventilator"
+    ],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_ho059",
+    "type": "hospital",
+    "name": "Aster CMI Hospital Hebbal Bangalore",
+    "lat": 13.0435,
+    "lng": 77.597,
+    "phone": "080-43422222",
+    "hours": "24/7",
+    "capabilities": [
+      "cath_lab",
+      "neurosurgery",
+      "ct_scan",
+      "blood_bank",
+      "icu",
+      "emergency",
+      "ventilator",
+      "paediatric_icu"
+    ],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_ho060",
+    "type": "hospital",
+    "name": "BGS Gleneagles Global Hospital Kengeri Bangalore",
+    "lat": 12.9099,
+    "lng": 77.4836,
+    "phone": "080-26730000",
+    "hours": "24/7",
+    "capabilities": [
+      "cath_lab",
+      "neurosurgery",
+      "ct_scan",
+      "blood_bank",
+      "icu",
+      "emergency",
+      "ventilator"
+    ],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_ho061",
+    "type": "hospital",
+    "name": "Vikram Hospital Millers Road Bangalore",
+    "lat": 13.0015,
+    "lng": 77.5731,
+    "phone": "080-40206000",
+    "hours": "24/7",
+    "capabilities": [
+      "cath_lab",
+      "ct_scan",
+      "blood_bank",
+      "icu",
+      "emergency",
+      "ventilator"
+    ],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_ho062",
+    "type": "hospital",
+    "name": "Columbia Asia Hospital Hebbal Bangalore",
+    "lat": 13.0407,
+    "lng": 77.5952,
+    "phone": "080-61166666",
+    "hours": "24/7",
+    "capabilities": [
+      "cath_lab",
+      "ct_scan",
+      "blood_bank",
+      "icu",
+      "emergency",
+      "ventilator"
+    ],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_ho063",
+    "type": "hospital",
+    "name": "Sparsh Hospital Yeshwanthpur Bangalore",
+    "lat": 13.0219,
+    "lng": 77.5536,
+    "phone": "080-49202222",
+    "hours": "24/7",
+    "capabilities": [
+      "neurosurgery",
+      "ct_scan",
+      "blood_bank",
+      "icu",
+      "emergency",
+      "ventilator"
+    ],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_ho064",
+    "type": "hospital",
+    "name": "Manipal Hospital Yeshwanthpur Bangalore",
+    "lat": 13.024,
+    "lng": 77.5549,
+    "phone": "080-22222222",
+    "hours": "24/7",
+    "capabilities": [
+      "cath_lab",
+      "neurosurgery",
+      "ct_scan",
+      "blood_bank",
+      "icu",
+      "emergency",
+      "ventilator"
+    ],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_ho065",
+    "type": "hospital",
+    "name": "Mallya Hospital Vittal Mallya Road Bangalore",
+    "lat": 12.9748,
+    "lng": 77.5972,
+    "phone": "080-22277979",
+    "hours": "24/7",
+    "capabilities": [
+      "cath_lab",
+      "ct_scan",
+      "blood_bank",
+      "icu",
+      "emergency",
+      "ventilator"
+    ],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_ho066",
+    "type": "hospital",
+    "name": "MS Ramaiah Memorial Hospital MSR Nagar Bangalore",
+    "lat": 13.03,
+    "lng": 77.5614,
+    "phone": "080-23600888",
+    "hours": "24/7",
+    "capabilities": [
+      "cath_lab",
+      "neurosurgery",
+      "ct_scan",
+      "blood_bank",
+      "icu",
+      "emergency",
+      "ventilator",
+      "paediatric_icu"
+    ],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_ho067",
+    "type": "hospital",
+    "name": "Rajiv Gandhi Government General Hospital Bangalore",
+    "lat": 12.9648,
+    "lng": 77.571,
+    "phone": "080-26703272",
+    "hours": "24/7",
+    "capabilities": [
+      "emergency",
+      "ct_scan",
+      "blood_bank",
+      "icu",
+      "burn_unit"
+    ],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_ho068",
+    "type": "hospital",
+    "name": "Sanjay Gandhi Accident Hospital Byappanahalli Bangalore",
+    "lat": 12.9912,
+    "lng": 77.6491,
+    "phone": "080-25485554",
+    "hours": "24/7",
+    "capabilities": [
+      "emergency",
+      "ct_scan",
+      "blood_bank",
+      "icu",
+      "burn_unit"
+    ],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_ho069",
+    "type": "hospital",
+    "name": "Jayadeva Institute of Cardiovascular Sciences Jayanagar Bangalore",
+    "lat": 12.9184,
+    "lng": 77.5957,
+    "phone": "080-22977272",
+    "hours": "24/7",
+    "capabilities": [
+      "cath_lab",
+      "ct_scan",
+      "blood_bank",
+      "icu",
+      "emergency",
+      "ventilator"
+    ],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_ho070",
+    "type": "hospital",
+    "name": "Rajarajeshwari Medical College Hospital Kengeri Bangalore",
+    "lat": 12.9135,
+    "lng": 77.4752,
+    "phone": "080-28610408",
+    "hours": "24/7",
+    "capabilities": [
+      "emergency",
+      "ct_scan",
+      "blood_bank",
+      "icu",
+      "ventilator"
+    ],
+    "country_code": "IN",
+    "confidence": 0.9
+  },
+  {
+    "id": "seed_po036",
+    "type": "police",
+    "name": "Cubbon Park Police Station Bangalore",
+    "lat": 12.977,
+    "lng": 77.593,
+    "phone": "080-22942222",
+    "hours": "24/7",
+    "capabilities": [],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_po037",
+    "type": "police",
+    "name": "Shivajinagar Police Station Bangalore",
+    "lat": 12.9832,
+    "lng": 77.6033,
+    "phone": "080-22863411",
+    "hours": "24/7",
+    "capabilities": [],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_po038",
+    "type": "police",
+    "name": "Ulsoor Police Station Bangalore",
+    "lat": 12.9823,
+    "lng": 77.6198,
+    "phone": "080-25591110",
+    "hours": "24/7",
+    "capabilities": [],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_po039",
+    "type": "police",
+    "name": "Hebbal Police Station Bangalore",
+    "lat": 13.0441,
+    "lng": 77.5908,
+    "phone": "080-23635000",
+    "hours": "24/7",
+    "capabilities": [],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_po040",
+    "type": "police",
+    "name": "JP Nagar Police Station Bangalore",
+    "lat": 12.9043,
+    "lng": 77.584,
+    "phone": "080-26491700",
+    "hours": "24/7",
+    "capabilities": [],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_po041",
+    "type": "police",
+    "name": "Jayanagar Police Station Bangalore",
+    "lat": 12.9307,
+    "lng": 77.5832,
+    "phone": "080-22440555",
+    "hours": "24/7",
+    "capabilities": [],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_po042",
+    "type": "police",
+    "name": "Yeshwanthpur Police Station Bangalore",
+    "lat": 13.0221,
+    "lng": 77.5534,
+    "phone": "080-23375767",
+    "hours": "24/7",
+    "capabilities": [],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_po043",
+    "type": "police",
+    "name": "Marathahalli Police Station Bangalore",
+    "lat": 12.9591,
+    "lng": 77.7006,
+    "phone": "080-25720510",
+    "hours": "24/7",
+    "capabilities": [],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_po044",
+    "type": "police",
+    "name": "HSR Layout Police Station Bangalore",
+    "lat": 12.9116,
+    "lng": 77.6389,
+    "phone": "080-22947575",
+    "hours": "24/7",
+    "capabilities": [],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_po045",
+    "type": "police",
+    "name": "Bellandur Police Station Bangalore",
+    "lat": 12.9259,
+    "lng": 77.6762,
+    "phone": "080-22948484",
+    "hours": "24/7",
+    "capabilities": [],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_po046",
+    "type": "police",
+    "name": "Rajajinagar Police Station Bangalore",
+    "lat": 12.9941,
+    "lng": 77.5538,
+    "phone": "080-23378155",
+    "hours": "24/7",
+    "capabilities": [],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_po047",
+    "type": "police",
+    "name": "Banashankari Police Station Bangalore",
+    "lat": 12.926,
+    "lng": 77.546,
+    "phone": "080-26713700",
+    "hours": "24/7",
+    "capabilities": [],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_po048",
+    "type": "police",
+    "name": "Hennur Police Station Bangalore",
+    "lat": 13.043,
+    "lng": 77.6241,
+    "phone": "080-23631300",
+    "hours": "24/7",
+    "capabilities": [],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_po049",
+    "type": "police",
+    "name": "BTM Layout Police Station Bangalore",
+    "lat": 12.9165,
+    "lng": 77.6101,
+    "phone": "080-22943030",
+    "hours": "24/7",
+    "capabilities": [],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_po050",
+    "type": "police",
+    "name": "Yelahanka Police Station Bangalore",
+    "lat": 13.1007,
+    "lng": 77.5963,
+    "phone": "080-28466100",
+    "hours": "24/7",
+    "capabilities": [],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_tw021",
+    "type": "towing",
+    "name": "BBMP Vehicle Towing Indiranagar Bangalore",
+    "lat": 12.9784,
+    "lng": 77.6408,
+    "phone": "1533",
+    "hours": "24/7",
+    "capabilities": [
+      "heavy_tow",
+      "flatbed",
+      "accident_recovery"
+    ],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_tw022",
+    "type": "towing",
+    "name": "QuickTow Koramangala Bangalore",
+    "lat": 12.9352,
+    "lng": 77.6245,
+    "phone": "080-41157777",
+    "hours": "24/7",
+    "capabilities": [
+      "flatbed",
+      "accident_recovery",
+      "biker_rescue"
+    ],
+    "country_code": "IN",
+    "confidence": 0.9
+  },
+  {
+    "id": "seed_tw023",
+    "type": "towing",
+    "name": "Hebbal Road Towing and Recovery Bangalore",
+    "lat": 13.0353,
+    "lng": 77.597,
+    "phone": "9845012345",
+    "hours": "24/7",
+    "capabilities": [
+      "heavy_tow",
+      "flatbed",
+      "accident_recovery"
+    ],
+    "country_code": "IN",
+    "confidence": 0.9
+  },
+  {
+    "id": "seed_tw024",
+    "type": "towing",
+    "name": "ORR Towing Service Outer Ring Road Bangalore",
+    "lat": 12.9591,
+    "lng": 77.695,
+    "phone": "9900112233",
+    "hours": "24/7",
+    "capabilities": [
+      "flatbed",
+      "accident_recovery",
+      "heavy_tow"
+    ],
+    "country_code": "IN",
+    "confidence": 0.9
+  },
+  {
+    "id": "seed_tw025",
+    "type": "towing",
+    "name": "Yeshwanthpur Towing Point Tumkur Road Bangalore",
+    "lat": 13.0221,
+    "lng": 77.5534,
+    "phone": "9844433221",
+    "hours": "24/7",
+    "capabilities": [
+      "flatbed",
+      "accident_recovery"
+    ],
+    "country_code": "IN",
+    "confidence": 0.9
+  },
+  {
+    "id": "seed_tw026",
+    "type": "towing",
+    "name": "Bannerghatta Road Towing Bangalore",
+    "lat": 12.8992,
+    "lng": 77.5977,
+    "phone": "9741100000",
+    "hours": "24/7",
+    "capabilities": [
+      "flatbed",
+      "accident_recovery",
+      "heavy_tow"
+    ],
+    "country_code": "IN",
+    "confidence": 0.9
+  },
+  {
+    "id": "seed_tw027",
+    "type": "towing",
+    "name": "Mysore Road Vehicle Recovery Bangalore",
+    "lat": 12.9543,
+    "lng": 77.4968,
+    "phone": "9886655443",
+    "hours": "24/7",
+    "capabilities": [
+      "flatbed",
+      "accident_recovery"
+    ],
+    "country_code": "IN",
+    "confidence": 0.9
+  },
+  {
+    "id": "seed_tw028",
+    "type": "towing",
+    "name": "Sarjapur Road Towing Bangalore",
+    "lat": 12.91,
+    "lng": 77.68,
+    "phone": "9900887766",
+    "hours": "24/7",
+    "capabilities": [
+      "flatbed",
+      "accident_recovery",
+      "biker_rescue"
+    ],
+    "country_code": "IN",
+    "confidence": 0.9
+  },
+  {
+    "id": "seed_pu021",
+    "type": "puncture",
+    "name": "Rajesh Tyre Service Hebbal Bangalore",
+    "lat": 13.0355,
+    "lng": 77.594,
+    "phone": "9845601230",
+    "hours": "08:00-22:00",
+    "capabilities": [
+      "tubeless_repair",
+      "balancing",
+      "alignment"
+    ],
+    "country_code": "IN",
+    "confidence": 0.9
+  },
+  {
+    "id": "seed_pu022",
+    "type": "puncture",
+    "name": "Kumar Tyre Works JP Nagar Bangalore",
+    "lat": 12.9043,
+    "lng": 77.5818,
+    "phone": "9741234560",
+    "hours": "08:00-21:00",
+    "capabilities": [
+      "tubeless_repair",
+      "balancing"
+    ],
+    "country_code": "IN",
+    "confidence": 0.9
+  },
+  {
+    "id": "seed_pu023",
+    "type": "puncture",
+    "name": "Sai Tyre Shoppe Jayanagar Bangalore",
+    "lat": 12.9307,
+    "lng": 77.5849,
+    "phone": "9886012340",
+    "hours": "08:00-21:00",
+    "capabilities": [
+      "tubeless_repair",
+      "two_wheeler"
+    ],
+    "country_code": "IN",
+    "confidence": 0.9
+  },
+  {
+    "id": "seed_pu024",
+    "type": "puncture",
+    "name": "Vinayaka Tyres Rajajinagar Bangalore",
+    "lat": 12.9941,
+    "lng": 77.552,
+    "phone": "9844901230",
+    "hours": "08:00-22:00",
+    "capabilities": [
+      "tubeless_repair",
+      "balancing",
+      "alignment"
+    ],
+    "country_code": "IN",
+    "confidence": 0.9
+  },
+  {
+    "id": "seed_pu025",
+    "type": "puncture",
+    "name": "Highway Tyre Fit Bannerghatta Road Bangalore",
+    "lat": 12.8992,
+    "lng": 77.596,
+    "phone": "9900234560",
+    "hours": "07:00-23:00",
+    "capabilities": [
+      "tubeless_repair",
+      "balancing",
+      "heavy_vehicle"
+    ],
+    "country_code": "IN",
+    "confidence": 0.9
+  },
+  {
+    "id": "seed_pu026",
+    "type": "puncture",
+    "name": "Marathahalli Tyre Point Bangalore",
+    "lat": 12.9591,
+    "lng": 77.698,
+    "phone": "9741567890",
+    "hours": "07:00-22:00",
+    "capabilities": [
+      "tubeless_repair",
+      "balancing",
+      "alignment"
+    ],
+    "country_code": "IN",
+    "confidence": 0.9
+  },
+  {
+    "id": "seed_pu027",
+    "type": "puncture",
+    "name": "Quick Fix Tyres BTM Layout Bangalore",
+    "lat": 12.9165,
+    "lng": 77.6095,
+    "phone": "9886789010",
+    "hours": "08:00-21:00",
+    "capabilities": [
+      "tubeless_repair",
+      "two_wheeler"
+    ],
+    "country_code": "IN",
+    "confidence": 0.9
+  },
+  {
+    "id": "seed_pu028",
+    "type": "puncture",
+    "name": "National Tyres Yeshwanthpur Bangalore",
+    "lat": 13.0215,
+    "lng": 77.552,
+    "phone": "9844123450",
+    "hours": "08:00-21:00",
+    "capabilities": [
+      "tubeless_repair",
+      "balancing",
+      "alignment"
+    ],
+    "country_code": "IN",
+    "confidence": 0.9
+  },
+  {
+    "id": "seed_pu029",
+    "type": "puncture",
+    "name": "Speed Tyre Service Mysore Road Bangalore",
+    "lat": 12.954,
+    "lng": 77.4965,
+    "phone": "9900345671",
+    "hours": "07:00-22:00",
+    "capabilities": [
+      "tubeless_repair",
+      "balancing",
+      "heavy_vehicle"
+    ],
+    "country_code": "IN",
+    "confidence": 0.9
+  },
+  {
+    "id": "seed_pu030",
+    "type": "puncture",
+    "name": "Yelahanka Tyre Fix Bangalore",
+    "lat": 13.1005,
+    "lng": 77.595,
+    "phone": "9741890120",
+    "hours": "08:00-21:00",
+    "capabilities": [
+      "tubeless_repair",
+      "two_wheeler"
+    ],
+    "country_code": "IN",
+    "confidence": 0.9
+  },
+  {
+    "id": "seed_pe021",
+    "type": "petrol",
+    "name": "Indian Oil Hebbal Bangalore",
+    "lat": 13.035,
+    "lng": 77.596,
+    "phone": null,
+    "hours": "24/7",
+    "capabilities": [
+      "petrol",
+      "diesel",
+      "cng",
+      "ev_charging"
+    ],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_pe022",
+    "type": "petrol",
+    "name": "HPCL JP Nagar Bangalore",
+    "lat": 12.904,
+    "lng": 77.583,
+    "phone": null,
+    "hours": "24/7",
+    "capabilities": [
+      "petrol",
+      "diesel"
+    ],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_pe023",
+    "type": "petrol",
+    "name": "BPCL Jayanagar Bangalore",
+    "lat": 12.93,
+    "lng": 77.584,
+    "phone": null,
+    "hours": "24/7",
+    "capabilities": [
+      "petrol",
+      "diesel",
+      "cng"
+    ],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_pe024",
+    "type": "petrol",
+    "name": "Indian Oil Rajajinagar Bangalore",
+    "lat": 12.9935,
+    "lng": 77.5535,
+    "phone": null,
+    "hours": "24/7",
+    "capabilities": [
+      "petrol",
+      "diesel"
+    ],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_pe025",
+    "type": "petrol",
+    "name": "HPCL Marathahalli Bangalore",
+    "lat": 12.9595,
+    "lng": 77.699,
+    "phone": null,
+    "hours": "24/7",
+    "capabilities": [
+      "petrol",
+      "diesel",
+      "ev_charging"
+    ],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_pe026",
+    "type": "petrol",
+    "name": "BPCL Bannerghatta Road Bangalore",
+    "lat": 12.899,
+    "lng": 77.5968,
+    "phone": null,
+    "hours": "24/7",
+    "capabilities": [
+      "petrol",
+      "diesel",
+      "cng"
+    ],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_pe027",
+    "type": "petrol",
+    "name": "Indian Oil Mysore Road Bangalore",
+    "lat": 12.954,
+    "lng": 77.496,
+    "phone": null,
+    "hours": "24/7",
+    "capabilities": [
+      "petrol",
+      "diesel"
+    ],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_pe028",
+    "type": "petrol",
+    "name": "HPCL Yeshwanthpur Tumkur Road Bangalore",
+    "lat": 13.021,
+    "lng": 77.553,
+    "phone": null,
+    "hours": "24/7",
+    "capabilities": [
+      "petrol",
+      "diesel",
+      "cng"
+    ],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_pe029",
+    "type": "petrol",
+    "name": "BPCL Sarjapur Road Bangalore",
+    "lat": 12.9095,
+    "lng": 77.6795,
+    "phone": null,
+    "hours": "24/7",
+    "capabilities": [
+      "petrol",
+      "diesel",
+      "ev_charging"
+    ],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_pe030",
+    "type": "petrol",
+    "name": "Indian Oil Yelahanka Bangalore",
+    "lat": 13.101,
+    "lng": 77.5955,
+    "phone": null,
+    "hours": "24/7",
+    "capabilities": [
+      "petrol",
+      "diesel"
+    ],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_bb011",
+    "type": "blood_bank",
+    "name": "KIDWAI Memorial Institute Blood Bank Bangalore",
+    "lat": 12.9273,
+    "lng": 77.5966,
+    "phone": "080-26094000",
+    "hours": "24/7",
+    "capabilities": [
+      "all_groups",
+      "platelets",
+      "plasma",
+      "apheresis"
+    ],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_bb012",
+    "type": "blood_bank",
+    "name": "St Johns Hospital Blood Bank Koramangala Bangalore",
+    "lat": 12.9248,
+    "lng": 77.6214,
+    "phone": "080-22065000",
+    "hours": "24/7",
+    "capabilities": [
+      "all_groups",
+      "platelets",
+      "plasma"
+    ],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_bb013",
+    "type": "blood_bank",
+    "name": "Indian Red Cross Blood Bank Shivajinagar Bangalore",
+    "lat": 12.9832,
+    "lng": 77.6033,
+    "phone": "080-22863917",
+    "hours": "08:00-20:00",
+    "capabilities": [
+      "all_groups",
+      "platelets"
+    ],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_bb014",
+    "type": "blood_bank",
+    "name": "Narayana Hrudayalaya Blood Bank Bommasandra Bangalore",
+    "lat": 12.8411,
+    "lng": 77.6816,
+    "phone": "1800-843-6500",
+    "hours": "24/7",
+    "capabilities": [
+      "all_groups",
+      "platelets",
+      "plasma",
+      "apheresis"
+    ],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_bb015",
+    "type": "blood_bank",
+    "name": "Rotary TTK Blood Bank Malleswaram Bangalore",
+    "lat": 13.0035,
+    "lng": 77.5682,
+    "phone": "080-23344560",
+    "hours": "08:00-20:00",
+    "capabilities": [
+      "all_groups",
+      "platelets",
+      "plasma"
+    ],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_am011",
+    "type": "ambulance",
+    "name": "CATS Ambulance Bangalore City",
+    "lat": 12.9716,
+    "lng": 77.5946,
+    "phone": "1099",
+    "hours": "24/7",
+    "capabilities": [
+      "als",
+      "bls",
+      "oxygen",
+      "defibrillator",
+      "trauma"
+    ],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_am012",
+    "type": "ambulance",
+    "name": "GVK EMRI 108 Ambulance Bangalore",
+    "lat": 12.9716,
+    "lng": 77.5946,
+    "phone": "108",
+    "hours": "24/7",
+    "capabilities": [
+      "als",
+      "bls",
+      "oxygen",
+      "defibrillator"
+    ],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_am013",
+    "type": "ambulance",
+    "name": "Fortis Emergency Ambulance Bannerghatta Bangalore",
+    "lat": 12.8838,
+    "lng": 77.5975,
+    "phone": "080-66214444",
+    "hours": "24/7",
+    "capabilities": [
+      "als",
+      "bls",
+      "oxygen",
+      "defibrillator",
+      "nicu_transport"
+    ],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_am014",
+    "type": "ambulance",
+    "name": "Aster Emergency Ambulance Hebbal Bangalore",
+    "lat": 13.0435,
+    "lng": 77.597,
+    "phone": "080-43422222",
+    "hours": "24/7",
+    "capabilities": [
+      "als",
+      "bls",
+      "oxygen",
+      "defibrillator",
+      "nicu_transport"
+    ],
+    "country_code": "IN",
+    "confidence": 1.0
+  },
+  {
+    "id": "seed_am015",
+    "type": "ambulance",
+    "name": "St Johns Ambulance Service Bangalore",
+    "lat": 12.9248,
+    "lng": 77.6214,
+    "phone": "080-22065000",
+    "hours": "24/7",
+    "capabilities": [
+      "als",
+      "bls",
+      "oxygen",
+      "defibrillator"
+    ],
+    "country_code": "IN",
+    "confidence": 1.0
+  }
+]

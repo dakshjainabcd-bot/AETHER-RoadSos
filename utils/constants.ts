@@ -101,29 +101,34 @@ export const CRASH_DETECTION = {
   SEVERITY_THRESHOLDS: { MINOR: 3, LOW: 5, MODERATE: 8, SEVERE: 12 },
 };
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Phase 5: OpenAI Whisper API Key
+// ─────────────────────────────────────────────────────────────────────────────
+//
+// HOW TO GET YOUR KEY (free tier available):
+//   1. Go to https://platform.openai.com/api-keys
+//   2. Sign up / log in
+//   3. Click "Create new secret key"
+//   4. Paste it below (starts with "sk-")
+//
+// WHAT IT IS USED FOR:
+//   - Speech-to-Text via OpenAI Whisper API (same model as the open-source repo)
+//   - Model: whisper-1 (≈ large-v2) — supports 99 languages
+//   - Endpoint: POST https://api.openai.com/v1/audio/transcriptions
+//
+// COST:
+//   - $0.006 per minute of audio (~1 cent per 1.6 minutes)
+//   - Free tier: $5 of credits on new accounts
+//   - For a hackathon / emergency app: essentially free
+//
+// SECURITY:
+//   - This is fine for hackathon / demo use
+//   - For production: move to a backend proxy so the key isn't in the app bundle
+//
+export const OPENAI_API_KEY = 'YOUR_OPENAI_API_KEY_HERE'; // ← PASTE YOUR KEY HERE
 
-
-// ─── Phase 5: STT — Google Gemini API Key ────────────────────────────────────
-//
-// Get your key: https://aistudio.google.com/app/apikey  (free, no credit card)
-// Used by: services/MultilingualBridge/WhisperSTT.ts
-// Purpose: Speech-to-text via Gemini 1.5 Flash (multimodal audio input)
-//
-// WHY GEMINI FOR STT?
-//   Gemini 1.5 Flash accepts raw audio files and returns transcriptions.
-//   It supports all Indian languages (Hindi, Tamil, Telugu, Kannada,
-//   Malayalam, Bengali, Gujarati, Punjabi) plus 100+ others.
-//
-//   Free tier (Google AI Studio key):
-//     15 requests/minute, 1 million tokens/day — more than enough for demos.
-//
-//   Same key works for both STT (WhisperSTT.ts) and any future
-//   Gemini text/vision features you add.
-//
-// SECURITY: Hackathon/demo only. Production → backend proxy.
-//
-export const GEMINI_API_KEY = 'AIzaSyCe6_gv4QQAfhBbXn_jCNjHNb37MpBewV4'; // ← PASTE KEY
-
-// Gemini model to use for STT — Flash is faster and cheaper than Pro
-// for transcription tasks; accuracy is equivalent for speech.
-export const GEMINI_STT_MODEL = 'gemini-1.5-flash';
+// ─────────────────────────────────────────────────────────────────────────────
+// Gemini (kept for BystAI vision analysis only — NOT used for STT anymore)
+// ─────────────────────────────────────────────────────────────────────────────
+export const GEMINI_API_KEY = 'YOUR_GEMINI_API_KEY_HERE';
+export const GEMINI_STT_MODEL = 'gemini-1.5-flash'; // kept for vision in BystAI only
