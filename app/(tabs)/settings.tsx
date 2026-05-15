@@ -26,6 +26,7 @@ import { getPoiCountByType } from '../../services/POIDatabase';
 import { LANGUAGES, STORAGE_KEYS, type LanguageCode } from '../../utils/constants';
 import { Colors, BorderRadius, Shadows, Layout } from '../../theme';
 import { crashDetectionEngine } from '../../services/CrashDetection/CrashDetectionEngine';
+import { onlinePOIService } from '../../services/OnlinePOIService';
 
 
 export default function SettingsScreen() {
@@ -169,6 +170,19 @@ export default function SettingsScreen() {
           label="Test Crash Detection"
           value="Triggers the 5-second SOS countdown"
           onPress={() => crashDetectionEngine.triggerTestSOS()}
+          showChevron
+        />
+        <View style={styles.separator} />
+        <SettingsRow
+          icon="trash-outline"
+          iconBg="#FFEDEC"
+          iconColor={Colors.brand.primary}
+          label="Clear Online POI Cache"
+          value="Forces re-fetch on next open"
+          onPress={async () => {
+            await onlinePOIService.clearCache();
+            Alert.alert('Done', 'Cache cleared. Will re-fetch on next open.');
+          }}
           showChevron
         />
       </View>

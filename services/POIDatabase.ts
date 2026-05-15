@@ -35,6 +35,7 @@
 import * as SQLite from 'expo-sqlite';
 import { haversineDistance, sortByDistance } from '../utils/haversine';
 import { SEARCH_RADIUS, POI_TYPES, type POIType } from '../utils/constants';
+import seedData from '../assets/data/seed_pois.json';
 
 // Define what a POI looks like in our app
 export interface POI {
@@ -277,104 +278,29 @@ export async function getPoiCountByType(): Promise<Record<string, number>> {
  * The Python script will populate with real OSM data
  */
 async function seedSampleData(): Promise<void> {
-  console.log('[POIDatabase] Seeding sample data for development...');
-
-  const samplePOIs: Omit<POI, 'distance' | 'distanceText'>[] = [
-    // Bangalore area hospitals
-    {
-      id: 'sample_h1',
-      type: POI_TYPES.HOSPITAL,
-      name: 'Manipal Hospital (Whitefield)',
-      lat: 12.9716,
-      lng: 77.7494,
-      phone: '080-25024444',
-      hours: '24/7',
-      capabilities: ['neurosurgery', 'ventilator', 'blood_bank', 'ct_scan'],
-      country_code: 'IN',
-      confidence: 0.9,
-    },
-    {
-      id: 'sample_h2',
-      type: POI_TYPES.HOSPITAL,
-      name: 'St. John\'s Medical College Hospital',
-      lat: 12.9253,
-      lng: 77.6175,
-      phone: '080-22065000',
-      hours: '24/7',
-      capabilities: ['neurosurgery', 'ventilator', 'blood_bank', 'burn_unit', 'paediatric_icu'],
-      country_code: 'IN',
-      confidence: 0.95,
-    },
-    {
-      id: 'sample_h3',
-      type: POI_TYPES.HOSPITAL,
-      name: 'Victoria Hospital',
-      lat: 12.9634,
-      lng: 77.5696,
-      phone: '080-26701150',
-      hours: '24/7',
-      capabilities: ['neurosurgery', 'ventilator', 'blood_bank'],
-      country_code: 'IN',
-      confidence: 0.85,
-    },
-    // Police stations
-    {
-      id: 'sample_p1',
-      type: POI_TYPES.POLICE,
-      name: 'Whitefield Police Station',
-      lat: 12.9698,
-      lng: 77.7500,
-      phone: '080-22944444',
-      hours: '24/7',
-      capabilities: [],
-      country_code: 'IN',
-      confidence: 0.9,
-    },
-    {
-      id: 'sample_p2',
-      type: POI_TYPES.POLICE,
-      name: 'Indiranagar Police Station',
-      lat: 12.9716,
-      lng: 77.6412,
-      phone: '080-22294400',
-      hours: '24/7',
-      capabilities: [],
-      country_code: 'IN',
-      confidence: 0.9,
-    },
-    // Towing services
-    {
-      id: 'sample_t1',
-      type: POI_TYPES.TOWING,
-      name: 'City Towing Services',
-      lat: 12.9800,
-      lng: 77.6200,
-      phone: '9876543210',
-      hours: '24/7',
-      capabilities: [],
-      country_code: 'IN',
-      confidence: 0.7,
-    },
-    // Puncture shops
-    {
-      id: 'sample_pt1',
-      type: POI_TYPES.PUNCTURE,
-      name: 'Quick Fix Tyres',
-      lat: 12.9750,
-      lng: 77.6300,
-      phone: '9876543211',
-      hours: '6AM-10PM',
-      capabilities: [],
-      country_code: 'IN',
-      confidence: 0.7,
-    },
-  ];
-
-  for (const poi of samplePOIs) {
-    await upsertPOI(poi);
+  // Load from the comprehensive JSON seed file instead of hardcoded samples.
+  // seed_pois.json lives at assets/data/seed_pois.json and is bundled with
+  // the app automatically because app.json has assetBundlePatterns: ["**/*"].
+  const pois = seedData as Array<{
+    id: string;
+    type: string;
+    name: string;
+    lat: number;
+    lng: number;
+    phone: string | null;
+    hours: string | null;
+    capabilities: string[];
+    country_code: string;
+    confidence: number;
+  }>;
+ 
+  console.log(`[POIDatabase] Seeding ${pois.length} POIs from seed_pois.json…`);
+ 
+  for (const poi of pois) {
+    await upsertPOI(poi as any);
   }
-
-  console.log(`[POIDatabase] Seeded ${samplePOIs.length} sample POIs`);
+ 
+  console.log('[POIDatabase] Seed complete.');
 }
 
 // Safe JSON parse with fallback

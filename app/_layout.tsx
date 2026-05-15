@@ -15,7 +15,7 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { View, ActivityIndicator, StyleSheet, Text } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-
+import { onlinePOIService } from '../services/OnlinePOIService';
 import { initializeMCCService, type EmergencyNumbers } from '../services/MCCService';
 import { initializeDatabase } from '../services/POIDatabase';
 import { requestLocationPermissions, startBackgroundTracking, getLastKnownLocation } from '../services/GPSService';
@@ -215,6 +215,7 @@ export default function RootLayout() {
       if (gpsGranted) await startBackgroundTracking();
 
       await meshRelayManager.initialize();
+      onlinePOIService.initialize();
       crashDetectionEngine.initialize();
 
       setIsInitialized(true);
