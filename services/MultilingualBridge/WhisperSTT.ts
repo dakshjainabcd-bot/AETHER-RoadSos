@@ -26,7 +26,7 @@
  */
 
 import { Audio } from 'expo-av';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import { OPENAI_API_KEY } from '../../utils/constants';
 
 // ─── Types ────────────────────────────────────────────────────────────────────

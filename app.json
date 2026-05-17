@@ -67,6 +67,15 @@
           "locationWhenInUsePermission": "AETHER needs your location to find nearby emergency services and detect accidents.",
           "isAndroidBackgroundLocationEnabled": true
         }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#FF3B30",
+          "sounds": [],
+          "mode": "production"
+        }
       ]
     ],
     "experiments": {

@@ -16,7 +16,7 @@ import {
   RefreshControl,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, router } from 'expo-router';
 
 import { useAppContext } from '../_layout';
 import {
@@ -96,6 +96,15 @@ export default function HomeScreen() {
           <Text style={styles.brandName}>AETHER</Text>
           <Text style={styles.brandSub}>{emergencyNumbers.country}</Text>
         </View>
+
+        {/* Add this settings button */}
+        <TouchableOpacity
+          onPress={() => router.push('/(tabs)/settings')}
+          style={styles.settingsBtn}
+        >
+          <Ionicons name="settings-outline" size={22} color={Colors.label.secondary} />
+        </TouchableOpacity>
+
         <GPSIndicator location={location} />
       </View>
 
@@ -209,6 +218,11 @@ const styles = StyleSheet.create({
   },
   titleBlock: {
     gap: 2,
+    flex: 1, // Push the other items to the right
+  },
+  settingsBtn: {
+    padding: 6,
+    marginRight: 8,
   },
   brandName: {
     fontSize: 40,

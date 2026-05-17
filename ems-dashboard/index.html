@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<!-- ems-dashboard/index.html -->
+<!--
+  EMS Real-Time Dashboard — Phase 7
+  
+  This is a standalone web page for emergency dispatchers.
+  It connects via WebSocket to display live incidents.
+  
+  HOW TO USE (for demo):
+  1. Open this file in any web browser (double-click it)
+  2. It will try to connect to ws://localhost:3001 (the simulation server)
+  3. When the simulation server is running, incidents appear as red pins
+  
+  IN PRODUCTION:
+  Replace the WebSocket URL with your FastAPI server URL
+  Deploy to Netlify/Vercel for dispatchers to access from anywhere
+-->
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AETHER — EMS Command Dashboard</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css"/>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #0A0A0F;
+      color: #E0E0E0;
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    
+    /* Top navigation bar */
+    .topbar {
+      background: #111118;
+      border-bottom: 1px solid #222230;
+      padding: 12px 20px;
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      flex-shrink: 0;
+    }
+    
+    .logo {
+      font-size: 20px;
+      font-weight: 800;
+      color: #FF3B30;
+      letter-spacing: 3px;
+    }
+    
+    .logo-sub {
+      font-size: 11px;
+      color: #666;
+      letter-spacing: 1px;
+    }
+    
+    .connection-status {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 4px;
+    }
+    
+    .connected { background: rgba(52,199,89,0.15); color: #34C759; }
+    .disconnected { background: rgba(255,59,48,0.15); color: #FF3B30; }
+    
+    .stats-bar {
+      display: flex;
+      gap: 24px;
+    }
+    
+    .stat {
+      text-align: center;
+    }
+    
+    .stat-value {
+      font-size: 22px;
+      font-weight: 700;
+      color: #FF3B30;
+    }
+    
+    .stat-label {
+      font-size: 10px;
+      color: #666;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    
+    /* Main layout: sidebar + map */
+    .main {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+    
+    /* Incident sidebar */
+    .sidebar {
+      width: 340px;
+      background: #111118;
+      border-right: 1px solid #222230;
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+    }
+    
+    .sidebar-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid #222230;
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #888;
+    }
+    
+    .incidents-list {
+      flex: 1;
+      overflow-y: auto;
+    }
+    
+    .no-incidents {
+      padding: 40px 20px;
+      text-align: center;
+      color: #444;
+    }
+    
+    .no-incidents-icon {
+      font-size: 48px;
+      margin-bottom: 12px;
+    }
+    
+    .incident-card {
+      border-bottom: 1px solid #1A1A26;
+      padding: 16px 20px;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    
+    .incident-card:hover, .incident-card.selected {
+      background: #1A1A26;
+    }
+    
+    .incident-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+    
+    .severity-badge {
+      padding: 3px 10px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 700;
+    }
+    
+    .sev-1 { background: rgba(52,199,89,0.2); color: #34C759; }
+    .sev-2 { background: rgba(255,149,0,0.2); color: #FF9500; }
+    .sev-3 { background: rgba(255,107,53,0.2); color: #FF6B35; }
+    .sev-4, .sev-5 { background: rgba(255,59,48,0.2); color: #FF3B30; }
+    
+    .incident-id {
+      font-size: 11px;
+      color: #555;
+      font-family: monospace;
+    }
+    
+    .incident-time {
+      margin-left: auto;
+      font-size: 11px;
+      color: #555;
+    }
+    
+    .incident-coords {
+      font-size: 12px;
+      color: #888;
+      margin-bottom: 6px;
+    }
+    
+    .incident-hops {
+      font-size: 11px;
+      color: #555;
+    }
+    
+    .golden-clock {
+      font-size: 14px;
+      font-weight: 700;
+      color: #FF9500;
+    }
+    
+    /* Map */
+    #map {
+      flex: 1;
+    }
+    
+    /* Detail panel at bottom of sidebar */
+    .detail-panel {
+      border-top: 1px solid #222230;
+      padding: 16px 20px;
+      background: #0D0D15;
+    }
+    
+    .detail-title {
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #888;
+      margin-bottom: 12px;
+    }
+    
+    .detail-row {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 8px;
+      font-size: 13px;
+    }
+    
+    .detail-label { color: #666; }
+    .detail-value { color: #E0E0E0; font-weight: 500; }
+    
+    .dispatch-btn {
+      width: 100%;
+      background: #FF3B30;
+      color: white;
+      border: none;
+      border-radius: 10px;
+      padding: 12px;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      margin-top: 12px;
+      transition: opacity 0.15s;
+    }
+    
+    .dispatch-btn:hover { opacity: 0.85; }
+    
+    /* Connection instructions */
+    .connect-instructions {
+      padding: 20px;
+      background: rgba(0,122,255,0.08);
+      border: 1px solid rgba(0,122,255,0.2);
+      border-radius: 8px;
+      margin: 16px;
+      font-size: 12px;
+      color: #8899BB;
+      line-height: 1.7;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Bar -->
+  <div class="topbar">
+    <div>
+      <div class="logo">AETHER</div>
+      <div class="logo-sub">EMS COMMAND DASHBOARD</div>
+    </div>
+    
+    <div class="stats-bar">
+      <div class="stat">
+        <div class="stat-value" id="active-count">0</div>
+        <div class="stat-label">Active</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value" id="total-count">0</div>
+        <div class="stat-label">Total</div>
+      </div>
+    </div>
+    
+    <div class="connection-status disconnected" id="connection-status">
+      <div class="status-dot" id="status-dot" style="background:#FF3B30"></div>
+      <span id="status-text">Disconnected</span>
+    </div>
+  </div>
+
+  <!-- Main Content -->
+  <div class="main">
+    
+    <!-- Sidebar -->
+    <div class="sidebar">
+      <div class="sidebar-header">Live Incidents</div>
+      
+      <div class="incidents-list" id="incidents-list">
+        <div class="no-incidents">
+          <div class="no-incidents-icon">📡</div>
+          <div style="font-size: 14px; margin-bottom: 6px;">Waiting for incidents</div>
+          <div style="font-size: 12px;">Start the simulation server and trigger an SOS in the AETHER app</div>
+        </div>
+        
+        <div class="connect-instructions">
+          <strong>Setup:</strong><br>
+          1. Start simulation server: <code>cd server && npm start</code><br>
+          2. Open AETHER app → SOS tab → hold button<br>
+          3. Incidents will appear here in real-time
+        </div>
+      </div>
+      
+      <!-- Detail panel (hidden until incident selected) -->
+      <div class="detail-panel" id="detail-panel" style="display:none">
+        <div class="detail-title">Incident Details</div>
+        <div id="detail-content"></div>
+        <button class="dispatch-btn" onclick="dispatchAmbulance()">🚑 Dispatch Ambulance</button>
+      </div>
+    </div>
+    
+    <!-- Map -->
+    <div id="map"></div>
+  </div>
+
+  <script>
+    // ── Map Setup ──────────────────────────────────────────────────────────
+    const map = L.map('map', {
+      center: [20.5937, 78.9629], // India center
+      zoom: 5,
+      zoomControl: true,
+    });
+    
+    // Dark tile layer (CartoDB Dark Matter)
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+      attribution: '© OpenStreetMap contributors © CARTO',
+      subdomains: 'abcd',
+      maxZoom: 19,
+    }).addTo(map);
+
+    // ── State ──────────────────────────────────────────────────────────────
+    const incidents = new Map(); // incidentId -> { packet, marker, arrivedAt }
+    let selectedIncidentId = null;
+    let totalCount = 0;
+
+    // ── WebSocket Connection ───────────────────────────────────────────────
+    // The dashboard connects to the same simulation server as the phones
+    // This is a simplified demo connection
+    let ws = null;
+    
+    function connectWebSocket() {
+      // Try to connect to simulation server
+      // In production, this would be your FastAPI WebSocket endpoint
+      try {
+        ws = new WebSocket('ws://localhost:3001');
+        
+        ws.onopen = () => {
+          setConnectionStatus(true);
+          console.log('Connected to AETHER simulation server');
+          ws.send(JSON.stringify({ type: 'REGISTER', deviceId: 'ems_dashboard_01' }));
+        };
+        
+        ws.onmessage = (event) => {
+          try {
+            const message = JSON.parse(event.data);
+            if (message.type === 'SOS_RECEIVED' && message.packet) {
+              handleNewIncident(message.packet);
+            }
+          } catch (e) {}
+        };
+        
+        ws.onclose = () => {
+          setConnectionStatus(false);
+          // Reconnect after 3 seconds
+          setTimeout(connectWebSocket, 3000);
+        };
+        
+        ws.onerror = () => {
+          setConnectionStatus(false);
+        };
+      } catch (e) {
+        setConnectionStatus(false);
+        setTimeout(connectWebSocket, 5000);
+      }
+    }
+    
+    function setConnectionStatus(connected) {
+      const statusEl = document.getElementById('connection-status');
+      const dotEl = document.getElementById('status-dot');
+      const textEl = document.getElementById('status-text');
+      
+      if (connected) {
+        statusEl.className = 'connection-status connected';
+        dotEl.style.background = '#34C759';
+        textEl.textContent = 'Connected';
+      } else {
+        statusEl.className = 'connection-status disconnected';
+        dotEl.style.background = '#FF3B30';
+        textEl.textContent = 'Connecting...';
+      }
+    }
+
+    // ── Incident Handling ──────────────────────────────────────────────────
+    function handleNewIncident(packet) {
+      const { incidentId } = packet;
+      
+      if (incidents.has(incidentId)) return; // Already showing this incident
+      
+      totalCount++;
+      document.getElementById('total-count').textContent = totalCount;
+      document.getElementById('active-count').textContent = incidents.size + 1;
+      
+      // Create map marker
+      const severityColors = ['', '#34C759', '#FF9500', '#FF6B35', '#FF3B30', '#CC0000'];
+      const color = severityColors[packet.severity] || '#FF3B30';
+      
+      const icon = L.divIcon({
+        html: `
+          <div style="
+            width: 20px; height: 20px;
+            background: ${color};
+            border-radius: 50%;
+            border: 3px solid white;
+            box-shadow: 0 0 12px ${color};
+            animation: pulse 1.5s infinite;
+          "></div>
+          <style>
+            @keyframes pulse {
+              0% { box-shadow: 0 0 12px ${color}; }
+              50% { box-shadow: 0 0 24px ${color}, 0 0 40px ${color}50; }
+              100% { box-shadow: 0 0 12px ${color}; }
+            }
+          </style>
+        `,
+        iconSize: [20, 20],
+        iconAnchor: [10, 10],
+        className: '',
+      });
+      
+      const marker = L.marker([packet.lat || 12.9716, packet.lng || 77.5946], { icon })
+        .addTo(map)
+        .on('click', () => selectIncident(incidentId));
+      
+      // Popup on marker
+      marker.bindPopup(`
+        <b>Incident ${incidentId.substring(0, 8)}...</b><br>
+        Severity: ${packet.severity}/5<br>
+        Hops: ${packet.hopCount}
+      `);
+      
+      // Store incident
+      incidents.set(incidentId, { packet, marker, arrivedAt: Date.now() });
+      
+      // Update incident list
+      updateIncidentList();
+      
+      // Auto-select first incident and zoom map
+      if (!selectedIncidentId) {
+        selectIncident(incidentId);
+        map.setView([packet.lat || 12.9716, packet.lng || 77.5946], 14);
+      }
+    }
+    
+    function selectIncident(incidentId) {
+      selectedIncidentId = incidentId;
+      updateIncidentList();
+      updateDetailPanel();
+    }
+    
+    function updateIncidentList() {
+      const list = document.getElementById('incidents-list');
+      
+      if (incidents.size === 0) return; // Keep the "no incidents" placeholder
+      
+      list.innerHTML = '';
+      
+      for (const [id, { packet, arrivedAt }] of incidents.entries()) {
+        const elapsed = Math.floor((Date.now() - arrivedAt) / 1000);
+        const minutes = Math.floor(elapsed / 60);
+        const seconds = elapsed % 60;
+        const timeStr = `${String(minutes).padStart(2,'0')}:${String(seconds).padStart(2,'0')}`;
+        
+        const sevLabels = ['', 'Minor', 'Moderate', 'Serious', 'Severe', 'Critical'];
+        
+        const card = document.createElement('div');
+        card.className = `incident-card${id === selectedIncidentId ? ' selected' : ''}`;
+        card.innerHTML = `
+          <div class="incident-header">
+            <span class="severity-badge sev-${packet.severity}">
+              ${sevLabels[packet.severity] || 'SEV ' + packet.severity}
+            </span>
+            <span class="incident-id">${id.substring(0, 12)}...</span>
+            <span class="incident-time">⏱ ${timeStr}</span>
+          </div>
+          <div class="incident-coords">
+            📍 ${(packet.lat || 0).toFixed(4)}°N, ${(packet.lng || 0).toFixed(4)}°E
+          </div>
+          <div class="incident-hops">
+            📡 ${packet.hopCount} relay hop${packet.hopCount !== 1 ? 's' : ''} · 
+            <span class="golden-clock">Golden Hour: ${timeStr}</span>
+          </div>
+        `;
+        card.onclick = () => selectIncident(id);
+        list.appendChild(card);
+      }
+    }
+    
+    function updateDetailPanel() {
+      if (!selectedIncidentId || !incidents.has(selectedIncidentId)) {
+        document.getElementById('detail-panel').style.display = 'none';
+        return;
+      }
+      
+      const { packet, arrivedAt } = incidents.get(selectedIncidentId);
+      const elapsed = Math.floor((Date.now() - arrivedAt) / 1000);
+      const minutes = Math.floor(elapsed / 60);
+      
+      const sevLabels = ['', 'Minor', 'Moderate', 'Serious', 'Severe', 'Critical'];
+      
+      document.getElementById('detail-panel').style.display = 'block';
+      document.getElementById('detail-content').innerHTML = `
+        <div class="detail-row">
+          <span class="detail-label">Incident ID</span>
+          <span class="detail-value">${selectedIncidentId.substring(0, 12)}...</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Severity</span>
+          <span class="detail-value">${sevLabels[packet.severity]} (${packet.severity}/5)</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Location</span>
+          <span class="detail-value">${(packet.lat || 0).toFixed(5)}, ${(packet.lng || 0).toFixed(5)}</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Relay Hops</span>
+          <span class="detail-value">${packet.hopCount}</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Elapsed Time</span>
+          <span class="detail-value" style="color: ${minutes >= 30 ? '#FF3B30' : minutes >= 15 ? '#FF9500' : '#34C759'}">
+            ${minutes}m ${elapsed % 60}s
+          </span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Golden Hour Remaining</span>
+          <span class="detail-value">${Math.max(0, 60 - minutes)}m left</span>
+        </div>
+      `;
+    }
+    
+    function dispatchAmbulance() {
+      if (!selectedIncidentId) return;
+      const incident = incidents.get(selectedIncidentId);
+      alert(`🚑 Ambulance dispatched to incident ${selectedIncidentId.substring(0, 8)}!\n\nCoordinates: ${(incident.packet.lat || 0).toFixed(5)}, ${(incident.packet.lng || 0).toFixed(5)}\n\nIn production: This triggers an SMS/WhatsApp to the nearest ambulance and notifies the hospital.`);
+    }
+    
+    // Update timers every second
+    setInterval(() => {
+      if (incidents.size > 0) {
+        updateIncidentList();
+        updateDetailPanel();
+      }
+    }, 1000);
+    
+    // Start connection
+    connectWebSocket();
+    
+    console.log('AETHER EMS Dashboard loaded');
+    console.log('Connecting to simulation server at ws://localhost:3001...');
+  </script>
+
+</body>
+</html>
