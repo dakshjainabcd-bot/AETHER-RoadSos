@@ -1,49 +1,33 @@
 /**
- * CrashCountdown — 5-Second Full-Screen Cancel Modal
+ * CrashCountdown — Prototype dark overlay
  *
- * WHY FULL SCREEN?
- * In a real crash, the phone might be:
- * - On the dashboard (owner unconscious — they can't cancel → SOS sends automatically ✓)
- * - In the owner's pocket (they can reach it and cancel ✓)
- * - In the owner's hand (they see the full screen immediately ✓)
- *
- * A small notification would be missed in scenarios 1 and 2.
- * Full screen is impossible to miss.
- *
- * THE COUNTDOWN:
- * - A large pulsing number shows seconds remaining (5...4...3...2...1...0)
- * - A progress bar fills as time runs out
- * - The background flashes dark red — impossible to ignore
- * - The phone vibrates in an urgent pattern
- * - The CANCEL button is huge and bright green (easy to tap with shaking hands)
- * - If not cancelled → onCountdownComplete() fires → CrashDetectionEngine.dispatchSOS()
+ * Near-black (#0C0A07) fullscreen modal with:
+ *  - "SOS ACTIVE" blinking badge
+ *  - "CRASH DETECTED" / "AETHER will send SOS automatically"
+ *  - Giant countdown number with red ring
+ *  - "I'M OK — CANCEL SOS" green button
+ *  - Reassurance text
  */
 
-import React, { useEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import {
-  Modal,
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
+  Modal,
   Animated,
-  Vibration,
+  Dimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors, Spacing, BorderRadius } from '../theme';
+import { Colors } from '../theme';
 
 interface CrashCountdownProps {
-  /** Whether the modal is visible */
   visible: boolean;
-  /** Current countdown value (5 → 4 → 3 → 2 → 1 → 0) */
   secondsRemaining: number;
-  /** Total countdown duration (always 5, used for progress bar) */
   totalSeconds: number;
-  /** Optional — fusion confidence for debug display */
-  confidence?: number;
-  /** Called when user taps the cancel button */
+  confidence: number;
   onCancel: () => void;
-  /** Called when countdown reaches 0 — triggers SOS dispatch */
   onCountdownComplete: () => void;
 }
 
@@ -55,85 +39,32 @@ export function CrashCountdown({
   onCancel,
   onCountdownComplete,
 }: CrashCountdownProps) {
-  // Animation values
-  const pulseAnim = useRef(new Animated.Value(1)).current;
-  const bgFlashAnim = useRef(new Animated.Value(0)).current;
+  const blinkOpacity = useRef(new Animated.Value(1)).current;
 
-  // Animation refs for cleanup
-  const pulseRef = useRef<Animated.CompositeAnimation | null>(null);
-  const flashRef = useRef<Animated.CompositeAnimation | null>(null);
-
-  // ── Start animations + vibration when modal becomes visible ─────────
+  // Blinking dot animation
   useEffect(() => {
     if (!visible) return;
-
-    // Vibrate in urgent emergency pattern:
-    // [pause, buzz, pause, buzz, pause, buzz] — three rapid pulses
-    Vibration.vibrate([0, 300, 150, 300, 150, 300]);
-
-    // Pulse the countdown circle: scale 1.0 → 1.08 → 1.0, looping
-    pulseRef.current = Animated.loop(
+    const anim = Animated.loop(
       Animated.sequence([
-        Animated.timing(pulseAnim, {
-          toValue: 1.08,
-          duration: 500,
-          useNativeDriver: true,
-        }),
-        Animated.timing(pulseAnim, {
-          toValue: 1.0,
-          duration: 500,
-          useNativeDriver: true,
-        }),
+        Animated.timing(blinkOpacity, { toValue: 0.18, duration: 900, useNativeDriver: true }),
+        Animated.timing(blinkOpacity, { toValue: 1, duration: 900, useNativeDriver: true }),
       ])
     );
-    pulseRef.current.start();
-
-    // Flash the background between dark colors
-    // NOTE: useNativeDriver: false is REQUIRED here because
-    // backgroundColor is NOT supported by the native animation driver.
-    // Only transform and opacity can use native driver.
-    flashRef.current = Animated.loop(
-      Animated.sequence([
-        Animated.timing(bgFlashAnim, {
-          toValue: 1,
-          duration: 600,
-          useNativeDriver: false,
-        }),
-        Animated.timing(bgFlashAnim, {
-          toValue: 0,
-          duration: 600,
-          useNativeDriver: false,
-        }),
-      ])
-    );
-    flashRef.current.start();
-
-    // Cleanup: stop animations and vibration when modal closes
-    return () => {
-      pulseRef.current?.stop();
-      flashRef.current?.stop();
-      Vibration.cancel();
-    };
+    anim.start();
+    return () => anim.stop();
   }, [visible]);
 
-  // ── Auto-dispatch when countdown reaches 0 ─────────────────────────
+  // Fire onCountdownComplete when timer hits 0
   useEffect(() => {
-    if (visible && secondsRemaining === 0) {
+    if (visible && secondsRemaining <= 0) {
       onCountdownComplete();
     }
-  }, [secondsRemaining, visible]);
+  }, [visible, secondsRemaining]);
 
-  // Don't render anything when not visible
   if (!visible) return null;
 
-  // Interpolate background color for the flash effect
-  const bgColor = bgFlashAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['#050000', '#150000'],
-  });
-
-  // Progress bar: starts empty (0%), fills as time runs out (100%)
-  const progressPercent = ((totalSeconds - secondsRemaining) / totalSeconds) * 100;
+  const progress = secondsRemaining / totalSeconds;
+  const confidencePct = Math.round(confidence * 100);
 
   return (
     <Modal
@@ -142,186 +73,223 @@ export function CrashCountdown({
       transparent={false}
       statusBarTranslucent
     >
-      <Animated.View style={[styles.container, { backgroundColor: bgColor }]}>
+      <View style={styles.container}>
+        {/* ── Top section ── */}
+        <View style={styles.topSection}>
+          {/* SOS ACTIVE badge */}
+          <View style={styles.activeBadge}>
+            <Animated.View style={[styles.activeDot, { opacity: blinkOpacity }]} />
+            <Text style={styles.activeBadgeText}>SOS ACTIVE</Text>
+          </View>
 
-        {/* ── Warning icon ────────────────────────────────────────── */}
-        <View style={styles.iconWrapper}>
-          <Ionicons name="warning" size={44} color={Colors.brand.primary} />
+          {/* CRASH DETECTED */}
+          <Text style={styles.crashLabel}>CRASH DETECTED</Text>
+
+          {/* Main text */}
+          <Text style={styles.mainTitle}>AETHER will send</Text>
+          <Text style={styles.mainSubtitle}>SOS automatically</Text>
         </View>
 
-        {/* ── Title & subtitle ────────────────────────────────────── */}
-        <Text style={styles.title}>CRASH DETECTED</Text>
-        <Text style={styles.subtitle}>AETHER will send SOS automatically</Text>
+        {/* ── Countdown ring ── */}
+        <View style={styles.ringContainer}>
+          {/* Background ring */}
+          <View style={styles.ringBg} />
+          
+          {/* Progress indicator — we use a simple border approach */}
+          <View style={styles.ringProgress}>
+            <View style={[
+              styles.ringFill,
+              {
+                borderColor: Colors.brand.primary,
+                // Simulate progress with opacity
+                opacity: progress > 0 ? 1 : 0.1,
+              }
+            ]} />
+          </View>
 
-        {/* ── Big pulsing countdown circle ─────────────────────────── */}
-        <Animated.View style={[styles.circle, { transform: [{ scale: pulseAnim }] }]}>
-          <Text style={styles.number}>{secondsRemaining}</Text>
-          <Text style={styles.unit}>sec</Text>
-        </Animated.View>
-
-        {/* ── Progress bar — fills left to right as time runs out ─── */}
-        <View style={styles.progressTrack}>
-          <View
-            style={[
-              styles.progressFill,
-              { width: `${progressPercent}%` as `${number}%` },
-            ]}
-          />
+          {/* Number */}
+          <View style={styles.numberContainer}>
+            <Text style={styles.countdownNumber}>{secondsRemaining}</Text>
+            <Text style={styles.countdownUnit}>SEC</Text>
+          </View>
         </View>
-        <Text style={styles.dispatchNote}>SOS dispatching in {secondsRemaining}s</Text>
 
-        {/* ── Debug: confidence score ──────────────────────────────── */}
-        {confidence !== undefined && confidence > 0 && (
-          <Text style={styles.debugText}>
-            Confidence: {(confidence * 100).toFixed(0)}%
+        {/* ── Bottom section ── */}
+        <View style={styles.bottomSection}>
+          {/* Info line */}
+          <Text style={styles.infoText}>
+            SOS dispatching in {secondsRemaining}s · Confidence: {confidencePct}%
           </Text>
-        )}
+          <View style={styles.divider} />
 
-        {/* ── CANCEL BUTTON — the most important button in the app ── */}
-        {/* Green and large so it's easy to find and tap with shaking  */}
-        {/* hands after a collision. Accessibility is critical here.    */}
-        <TouchableOpacity
-          style={styles.cancelBtn}
-          onPress={onCancel}
-          activeOpacity={0.75}
-        >
-          <Text style={styles.cancelText}>✕   I'M OK — CANCEL SOS</Text>
-        </TouchableOpacity>
+          {/* Cancel button */}
+          <TouchableOpacity
+            style={styles.cancelBtn}
+            onPress={onCancel}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="close" size={16} color={Colors.status.success} />
+            <Text style={styles.cancelText}>I'M OK — CANCEL SOS</Text>
+          </TouchableOpacity>
 
-        {/* ── Footer reassurance ──────────────────────────────────── */}
-        <Text style={styles.footerNote}>
-          If you are injured and cannot cancel, help is already on the way.
-        </Text>
-      </Animated.View>
+          {/* Reassurance */}
+          <Text style={styles.reassurance}>
+            If you are injured and cannot cancel,{'\n'}help is already on the way.
+          </Text>
+        </View>
+      </View>
     </Modal>
   );
 }
 
-// ══════════════════════════════════════════════════════════════════════════
-// STYLES
-// ══════════════════════════════════════════════════════════════════════════
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#0C0A07',
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: Spacing['2xl'],
+    justifyContent: 'space-between',
+    paddingTop: 80,
+    paddingBottom: 38,
+    paddingHorizontal: 26,
   },
 
-  // ── Warning icon ──────────────────────────────────────────────────────
-  iconWrapper: {
-    width: 76,
-    height: 76,
-    borderRadius: 38,
-    backgroundColor: Colors.brand.primary + '20', // 12% opacity red
-    borderWidth: 2,
-    borderColor: Colors.brand.primary + '60',      // 37% opacity red
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: Spacing.lg,
-  },
-
-  // ── Title ─────────────────────────────────────────────────────────────
-  title: {
-    fontSize: 30,
-    fontWeight: '900',
-    color: Colors.brand.primary,
-    letterSpacing: 4,
-    textAlign: 'center',
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontSize: 14,
-    color: 'rgba(255,255,255,0.55)',
-    textAlign: 'center',
-    marginBottom: Spacing['3xl'],
-  },
-
-  // ── Countdown circle ──────────────────────────────────────────────────
-  circle: {
-    width: 164,
-    height: 164,
-    borderRadius: 82,
-    borderWidth: 6,
-    borderColor: Colors.brand.primary,
-    backgroundColor: Colors.brand.primary + '15', // Faint red fill
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: Spacing.xl,
-    // Red glow shadow
-    shadowColor: Colors.brand.primary,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.7,
-    shadowRadius: 24,
-    elevation: 12,
-  },
-  number: {
-    fontSize: 74,
-    fontWeight: '900',
-    color: '#FFFFFF',
-    lineHeight: 80,
-  },
-  unit: {
-    fontSize: 14,
-    color: 'rgba(255,255,255,0.45)',
-    fontWeight: '600',
-    letterSpacing: 2,
-    textTransform: 'uppercase',
-  },
-
-  // ── Progress bar ──────────────────────────────────────────────────────
-  progressTrack: {
+  // Top
+  topSection: {
     width: '100%',
-    height: 4,
-    backgroundColor: 'rgba(255,255,255,0.12)',
-    borderRadius: 2,
-    marginBottom: 10,
+    alignItems: 'center',
+  },
+  activeBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(239, 62, 40, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(239, 62, 40, 0.26)',
+    borderRadius: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    marginBottom: 28,
+  },
+  activeDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
+    backgroundColor: Colors.brand.primary,
+  },
+  activeBadgeText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: Colors.brand.primary,
+    letterSpacing: 2,
+  },
+  crashLabel: {
+    fontSize: 9,
+    fontWeight: '600',
+    color: 'rgba(247, 245, 240, 0.22)',
+    letterSpacing: 4,
+    marginBottom: 12,
+  },
+  mainTitle: {
+    fontSize: 36,
+    fontWeight: '800',
+    color: '#F7F5F0',
+    letterSpacing: -1.5,
+    lineHeight: 42,
+  },
+  mainSubtitle: {
+    fontSize: 32,
+    fontWeight: '300',
+    color: '#F7F5F0',
+    letterSpacing: -1,
+    lineHeight: 38,
+  },
+
+  // Ring
+  ringContainer: {
+    width: 156,
+    height: 156,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  ringBg: {
+    position: 'absolute',
+    width: 156,
+    height: 156,
+    borderRadius: 78,
+    borderWidth: 3,
+    borderColor: 'rgba(239, 62, 40, 0.10)',
+  },
+  ringProgress: {
+    position: 'absolute',
+    width: 156,
+    height: 156,
+    borderRadius: 78,
     overflow: 'hidden',
   },
-  progressFill: {
+  ringFill: {
+    width: '100%',
     height: '100%',
-    backgroundColor: Colors.brand.primary,
-    borderRadius: 2,
-  },
-
-  // ── Text below progress bar ───────────────────────────────────────────
-  dispatchNote: {
-    fontSize: 13,
-    color: 'rgba(255,255,255,0.40)',
-    marginBottom: 6,
-  },
-  debugText: {
-    fontSize: 11,
-    color: 'rgba(255,255,255,0.30)',
-    fontFamily: 'monospace',
-    marginBottom: Spacing['2xl'],
-  },
-
-  // ── Cancel button ─────────────────────────────────────────────────────
-  cancelBtn: {
+    borderRadius: 78,
     borderWidth: 3,
-    borderColor: Colors.status.success,
-    borderRadius: BorderRadius.xl,
-    paddingVertical: 20,
-    paddingHorizontal: 32,
+    borderColor: Colors.brand.primary,
+  },
+  numberContainer: {
+    alignItems: 'center',
+  },
+  countdownNumber: {
+    fontSize: 96,
+    fontWeight: '900',
+    color: '#F7F5F0',
+    lineHeight: 100,
+    letterSpacing: -2,
+  },
+  countdownUnit: {
+    fontSize: 9,
+    color: 'rgba(247, 245, 240, 0.26)',
+    letterSpacing: 4,
+    marginTop: 4,
+  },
+
+  // Bottom
+  bottomSection: {
     width: '100%',
     alignItems: 'center',
-    marginBottom: Spacing.lg,
-    marginTop: Spacing['2xl'],
+  },
+  infoText: {
+    fontSize: 10,
+    color: 'rgba(247, 245, 240, 0.22)',
+    letterSpacing: 1,
+    marginBottom: 4,
+    textAlign: 'center',
+  },
+  divider: {
+    width: '100%',
+    height: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    marginBottom: 22,
+  },
+  cancelBtn: {
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    paddingVertical: 18,
+    borderWidth: 1.5,
+    borderColor: Colors.status.success,
+    borderRadius: 14,
+    marginBottom: 16,
   },
   cancelText: {
-    fontSize: 18,
-    fontWeight: '900',
+    fontSize: 14,
+    fontWeight: '700',
     color: Colors.status.success,
-    letterSpacing: 1,
+    letterSpacing: 0.8,
   },
-
-  // ── Footer ────────────────────────────────────────────────────────────
-  footerNote: {
+  reassurance: {
     fontSize: 12,
-    color: 'rgba(255,255,255,0.30)',
+    color: 'rgba(247, 245, 240, 0.20)',
     textAlign: 'center',
-    lineHeight: 18,
-    paddingHorizontal: Spacing.lg,
+    lineHeight: 20,
   },
 });

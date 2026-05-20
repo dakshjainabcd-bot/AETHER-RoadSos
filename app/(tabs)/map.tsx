@@ -62,12 +62,12 @@ const ONLINE_ONLY_FILTERS: Array<{ type: POIType; label: string; color: string }
 ];
 
 const MARKER_COLOR: Record<string, string> = {
-  [POI_TYPES.HOSPITAL]:   '#FF3B30',
-  [POI_TYPES.POLICE]:     '#007AFF',
-  [POI_TYPES.TOWING]:     '#FF9500',
-  [POI_TYPES.PETROL]:     '#5856D6',
-  [POI_TYPES.PUNCTURE]:   '#34C759',
-  [POI_TYPES.BLOOD_BANK]: '#FF3B30',
+  [POI_TYPES.HOSPITAL]:   Colors.brand.primary,
+  [POI_TYPES.POLICE]:     Colors.status.info,
+  [POI_TYPES.TOWING]:     Colors.status.warning,
+  [POI_TYPES.PETROL]:     Colors.brand.purple,
+  [POI_TYPES.PUNCTURE]:   Colors.status.success,
+  [POI_TYPES.BLOOD_BANK]: Colors.brand.primary,
 };
 
 const TYPE_LABEL: Record<string, string> = {
@@ -359,8 +359,8 @@ export default function MapScreen() {
               style={[
                 styles.filterChip,
                 filter === f.type
-                  ? { backgroundColor: f.color, borderColor: f.color }
-                  : { backgroundColor: 'rgba(255,255,255,0.92)', borderColor: 'rgba(0,0,0,0.08)' },
+                   ? { backgroundColor: f.color, borderColor: f.color }
+                   : { backgroundColor: Colors.background.elevated, borderColor: Colors.border.medium },
               ]}
               onPress={() => onFilterChange(f.type)}
               activeOpacity={0.8}
@@ -422,8 +422,8 @@ export default function MapScreen() {
           <Circle
             center={{ latitude: userLoc.lat, longitude: userLoc.lng }}
             radius={isConnected ? MAP_FETCH_RADIUS_M : 10000}
-            fillColor="rgba(0, 122, 255, 0.04)"
-            strokeColor="rgba(0, 122, 255, 0.18)"
+            fillColor="rgba(22, 72, 208, 0.04)"
+            strokeColor="rgba(22, 72, 208, 0.18)"
             strokeWidth={1}
           />
         )}
@@ -478,17 +478,17 @@ export default function MapScreen() {
           <>
             <Circle
               center={{ latitude: activeCrash.lat, longitude: activeCrash.lng }}
-              radius={600} fillColor="rgba(255,59,48,0.06)" strokeColor="transparent"
+              radius={600} fillColor="rgba(239,62,40,0.06)" strokeColor="transparent"
             />
             <Circle
               center={{ latitude: activeCrash.lat, longitude: activeCrash.lng }}
-              radius={300} fillColor="rgba(255,59,48,0.12)"
-              strokeColor="rgba(255,59,48,0.30)" strokeWidth={1.5}
+              radius={300} fillColor="rgba(239,62,40,0.12)"
+              strokeColor="rgba(239,62,40,0.30)" strokeWidth={1.5}
             />
             <Circle
               center={{ latitude: activeCrash.lat, longitude: activeCrash.lng }}
-              radius={100} fillColor="rgba(255,59,48,0.25)"
-              strokeColor="rgba(255,59,48,0.50)" strokeWidth={2}
+              radius={100} fillColor="rgba(239,62,40,0.25)"
+              strokeColor="rgba(239,62,40,0.50)" strokeWidth={2}
             />
             <Marker
               coordinate={{ latitude: activeCrash.lat, longitude: activeCrash.lng }}
@@ -563,7 +563,7 @@ const cardStyles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: Colors.background.elevated,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     paddingHorizontal: 20,
@@ -580,7 +580,7 @@ const cardStyles = StyleSheet.create({
     width: 36,
     height: 4,
     borderRadius: 2,
-    backgroundColor: 'rgba(60,60,67,0.18)',
+    backgroundColor: Colors.border.medium,
   },
   header: {
     flexDirection: 'row',
@@ -648,7 +648,7 @@ const cardStyles = StyleSheet.create({
   },
   divider: {
     height: 0.5,
-    backgroundColor: 'rgba(60,60,67,0.12)',
+    backgroundColor: Colors.separator.nonOpaque,
     marginVertical: 14,
   },
   actions: {
@@ -745,7 +745,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: 'rgba(255,255,255,0.95)',
+    backgroundColor: Colors.background.elevated,
     borderRadius: BorderRadius.full,
     paddingHorizontal: 14,
     paddingVertical: 7,
@@ -791,7 +791,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: Layout.CONTENT_BOTTOM_PADDING + 70,
     left: Layout.HORIZONTAL_PADDING,
-    backgroundColor: 'rgba(255,255,255,0.95)',
+    backgroundColor: Colors.background.elevated,
     borderRadius: BorderRadius.lg,
     padding: 10,
     gap: 5,
@@ -810,7 +810,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    backgroundColor: 'rgba(255,255,255,0.92)',
+    backgroundColor: Colors.background.elevated,
     borderRadius: BorderRadius.full,
     paddingHorizontal: 16,
     paddingVertical: 8,
@@ -825,7 +825,7 @@ const styles = StyleSheet.create({
     bottom: Layout.CONTENT_BOTTOM_PADDING + 60,
     right: Layout.HORIZONTAL_PADDING,
     width: 44, height: 44, borderRadius: 22,
-    backgroundColor: 'rgba(255,255,255,0.95)',
+    backgroundColor: Colors.background.elevated,
     alignItems: 'center', justifyContent: 'center',
     ...Shadows.md,
     zIndex: 10,

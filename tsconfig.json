@@ -27,5 +27,10 @@
     ".expo/types/**/*.d.ts",
     "expo-env.d.ts",
     ".expo/types/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "prototype.tsx",
+    "_layout.original.tsx"
   ]
 }

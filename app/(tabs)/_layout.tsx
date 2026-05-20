@@ -1,70 +1,39 @@
-// app/(tabs)/_layout.tsx
+// app/(tabs)/_layout.tsx — Prototype-style flat bottom nav
 import { Tabs } from 'expo-router';
 import { View, Text, StyleSheet, TouchableOpacity, Animated } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors, BorderRadius } from '../../theme';
+import { Colors, Shadows } from '../../theme';
 import { useEffect, useRef } from 'react';
 
 // ── Animated SOS Button ───────────────────────────────────────────────────────
 
 function SOSButton({ onPress }: { onPress?: (e: any) => void }) {
-  const pulse1 = useRef(new Animated.Value(1)).current;
-  const pulse2 = useRef(new Animated.Value(1)).current;
-  const pulse3 = useRef(new Animated.Value(1)).current;
-  const opacity1 = useRef(new Animated.Value(0.6)).current;
-  const opacity2 = useRef(new Animated.Value(0.4)).current;
-  const opacity3 = useRef(new Animated.Value(0.2)).current;
+  const ringScale = useRef(new Animated.Value(1)).current;
+  const ringOpacity = useRef(new Animated.Value(0.7)).current;
 
   useEffect(() => {
-    // Three ripple rings with staggered delays
-    const createRipple = (
-      scale: Animated.Value,
-      opacity: Animated.Value,
-      delay: number
-    ) =>
-      Animated.loop(
-        Animated.sequence([
-          Animated.delay(delay),
-          Animated.parallel([
-            Animated.timing(scale, {
-              toValue: 2.2,
-              duration: 2000,
-              useNativeDriver: true,
-            }),
-            Animated.timing(opacity, {
-              toValue: 0,
-              duration: 2000,
-              useNativeDriver: true,
-            }),
-          ]),
-          Animated.parallel([
-            Animated.timing(scale, {
-              toValue: 1,
-              duration: 0,
-              useNativeDriver: true,
-            }),
-            Animated.timing(opacity, {
-              toValue: 0.5,
-              duration: 0,
-              useNativeDriver: true,
-            }),
-          ]),
-        ])
-      );
-
-    const anim1 = createRipple(pulse1, opacity1, 0);
-    const anim2 = createRipple(pulse2, opacity2, 600);
-    const anim3 = createRipple(pulse3, opacity3, 1200);
-
-    anim1.start();
-    anim2.start();
-    anim3.start();
-
-    return () => {
-      anim1.stop();
-      anim2.stop();
-      anim3.stop();
-    };
+    const anim = Animated.loop(
+      Animated.sequence([
+        Animated.parallel([
+          Animated.timing(ringScale, {
+            toValue: 1.55,
+            duration: 2400,
+            useNativeDriver: true,
+          }),
+          Animated.timing(ringOpacity, {
+            toValue: 0,
+            duration: 2400,
+            useNativeDriver: true,
+          }),
+        ]),
+        Animated.parallel([
+          Animated.timing(ringScale, { toValue: 1, duration: 0, useNativeDriver: true }),
+          Animated.timing(ringOpacity, { toValue: 0.7, duration: 0, useNativeDriver: true }),
+        ]),
+      ])
+    );
+    anim.start();
+    return () => anim.stop();
   }, []);
 
   return (
@@ -73,31 +42,17 @@ function SOSButton({ onPress }: { onPress?: (e: any) => void }) {
       style={styles.sosTouchable}
       activeOpacity={0.85}
     >
-      {/* Ripple rings */}
+      {/* Ripple ring */}
       <Animated.View
         style={[
           styles.rippleRing,
-          { transform: [{ scale: pulse1 }], opacity: opacity1 },
-        ]}
-      />
-      <Animated.View
-        style={[
-          styles.rippleRing,
-          { transform: [{ scale: pulse2 }], opacity: opacity2 },
-        ]}
-      />
-      <Animated.View
-        style={[
-          styles.rippleRing,
-          { transform: [{ scale: pulse3 }], opacity: opacity3 },
+          { transform: [{ scale: ringScale }], opacity: ringOpacity },
         ]}
       />
 
       {/* Main SOS button */}
       <View style={styles.sosButtonOuter}>
-        <View style={styles.sosButtonInner}>
-          <Text style={styles.sosText}>SOS</Text>
-        </View>
+        <Text style={styles.sosText}>SOS</Text>
       </View>
     </TouchableOpacity>
   );
@@ -114,35 +69,10 @@ function TabIcon({
   focused: boolean;
   color: string;
 }) {
-  const scaleAnim = useRef(new Animated.Value(1)).current;
-
-  useEffect(() => {
-    if (focused) {
-      Animated.sequence([
-        Animated.timing(scaleAnim, {
-          toValue: 1.2,
-          duration: 150,
-          useNativeDriver: true,
-        }),
-        Animated.timing(scaleAnim, {
-          toValue: 1,
-          duration: 150,
-          useNativeDriver: true,
-        }),
-      ]).start();
-    }
-  }, [focused]);
-
   return (
-    <Animated.View
-      style={[
-        styles.tabIcon,
-        focused && styles.tabIconActive,
-        { transform: [{ scale: scaleAnim }] },
-      ]}
-    >
+    <View style={styles.tabIcon}>
       <Ionicons name={name as any} size={22} color={color} />
-    </Animated.View>
+    </View>
   );
 }
 
@@ -155,32 +85,29 @@ export default function TabsLayout() {
         headerShown: false,
         tabBarStyle: {
           position: 'absolute',
-          bottom: 20,
-          left: 16,
-          right: 16,
-          borderRadius: 36,
-          height: 70,
-          backgroundColor: 'rgba(255, 255, 255, 0.97)',
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: 10 },
-          shadowOpacity: 0.15,
-          shadowRadius: 30,
-          elevation: 30,
-          borderTopWidth: 0,
-          paddingHorizontal: 8,
+          bottom: 0,
+          left: 0,
+          right: 0,
+          height: 82,
+          backgroundColor: '#FFFFFF',
+          borderTopWidth: 1,
+          borderTopColor: Colors.border.medium,
+          paddingBottom: 14,
+          paddingHorizontal: 0,
+          ...Shadows.nav,
         },
         tabBarItemStyle: {
-          height: 70,
+          height: 68,
           paddingVertical: 0,
         },
         tabBarActiveTintColor: Colors.brand.primary,
-        tabBarInactiveTintColor: 'rgba(60, 60, 67, 0.35)',
+        tabBarInactiveTintColor: Colors.label.muted,
         tabBarLabelStyle: {
-          fontSize: 10,
-          fontWeight: '600',
-          letterSpacing: -0.1,
-          marginTop: -4,
-          marginBottom: 6,
+          fontSize: 9,
+          fontWeight: '700',
+          letterSpacing: 1,
+          textTransform: 'uppercase',
+          marginTop: -2,
         },
         tabBarShowLabel: true,
       }}
@@ -269,57 +196,43 @@ export default function TabsLayout() {
 // ── Styles ────────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  // Tab icon wrapper
   tabIcon: {
     width: 40,
     height: 40,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 12,
-  },
-  tabIconActive: {
-    backgroundColor: 'rgba(255, 59, 48, 0.08)',
   },
 
-  // SOS Button
+  // SOS Button — prototype style
   sosTouchable: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: -36, // Lifts button above tab bar
+    marginTop: -22,
   },
   rippleRing: {
     position: 'absolute',
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: '#FF3B30',
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    borderWidth: 1.5,
+    borderColor: 'rgba(239, 62, 40, 0.22)',
   },
   sosButtonOuter: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: 'rgba(255, 59, 48, 0.18)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  sosButtonInner: {
     width: 60,
     height: 60,
     borderRadius: 30,
     backgroundColor: Colors.brand.primary,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#FF3B30',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.55,
-    shadowRadius: 16,
-    elevation: 16,
+    // White ring + border ring from prototype
+    borderWidth: 0,
+    ...Shadows.emergency,
   },
   sosText: {
-    fontSize: 14,
-    fontWeight: '900',
+    fontSize: 10,
+    fontWeight: '800',
     color: '#FFFFFF',
-    letterSpacing: 1,
+    letterSpacing: 2,
   },
 });

@@ -1,16 +1,8 @@
 /**
- * SOS Screen — Phase 6 + PostSOSVoice
+ * SOS Screen — Prototype UI
  *
- * NEW: After SOS fires, a voice input panel appears automatically.
- * Bystander can speak the injury type in ANY language — Whisper
- * auto-detects and maps it to the correct hospital capability.
- *
- * Voice panel states:
- *   listening    → animated mic, "Say the injury type..."
- *   transcribing → spinner, "Transcribing..."
- *   done         → shows transcript + mapped injury chip (auto-selected)
- *   unclear      → shows transcript + asks user to confirm
- *   error        → fallback to manual chip selection
+ * Hold-to-send button with progress ring, sensor bars,
+ * injury type grid after activation, PostSOSVoice integration.
  */
 
 import { useState, useRef, useCallback, useEffect } from 'react';
@@ -26,16 +18,27 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useAppContext } from '../_layout';
-import { Colors, Spacing, BorderRadius, Layout } from '../../theme';
+import { useAppContext } from '../../app/_layout';
+import { Colors, Spacing, BorderRadius, Layout, Shadows } from '../../theme';
 import { crashDetectionEngine } from '../../services/CrashDetection/CrashDetectionEngine';
 import type { CrashDetectionState, FusionScore } from '../../services/CrashDetection/types';
 import { postSOSVoice, PostSOSVoiceState } from '../../services/PostSOSVoice';
 
 // Phase 6 components
-import { InjuryTypeSelector } from '../../components/InjuryTypeSelector';
 import { HospitalMatchCard } from '../../components/HospitalMatchCard';
 import type { InjuryType } from '../../services/TraumaMatch';
+
+const INJURY_TYPES: {
+  type: InjuryType; label: string; sub: string;
+  icon: string; color: string; bg: string; border: string;
+}[] = [
+  { type: 'head_trauma', label: 'Head / Brain', sub: 'Head injury, unconscious', icon: 'fitness', color: Colors.brand.primary, bg: Colors.soft.red, border: Colors.soft.redBorder },
+  { type: 'cardiac', label: 'Heart / Cardiac', sub: 'Chest pain, cardiac arrest', icon: 'heart', color: '#C0124A', bg: Colors.soft.heart, border: Colors.soft.heartBorder },
+  { type: 'burns', label: 'Burns', sub: 'Fire, chemical, electrical', icon: 'flame', color: Colors.status.warning, bg: Colors.soft.amber, border: Colors.soft.amberBorder },
+  { type: 'spinal', label: 'Spine / Neck', sub: 'Back/neck pain, paralysis', icon: 'body', color: Colors.brand.purple, bg: Colors.soft.purple, border: Colors.soft.purpleBorder },
+  { type: 'paediatric', label: 'Child < 12', sub: 'Paediatric emergency', icon: 'people', color: Colors.status.info, bg: Colors.soft.blue, border: Colors.soft.blueBorder },
+  { type: 'general', label: 'General', sub: 'Bleeding, fracture, other', icon: 'bandage', color: Colors.status.success, bg: Colors.soft.green, border: Colors.soft.greenBorder },
+];
 
 export default function SOSScreen() {
   const {
@@ -50,8 +53,9 @@ export default function SOSScreen() {
   } = useAppContext();
 
   // ── Manual SOS button state ───────────────────────────────────────────────
-  const [isPressed, setIsPressed]   = useState(false);
-  const [countdown, setCountdown]   = useState(3);
+  const [holdSeconds, setHoldSeconds] = useState(0);
+  const [isHolding, setIsHolding]    = useState(false);
+  const HOLD_DURATION = 5; // seconds
 
   // ── Sensor score display ──────────────────────────────────────────────────
   const [liveScore, setLiveScore] = useState<FusionScore>({
@@ -59,23 +63,16 @@ export default function SOSScreen() {
   });
 
   // ── PostSOSVoice state ────────────────────────────────────────────────────
-  const [voiceState, setVoiceState]         = useState<PostSOSVoiceState>('idle');
+  const [voiceState, setVoiceState]           = useState<any>('idle');
   const [voiceTranscript, setVoiceTranscript] = useState('');
-  const [voiceLanguage, setVoiceLanguage]   = useState('');
-  const [voiceUnclear, setVoiceUnclear]     = useState(false);
+  const [voiceLanguage, setVoiceLanguage]     = useState('');
+  const [voiceUnclear, setVoiceUnclear]       = useState(false);
 
-  // ── Animations ────────────────────────────────────────────────────────────
-  const ring1        = useRef(new Animated.Value(1)).current;
-  const ring2        = useRef(new Animated.Value(1)).current;
-  const ring3        = useRef(new Animated.Value(1)).current;
-  const ringOpacity1 = useRef(new Animated.Value(0)).current;
-  const ringOpacity2 = useRef(new Animated.Value(0)).current;
-  const ringOpacity3 = useRef(new Animated.Value(0)).current;
-  const buttonScale  = useRef(new Animated.Value(1)).current;
-  const micPulse     = useRef(new Animated.Value(1)).current;
-
-  const countdownTimerRef  = useRef<ReturnType<typeof setInterval> | null>(null);
-  const micPulseLoopRef    = useRef<Animated.CompositeAnimation | null>(null);
+  // ── Refs ──────────────────────────────────────────────────────────────────
+  const holdTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const buttonScale = useRef(new Animated.Value(1)).current;
+  const micPulse = useRef(new Animated.Value(1)).current;
+  const micPulseLoopRef = useRef<Animated.CompositeAnimation | null>(null);
 
   const sosActive = crashState === 'active_sos' || crashState === 'countdown' || crashState === 'dispatching';
 
@@ -84,19 +81,14 @@ export default function SOSScreen() {
     postSOSVoice.setCallbacks({
       onStateChange: (state) => {
         setVoiceState(state);
-        if (state === 'listening') {
-          startMicPulse();
-        } else {
-          stopMicPulse();
-        }
+        if (state === 'listening') startMicPulse();
+        else stopMicPulse();
       },
       onInjuryDetected: (result) => {
         setVoiceTranscript(result.transcript);
         setVoiceLanguage(result.language);
         setVoiceUnclear(result.unclear);
-
         if (result.injuryType && !result.unclear) {
-          // Auto-select the injury — fires hospital pre-alert automatically
           setInjuryType(result.injuryType);
         }
       },
@@ -105,14 +97,9 @@ export default function SOSScreen() {
         setVoiceLanguage(lang);
         setVoiceUnclear(true);
       },
-      onError: () => {
-        setVoiceUnclear(true); // Fall back to manual chip selection
-      },
+      onError: () => { setVoiceUnclear(true); },
     });
-
-    return () => {
-      postSOSVoice.reset();
-    };
+    return () => { postSOSVoice.reset(); };
   }, []);
 
   // ── Subscribe to sensor scores ────────────────────────────────────────────
@@ -123,38 +110,7 @@ export default function SOSScreen() {
     return () => unsub();
   }, []);
 
-  // ── SOS ring animation ────────────────────────────────────────────────────
-  useEffect(() => {
-    if (sosActive) startRingPulse();
-    else stopRings();
-  }, [sosActive]);
-
-  function startRingPulse() {
-    const makeRing = (scale: Animated.Value, opacity: Animated.Value, delay: number) =>
-      Animated.loop(
-        Animated.sequence([
-          Animated.delay(delay),
-          Animated.parallel([
-            Animated.timing(scale,   { toValue: 2.4, duration: 1600, useNativeDriver: true }),
-            Animated.sequence([
-              Animated.timing(opacity, { toValue: 0.4, duration: 200,  useNativeDriver: true }),
-              Animated.timing(opacity, { toValue: 0,   duration: 1400, useNativeDriver: true }),
-            ]),
-          ]),
-          Animated.timing(scale, { toValue: 1, duration: 0, useNativeDriver: true }),
-        ])
-      );
-    makeRing(ring1, ringOpacity1, 0).start();
-    makeRing(ring2, ringOpacity2, 500).start();
-    makeRing(ring3, ringOpacity3, 1000).start();
-  }
-
-  function stopRings() {
-    [ring1, ring2, ring3].forEach((r) => r.setValue(1));
-    [ringOpacity1, ringOpacity2, ringOpacity3].forEach((o) => o.setValue(0));
-  }
-
-  // ── Mic pulse for voice listening ─────────────────────────────────────────
+  // ── Mic pulse ─────────────────────────────────────────────────────────────
   function startMicPulse() {
     micPulseLoopRef.current = Animated.loop(
       Animated.sequence([
@@ -170,35 +126,35 @@ export default function SOSScreen() {
     micPulse.setValue(1);
   }
 
-  // ── Manual SOS hold-to-activate ───────────────────────────────────────────
+  // ── Hold-to-activate (5 second countdown) ─────────────────────────────────
   function onPressIn() {
     if (sosActive) return;
-    setIsPressed(true);
+    setIsHolding(true);
     Vibration.vibrate(40);
-    Animated.spring(buttonScale, { toValue: 0.93, useNativeDriver: true }).start();
+    Animated.spring(buttonScale, { toValue: 0.95, useNativeDriver: true }).start();
 
-    let count = 3;
-    setCountdown(count);
-
-    countdownTimerRef.current = setInterval(() => {
-      count -= 1;
-      setCountdown(count);
-      Vibration.vibrate(30);
-      if (count <= 0) {
-        clearInterval(countdownTimerRef.current!);
+    let elapsed = 0;
+    const TICK = 100; // ms
+    holdTimer.current = setInterval(() => {
+      elapsed += TICK;
+      const secs = elapsed / 1000;
+      setHoldSeconds(secs);
+      if (secs >= HOLD_DURATION) {
+        clearInterval(holdTimer.current!);
+        setHoldSeconds(HOLD_DURATION);
         crashDetectionEngine.triggerManualSOS();
         Animated.spring(buttonScale, { toValue: 1, useNativeDriver: true }).start();
-        setIsPressed(false);
-        setCountdown(3);
+        setIsHolding(false);
+        return;
       }
-    }, 1000);
+    }, TICK);
   }
 
   function onPressOut() {
     if (sosActive) return;
-    setIsPressed(false);
-    setCountdown(3);
-    clearInterval(countdownTimerRef.current!);
+    setIsHolding(false);
+    setHoldSeconds(0);
+    if (holdTimer.current) clearInterval(holdTimer.current);
     Animated.spring(buttonScale, { toValue: 1, useNativeDriver: true }).start();
   }
 
@@ -213,184 +169,197 @@ export default function SOSScreen() {
     crashDetectionEngine.resetToIdle();
   }
 
-  // ── Injury type manual selection ──────────────────────────────────────────
-  function handleInjurySelect(type: InjuryType) {
-    setInjuryType(type);
+  const showHospitalCard = preAlertState.status !== 'idle';
+  const showManualSelector = sosActive && !injuryType && !showHospitalCard
+    && (voiceUnclear || voiceState === 'error' || voiceState === 'idle');
+
+  // ───────────────────────────────────────────────────────────────────────────
+  // ACTIVE SOS → Injury type grid
+  // ───────────────────────────────────────────────────────────────────────────
+  if (sosActive) {
+    return (
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        {/* Active badge */}
+        <View style={styles.activeBadge}>
+          <View style={styles.activeDot} />
+          <Text style={styles.activeBadgeText}>SOS ACTIVE — HELP ALERTED</Text>
+        </View>
+
+        {/* Mini sensor row */}
+        <View style={styles.miniSensorRow}>
+          {[
+            { l: 'Accel', v: liveScore.accelScore, c: Colors.brand.primary },
+            { l: 'Gyro', v: liveScore.gyroScore, c: Colors.status.info },
+            { l: 'Audio', v: liveScore.acousticScore, c: Colors.status.warning },
+          ].map(m => (
+            <View key={m.l} style={styles.miniSensorItem}>
+              <Text style={styles.miniSensorLabel}>{m.l}</Text>
+              <View style={styles.miniSensorTrack}>
+                <View style={[styles.miniSensorFill, { width: `${Math.round(m.v * 100)}%` as any, backgroundColor: m.c }]} />
+              </View>
+              <Text style={styles.miniSensorValue}>{Math.round(m.v * 100)}%</Text>
+            </View>
+          ))}
+          <Text style={styles.miniGforce}>{liveScore.gForce.toFixed(1)}g</Text>
+        </View>
+
+        <Text style={styles.injuryTitle}>What type of injury?</Text>
+        <Text style={styles.injurySub}>This helps us find the right hospital — tap the best match</Text>
+
+        {/* Voice panel */}
+        {voiceState !== 'idle' && (
+          <VoiceInjuryPanel
+            voiceState={voiceState}
+            transcript={voiceTranscript}
+            language={voiceLanguage}
+            unclear={voiceUnclear}
+            micPulse={micPulse}
+            onStopEarly={() => postSOSVoice.stopEarly()}
+          />
+        )}
+
+        {/* Injury type grid */}
+        {showManualSelector && (
+          <View style={styles.injuryGrid}>
+            {INJURY_TYPES.map((x) => (
+              <TouchableOpacity
+                key={x.type}
+                style={[styles.injuryCard, { backgroundColor: x.bg, borderColor: x.border }]}
+                activeOpacity={0.7}
+                onPress={() => setInjuryType(x.type)}
+              >
+                <View style={[styles.injuryIconWrap, { borderColor: x.border }]}>
+                  <Ionicons name={x.icon as any} size={16} color={x.color} />
+                </View>
+                <Text style={styles.injuryCardLabel}>{x.label}</Text>
+                <Text style={styles.injuryCardSub}>{x.sub}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
+
+        {showManualSelector && (
+          <TouchableOpacity style={styles.unclearBtn}>
+            <Text style={styles.unclearBtnText}>Injury type unclear</Text>
+          </TouchableOpacity>
+        )}
+
+        {/* Hospital match card */}
+        {showHospitalCard && (
+          <View style={{ marginTop: 16 }}>
+            {injuryType && (
+              <View style={styles.confirmedRow}>
+                <Ionicons name="checkmark-circle" size={14} color={Colors.status.success} />
+                <Text style={styles.confirmedText}>
+                  Injury type confirmed via {voiceTranscript ? 'voice' : 'manual selection'}
+                </Text>
+              </View>
+            )}
+            <HospitalMatchCard
+              alertState={preAlertState}
+              isSpecialistMatch
+              requiredCapabilities={
+                injuryType
+                  ? require('../../services/TraumaMatch').getRequiredCapabilities(injuryType)
+                  : []
+              }
+            />
+          </View>
+        )}
+
+        {/* Dismiss */}
+        <TouchableOpacity style={styles.dismissBtn} onPress={handleDismissSOS} activeOpacity={0.7}>
+          <Ionicons name="close" size={16} color={Colors.status.success} />
+          <Text style={styles.dismissText}>I'M OK — CANCEL SOS</Text>
+        </TouchableOpacity>
+
+        <View style={{ height: Layout.CONTENT_BOTTOM_PADDING }} />
+      </ScrollView>
+    );
   }
 
-  const statusConfig = getCrashStatusConfig(crashState);
-  const showHospitalCard = preAlertState.status !== 'idle';
-
-  // Whether to show manual chip selector:
-  // Show if SOS active AND (voice is unclear OR voice errored OR not started)
-  // and no injury is selected yet
-  const showManualSelector =
-    sosActive &&
-    !injuryType &&
-    !showHospitalCard &&
-    (voiceUnclear || voiceState === 'error' || voiceState === 'idle');
-
-  // ─────────────────────────────────────────────────────────────────────────
-  // RENDER
-  // ─────────────────────────────────────────────────────────────────────────
-
+  // ───────────────────────────────────────────────────────────────────────────
+  // IDLE → Hold-to-send button
+  // ───────────────────────────────────────────────────────────────────────────
   return (
-    <ScrollView
-      style={styles.scroll}
-      contentContainerStyle={styles.content}
-      showsVerticalScrollIndicator={false}
-    >
-      {/* ── Header ─────────────────────────────────────────────────────── */}
-      <View style={styles.header}>
-        <Text style={styles.title}>Emergency SOS</Text>
-        <Text style={styles.subtitle}>
-          {sosActive ? 'SOS Active — help is alerted' : 'Hold for 3 seconds to activate'}
-        </Text>
+    <View style={styles.idleContainer}>
+      {/* Header */}
+      <View style={styles.idleHeader}>
+        <View>
+          <Text style={styles.idleTitle}>Emergency SOS</Text>
+          <Text style={styles.idleSub}>Hold for 5 seconds to activate</Text>
+        </View>
+        <View style={styles.monitoringBadge}>
+          <View style={[styles.crashDot, { backgroundColor: Colors.status.success }]} />
+          <Text style={styles.monitoringText}>MONITORING</Text>
+        </View>
       </View>
 
-      {/* ── Crash status pill ───────────────────────────────────────────── */}
-      <View
-        style={[
-          styles.detectionPill,
-          { borderColor: `${statusConfig.color}30`, backgroundColor: `${statusConfig.color}0D` },
-        ]}
-      >
-        <View style={[styles.detectionDot, { backgroundColor: statusConfig.color }]} />
-        <Text style={[styles.detectionText, { color: statusConfig.color }]}>
-          {statusConfig.label}
-        </Text>
-      </View>
-
-      {/* ── SOS Button ─────────────────────────────────────────────────── */}
+      {/* Central hold button */}
       <View style={styles.buttonArea}>
-        {[
-          { scale: ring1, opacity: ringOpacity1 },
-          { scale: ring2, opacity: ringOpacity2 },
-          { scale: ring3, opacity: ringOpacity3 },
-        ].map((r, i) => (
-          <Animated.View
-            key={i}
-            style={[styles.ring, { transform: [{ scale: r.scale }], opacity: r.opacity }]}
-          />
-        ))}
-
         <Animated.View style={{ transform: [{ scale: buttonScale }] }}>
           <TouchableOpacity
             onPressIn={onPressIn}
             onPressOut={onPressOut}
             activeOpacity={1}
-            style={[styles.sosButton, sosActive && styles.sosButtonActive]}
+            style={styles.sosCircle}
           >
-            <View style={styles.sosInnerRing}>
-              <Text style={styles.sosLabel}>SOS</Text>
-              {isPressed && !sosActive ? (
-                <Text style={styles.sosCountdown}>{countdown}</Text>
-              ) : sosActive ? (
-                <Text style={styles.sosActiveLabel}>ACTIVE</Text>
-              ) : null}
-            </View>
+            <Text style={styles.sosLabel}>SOS</Text>
+            <Text style={styles.sosSubLabel}>
+              {holdSeconds === 0
+                ? 'HOLD TO SEND'
+                : holdSeconds >= HOLD_DURATION
+                ? 'SENDING…'
+                : `${Math.ceil(HOLD_DURATION - holdSeconds)}s`}
+            </Text>
           </TouchableOpacity>
         </Animated.View>
       </View>
 
-      {/* ── Sensor meter ────────────────────────────────────────────────── */}
-      <SensorMeter score={liveScore} />
-
-      {/* ── POST-SOS VOICE PANEL ────────────────────────────────────────── */}
-      {sosActive && (
-        <VoiceInjuryPanel
-          voiceState={voiceState}
-          transcript={voiceTranscript}
-          language={voiceLanguage}
-          unclear={voiceUnclear}
-          micPulse={micPulse}
-          onStopEarly={() => postSOSVoice.stopEarly()}
-        />
-      )}
-
-      {/* ── Injury selector (manual fallback / confirmation) ────────────── */}
-      {showManualSelector && (
-        <View style={styles.section}>
-          <InjuryTypeSelector
-            selected={injuryType}
-            onSelect={handleInjurySelect}
-          />
-        </View>
-      )}
-
-      {/* ── Hospital match card ─────────────────────────────────────────── */}
-      {showHospitalCard && (
-        <View style={styles.section}>
-          {injuryType && (
-            <View style={styles.confirmedInjury}>
-              <Ionicons name="checkmark-circle" size={14} color={Colors.status.success} />
-              <Text style={styles.confirmedInjuryText}>
-                Injury type confirmed via{' '}
-                {voiceTranscript ? 'voice' : 'manual selection'}
-                {voiceLanguage ? ` (${voiceLanguage.toUpperCase()})` : ''}
-              </Text>
+      {/* Sensor bars */}
+      <View style={styles.sensorBars}>
+        {[
+          { l: 'Accel', v: liveScore.accelScore, c: Colors.brand.primary },
+          { l: 'Gyro',  v: liveScore.gyroScore,  c: Colors.status.info },
+          { l: 'Audio', v: liveScore.acousticScore, c: Colors.status.warning },
+        ].map(m => (
+          <View key={m.l} style={styles.sensorRow}>
+            <Text style={styles.sensorLabel}>{m.l}</Text>
+            <View style={styles.sensorTrack}>
+              <View style={[styles.sensorFill, { width: `${Math.round(m.v * 100)}%` as any, backgroundColor: m.c }]} />
             </View>
-          )}
-          <HospitalMatchCard
-            alertState={preAlertState}
-            isSpecialistMatch
-            requiredCapabilities={
-              injuryType
-                ? require('../../services/TraumaMatch').getRequiredCapabilities(injuryType)
-                : []
-            }
-          />
-        </View>
-      )}
-
-      {/* ── Dismiss button ──────────────────────────────────────────────── */}
-      {sosActive && (
-        <TouchableOpacity
-          style={styles.dismissBtn}
-          onPress={handleDismissSOS}
-          activeOpacity={0.7}
-        >
-          <Text style={styles.dismissText}>I am safe — dismiss SOS</Text>
-        </TouchableOpacity>
-      )}
-
-      {/* ── Quick dial ──────────────────────────────────────────────────── */}
-      <View style={styles.dialRow}>
-        <QuickDial label="Ambulance" number={emergencyNumbers.ambulance} color={Colors.brand.primary} />
-        <QuickDial label="Police"    number={emergencyNumbers.police}    color={Colors.brand.purple} />
-        <QuickDial label="Fire"      number={emergencyNumbers.fire}      color={Colors.brand.gold} />
+            <Text style={styles.sensorValue}>{Math.round(m.v * 100)}%</Text>
+          </View>
+        ))}
+        <Text style={styles.gforceText}>{liveScore.gForce.toFixed(1)}g peak g-force</Text>
       </View>
 
-      <View style={{ height: Layout.CONTENT_BOTTOM_PADDING }} />
-    </ScrollView>
+      {/* Quick dial */}
+      <View style={styles.quickDialSection}>
+        <Text style={styles.quickDialLabel}>QUICK DIAL</Text>
+        <View style={styles.dialRow}>
+          <QuickDial number={emergencyNumbers.ambulance} label="Ambulance" color={Colors.brand.primary} bg={Colors.soft.red} border={Colors.soft.redBorder} />
+          <QuickDial number={emergencyNumbers.police} label="Police" color={Colors.status.info} bg={Colors.soft.blue} border={Colors.soft.blueBorder} />
+          <QuickDial number={emergencyNumbers.fire} label="Fire" color={Colors.status.warning} bg={Colors.soft.amber} border={Colors.soft.amberBorder} />
+        </View>
+      </View>
+    </View>
   );
 }
 
-// ── VoiceInjuryPanel ──────────────────────────────────────────────────────────
+// ── Voice Panel ──────────────────────────────────────────────────────────────
 
 function VoiceInjuryPanel({
-  voiceState,
-  transcript,
-  language,
-  unclear,
-  micPulse,
-  onStopEarly,
+  voiceState, transcript, language, unclear, micPulse, onStopEarly,
 }: {
-  voiceState: PostSOSVoiceState;
-  transcript: string;
-  language: string;
-  unclear: boolean;
-  micPulse: Animated.Value;
-  onStopEarly: () => void;
+  voiceState: PostSOSVoiceState; transcript: string; language: string;
+  unclear: boolean; micPulse: Animated.Value; onStopEarly: () => void;
 }) {
-  if (voiceState === 'idle') return null;
-
   return (
     <View style={styles.voicePanel}>
-      {/* Header */}
-      <View style={styles.voicePanelHeader}>
-        <Ionicons name="mic" size={14} color={Colors.brand.accent} />
-        <Text style={styles.voicePanelTitle}>Voice Injury Report</Text>
+      <View style={styles.voiceHeader}>
+        <Ionicons name="mic" size={14} color={Colors.status.info} />
+        <Text style={styles.voiceTitle}>Voice Injury Report</Text>
         {language ? (
           <View style={styles.langBadge}>
             <Text style={styles.langBadgeText}>{language.toUpperCase()}</Text>
@@ -398,68 +367,52 @@ function VoiceInjuryPanel({
         ) : null}
       </View>
 
-      {/* Listening state */}
       {voiceState === 'listening' && (
         <View style={styles.voiceListening}>
-          <Animated.View
-            style={[
-              styles.micCircle,
-              { transform: [{ scale: micPulse }] },
-            ]}
-          >
+          <Animated.View style={[styles.micCircle, { transform: [{ scale: micPulse }] }]}>
             <Ionicons name="mic" size={28} color="#FFF" />
           </Animated.View>
-          <Text style={styles.voiceInstruction}>
-            Say the injury type in any language
-          </Text>
-          <Text style={styles.voiceExamples}>
-            "Head injury" · "दिल का दौरा" · "தலை காயம்" · "Burns"
-          </Text>
+          <Text style={styles.voiceInstruction}>Say the injury type in any language</Text>
           <TouchableOpacity style={styles.voiceStopBtn} onPress={onStopEarly}>
             <Text style={styles.voiceStopBtnText}>Done speaking</Text>
           </TouchableOpacity>
         </View>
       )}
 
-      {/* Transcribing state */}
       {voiceState === 'transcribing' && (
         <View style={styles.voiceTranscribing}>
-          <ActivityIndicator size="small" color={Colors.brand.accent} />
-          <Text style={styles.voiceTranscribingText}>
-            Whisper is transcribing...
-          </Text>
+          <ActivityIndicator size="small" color={Colors.status.info} />
+          <Text style={styles.voiceTranscribingText}>Transcribing...</Text>
         </View>
       )}
 
-      {/* Done — show transcript */}
-      {(voiceState === 'done') && transcript ? (
+      {voiceState === 'done' && transcript ? (
         <View style={styles.voiceResult}>
-          <Text style={styles.voiceResultLabel}>You said:</Text>
+          <Text style={styles.voiceResultLabel}>YOU SAID:</Text>
           <Text style={styles.voiceResultText}>"{transcript}"</Text>
           {unclear ? (
-            <View style={styles.voiceUnclearBanner}>
-              <Ionicons name="help-circle-outline" size={14} color={Colors.brand.gold} />
-              <Text style={styles.voiceUnclearText}>
-                Couldn't match a specific injury — please tap below to select manually
+            <View style={[styles.voiceBanner, { backgroundColor: Colors.soft.amber }]}>
+              <Ionicons name="help-circle-outline" size={14} color={Colors.status.warning} />
+              <Text style={[styles.voiceBannerText, { color: Colors.status.warning }]}>
+                Couldn't match — please select manually below
               </Text>
             </View>
           ) : (
-            <View style={styles.voiceMatchedBanner}>
+            <View style={[styles.voiceBanner, { backgroundColor: Colors.soft.green }]}>
               <Ionicons name="checkmark-circle" size={14} color={Colors.status.success} />
-              <Text style={styles.voiceMatchedText}>
-                Injury type identified — hospital pre-alert sent automatically
+              <Text style={[styles.voiceBannerText, { color: Colors.status.success }]}>
+                Injury identified — hospital pre-alert sent
               </Text>
             </View>
           )}
         </View>
       ) : null}
 
-      {/* Error state */}
       {voiceState === 'error' && (
-        <View style={styles.voiceErrorBanner}>
+        <View style={[styles.voiceBanner, { backgroundColor: Colors.soft.amber }]}>
           <Ionicons name="warning-outline" size={14} color={Colors.status.warning} />
-          <Text style={styles.voiceErrorText}>
-            Voice input unavailable — please select injury type below
+          <Text style={[styles.voiceBannerText, { color: Colors.status.warning }]}>
+            Voice unavailable — select below
           </Text>
         </View>
       )}
@@ -467,55 +420,16 @@ function VoiceInjuryPanel({
   );
 }
 
-// ── Helper sub-components ─────────────────────────────────────────────────────
+// ── Quick Dial ──────────────────────────────────────────────────────────────
 
-function SensorMeter({ score }: { score: FusionScore }) {
-  const isActive = score.confidence > 0.02 || score.gForce > 0.1;
-
-  if (!isActive) {
-    return (
-      <View style={styles.meterContainer}>
-        <Text style={styles.meterIdle}>Sensors active · Waiting for impact signal</Text>
-      </View>
-    );
-  }
-
-  return (
-    <View style={styles.meterContainer}>
-      <MeterBar label="Accel" value={score.accelScore}   color={Colors.brand.primary} />
-      <MeterBar label="Gyro"  value={score.gyroScore}    color={Colors.brand.accent} />
-      <MeterBar label="Audio" value={score.acousticScore} color={Colors.brand.gold} />
-      <View style={styles.meterGforce}>
-        <Text style={styles.meterGforceText}>{score.gForce.toFixed(1)}g</Text>
-        <Text style={styles.meterGforceLabel}>peak g-force</Text>
-      </View>
-    </View>
-  );
-}
-
-function MeterBar({ label, value, color }: { label: string; value: number; color: string }) {
-  const v = Math.min(Math.max(value, 0), 1);
-  return (
-    <View style={styles.meterRow}>
-      <Text style={styles.meterLabel}>{label}</Text>
-      <View style={styles.meterTrack}>
-        <View
-          style={[
-            styles.meterFill,
-            { width: `${v * 100}%` as `${number}%`, backgroundColor: color },
-          ]}
-        />
-      </View>
-      <Text style={styles.meterValue}>{(v * 100).toFixed(0)}%</Text>
-    </View>
-  );
-}
-
-function QuickDial({ label, number, color }: { label: string; number: string; color: string }) {
+function QuickDial({ number, label, color, bg, border }: {
+  number: string; label: string; color: string; bg: string; border: string;
+}) {
   return (
     <TouchableOpacity
-      style={[styles.dialChip, { backgroundColor: `${color}0F`, borderColor: `${color}25` }]}
+      style={[styles.dialChip, { backgroundColor: bg, borderColor: border }]}
       onPress={() => Linking.openURL(`tel:${number}`)}
+      activeOpacity={0.7}
     >
       <Text style={[styles.dialNumber, { color }]}>{number}</Text>
       <Text style={styles.dialLabel}>{label}</Text>
@@ -523,94 +437,136 @@ function QuickDial({ label, number, color }: { label: string; number: string; co
   );
 }
 
-function getCrashStatusConfig(state: CrashDetectionState): { color: string; label: string } {
-  switch (state) {
-    case 'idle':        return { color: Colors.status.success, label: '🛡  Crash Detection · Monitoring' };
-    case 'candidate':   return { color: Colors.status.warning, label: '⚠️  Possible impact detected…' };
-    case 'countdown':   return { color: Colors.brand.primary,  label: '🚨  Crash Confirmed — SOS in 5s' };
-    case 'dispatching': return { color: Colors.brand.primary,  label: '📡  Dispatching SOS…' };
-    case 'active_sos':  return { color: Colors.brand.primary,  label: '🚨  SOS Active — help alerted' };
-    case 'cancelled':   return { color: Colors.status.success, label: '✓  SOS Cancelled' };
-    default:            return { color: Colors.status.neutral,  label: 'Crash Detection' };
-  }
-}
-
 // ── Styles ────────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
   scroll: { flex: 1, backgroundColor: Colors.background.primary },
-  content: { alignItems: 'center', paddingHorizontal: Layout.HORIZONTAL_PADDING },
-
-  header: { width: '100%', paddingTop: Layout.STATUS_BAR_HEIGHT + 4, marginBottom: 16 },
-  title: { fontSize: 34, fontWeight: '700', color: Colors.label.primary, letterSpacing: -0.8, marginBottom: 6 },
-  subtitle: { fontSize: 15, color: Colors.label.secondary },
-
-  detectionPill: {
-    flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start',
-    paddingHorizontal: 12, paddingVertical: 5, borderRadius: BorderRadius.full,
-    borderWidth: 1, marginBottom: 24,
+  content: {
+    paddingTop: Layout.STATUS_BAR_HEIGHT,
+    paddingHorizontal: Layout.HORIZONTAL_PADDING,
+    paddingBottom: 20,
   },
-  detectionDot: { width: 6, height: 6, borderRadius: 3 },
-  detectionText: { fontSize: 11, fontWeight: '500' },
 
-  buttonArea: { width: 260, height: 260, alignItems: 'center', justifyContent: 'center', marginBottom: 20 },
-  ring: { position: 'absolute', width: 200, height: 200, borderRadius: 100, borderWidth: 2, borderColor: Colors.brand.primary },
-  sosButton: {
-    width: 200, height: 200, borderRadius: 100, backgroundColor: Colors.brand.primary,
+  // Active state
+  activeBadge: {
+    flexDirection: 'row', alignItems: 'center', gap: 7,
+    backgroundColor: Colors.soft.red, borderWidth: 1, borderColor: Colors.soft.redBorder,
+    borderRadius: 8, paddingHorizontal: 12, paddingVertical: 5,
+    alignSelf: 'flex-start', marginBottom: 14,
+  },
+  activeDot: { width: 7, height: 7, borderRadius: 3.5, backgroundColor: Colors.brand.primary },
+  activeBadgeText: { fontSize: 11, fontWeight: '700', color: Colors.brand.primary, letterSpacing: 1.5 },
+
+  miniSensorRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: Colors.separator.nonOpaque,
+    marginBottom: 14,
+  },
+  miniSensorItem: { flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 },
+  miniSensorLabel: { fontSize: 9, color: Colors.label.tertiary, letterSpacing: 0.8 },
+  miniSensorTrack: { flex: 1, height: 2, backgroundColor: Colors.border.medium, borderRadius: 2, overflow: 'hidden' },
+  miniSensorFill: { height: '100%', borderRadius: 2 },
+  miniSensorValue: { fontSize: 9, color: Colors.label.secondary },
+  miniGforce: { fontSize: 10, fontWeight: '600', color: Colors.label.secondary },
+
+  injuryTitle: { fontSize: 20, fontWeight: '800', color: Colors.label.primary, letterSpacing: -0.5, marginBottom: 4 },
+  injurySub: { fontSize: 12, color: Colors.label.secondary, marginBottom: 16, letterSpacing: -0.2 },
+
+  injuryGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 9, marginBottom: 14 },
+  injuryCard: {
+    width: '48%' as any, borderRadius: 18, borderWidth: 1,
+    padding: 14, paddingBottom: 13,
+  },
+  injuryIconWrap: {
+    width: 34, height: 34, borderRadius: 10,
+    backgroundColor: 'rgba(255,255,255,0.6)', borderWidth: 1,
+    alignItems: 'center', justifyContent: 'center', marginBottom: 10,
+  },
+  injuryCardLabel: { fontSize: 13, fontWeight: '700', color: Colors.label.primary, letterSpacing: -0.3, marginBottom: 3 },
+  injuryCardSub: { fontSize: 10, color: Colors.label.secondary, lineHeight: 14 },
+
+  unclearBtn: {
+    width: '100%', paddingVertical: 12,
+    backgroundColor: Colors.background.elevated, borderWidth: 1, borderColor: Colors.border.medium,
+    borderRadius: 12, alignItems: 'center',
+  },
+  unclearBtnText: { fontSize: 12, fontWeight: '600', color: Colors.label.secondary },
+
+  confirmedRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 },
+  confirmedText: { fontSize: 12, color: Colors.status.success, fontWeight: '500' },
+
+  dismissBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
+    width: '100%', paddingVertical: 18,
+    borderWidth: 1.5, borderColor: Colors.status.success,
+    borderRadius: 14, marginTop: 20,
+  },
+  dismissText: { fontSize: 14, fontWeight: '700', color: Colors.status.success, letterSpacing: 0.8 },
+
+  // Idle state
+  idleContainer: { flex: 1, backgroundColor: Colors.background.primary, paddingTop: Layout.STATUS_BAR_HEIGHT },
+  idleHeader: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end',
+    paddingHorizontal: Layout.HORIZONTAL_PADDING, marginBottom: 20,
+  },
+  idleTitle: { fontSize: 24, fontWeight: '800', color: Colors.label.primary, letterSpacing: -0.5 },
+  idleSub: { fontSize: 12, color: Colors.label.secondary, marginTop: 4 },
+  monitoringBadge: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    backgroundColor: Colors.soft.green, borderWidth: 1, borderColor: Colors.soft.greenBorder,
+    borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5,
+  },
+  crashDot: { width: 6, height: 6, borderRadius: 3 },
+  monitoringText: { fontSize: 10, fontWeight: '700', color: Colors.status.success, letterSpacing: 1 },
+
+  buttonArea: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  sosCircle: {
+    width: 184, height: 184, borderRadius: 92,
+    backgroundColor: Colors.brand.primary,
     alignItems: 'center', justifyContent: 'center',
-    shadowColor: '#FF3B30', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.35, shadowRadius: 24, elevation: 18,
+    shadowColor: 'rgba(239, 62, 40, 0.35)', shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 1, shadowRadius: 16, elevation: 8,
   },
-  sosButtonActive: { backgroundColor: '#E0352A', shadowOpacity: 0.5, shadowRadius: 32 },
-  sosInnerRing: {
-    width: 164, height: 164, borderRadius: 82, borderWidth: 1.5,
-    borderColor: 'rgba(255,255,255,0.35)', alignItems: 'center', justifyContent: 'center',
+  sosLabel: { fontSize: 26, fontWeight: '800', color: '#FFFFFF', letterSpacing: 3 },
+  sosSubLabel: { fontSize: 9.5, color: 'rgba(255,255,255,0.65)', marginTop: 9, letterSpacing: 1.5 },
+
+  // Sensor bars
+  sensorBars: { paddingHorizontal: 30, marginBottom: 20 },
+  sensorRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 },
+  sensorLabel: { width: 38, fontSize: 10, color: Colors.label.tertiary, letterSpacing: 0.8 },
+  sensorTrack: { flex: 1, height: 2.5, backgroundColor: Colors.separator.nonOpaque, borderRadius: 2, overflow: 'hidden' },
+  sensorFill: { height: '100%', borderRadius: 2 },
+  sensorValue: { width: 30, fontSize: 10, color: Colors.label.secondary, textAlign: 'right' },
+  gforceText: { textAlign: 'center', fontSize: 10, color: Colors.label.tertiary, marginTop: 2, letterSpacing: 1 },
+
+  // Quick dial
+  quickDialSection: { paddingHorizontal: Layout.HORIZONTAL_PADDING, paddingBottom: Layout.CONTENT_BOTTOM_PADDING },
+  quickDialLabel: { fontSize: 10, fontWeight: '700', color: Colors.label.tertiary, letterSpacing: 2, marginBottom: 12 },
+  dialRow: { flexDirection: 'row', gap: 9 },
+  dialChip: {
+    flex: 1, borderRadius: 18, borderWidth: 1,
+    paddingVertical: 13, paddingHorizontal: 14,
   },
-  sosLabel: { fontSize: 38, fontWeight: '800', color: '#FFFFFF', letterSpacing: 4 },
-  sosCountdown: { fontSize: 28, fontWeight: '700', color: 'rgba(255,255,255,0.8)', marginTop: 4 },
-  sosActiveLabel: { fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.7)', letterSpacing: 2, marginTop: 4 },
+  dialNumber: { fontSize: 32, fontWeight: '900', lineHeight: 34, marginBottom: 4, letterSpacing: -0.5 },
+  dialLabel: { fontSize: 10, color: Colors.label.secondary, fontWeight: '500' },
 
-  // Sensor meter
-  meterContainer: { width: '100%', marginBottom: 20, gap: 5 },
-  meterIdle: { fontSize: 11, color: Colors.label.tertiary, textAlign: 'center' },
-  meterRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  meterLabel: { fontSize: 10, color: Colors.label.tertiary, fontWeight: '500', width: 36 },
-  meterTrack: { flex: 1, height: 3, backgroundColor: Colors.fill.tertiary, borderRadius: 2, overflow: 'hidden' },
-  meterFill: { height: '100%', borderRadius: 2 },
-  meterValue: { fontSize: 10, color: Colors.label.tertiary, width: 28, textAlign: 'right' },
-  meterGforce: { flexDirection: 'row', alignItems: 'baseline', gap: 4, alignSelf: 'center', marginTop: 2 },
-  meterGforceText: { fontSize: 13, fontWeight: '700', color: Colors.label.secondary, letterSpacing: -0.3 },
-  meterGforceLabel: { fontSize: 10, color: Colors.label.tertiary },
-
-  // ── Voice panel ────────────────────────────────────────────────────────────
+  // Voice panel
   voicePanel: {
-    width: '100%',
-    backgroundColor: Colors.background.elevated,
-    borderRadius: BorderRadius.xl,
-    padding: 16,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: `${Colors.brand.accent}25`,
+    backgroundColor: Colors.background.elevated, borderRadius: BorderRadius.xl,
+    padding: 16, marginBottom: 16, borderWidth: 1, borderColor: Colors.soft.blueBorder,
   },
-  voicePanelHeader: {
-    flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 14,
-  },
-  voicePanelTitle: { flex: 1, fontSize: 13, fontWeight: '700', color: Colors.label.primary },
-  langBadge: {
-    backgroundColor: `${Colors.brand.accent}15`, borderRadius: 6,
-    paddingHorizontal: 8, paddingVertical: 2,
-  },
-  langBadgeText: { fontSize: 10, fontWeight: '700', color: Colors.brand.accent },
+  voiceHeader: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 14 },
+  voiceTitle: { flex: 1, fontSize: 13, fontWeight: '700', color: Colors.label.primary },
+  langBadge: { backgroundColor: Colors.soft.blue, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 2 },
+  langBadgeText: { fontSize: 10, fontWeight: '700', color: Colors.status.info },
 
   voiceListening: { alignItems: 'center', gap: 10 },
   micCircle: {
-    width: 64, height: 64, borderRadius: 32,
-    backgroundColor: Colors.brand.accent,
+    width: 64, height: 64, borderRadius: 32, backgroundColor: Colors.status.info,
     alignItems: 'center', justifyContent: 'center',
-    shadowColor: Colors.brand.accent, shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35, shadowRadius: 10, elevation: 8,
+    ...Shadows.md,
   },
   voiceInstruction: { fontSize: 14, fontWeight: '600', color: Colors.label.primary, textAlign: 'center' },
-  voiceExamples: { fontSize: 11, color: Colors.label.tertiary, textAlign: 'center', lineHeight: 16 },
   voiceStopBtn: {
     marginTop: 4, paddingHorizontal: 20, paddingVertical: 10,
     backgroundColor: Colors.fill.secondary, borderRadius: BorderRadius.full,
@@ -621,41 +577,8 @@ const styles = StyleSheet.create({
   voiceTranscribingText: { fontSize: 13, color: Colors.label.secondary },
 
   voiceResult: { gap: 8 },
-  voiceResultLabel: { fontSize: 11, fontWeight: '600', color: Colors.label.tertiary, letterSpacing: 0.5, textTransform: 'uppercase' },
+  voiceResultLabel: { fontSize: 11, fontWeight: '600', color: Colors.label.tertiary, letterSpacing: 1 },
   voiceResultText: { fontSize: 15, color: Colors.label.primary, fontStyle: 'italic', lineHeight: 22 },
-  voiceMatchedBanner: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    backgroundColor: `${Colors.status.success}12`, borderRadius: BorderRadius.md, padding: 10,
-  },
-  voiceMatchedText: { flex: 1, fontSize: 12, color: Colors.status.success },
-  voiceUnclearBanner: {
-    flexDirection: 'row', alignItems: 'flex-start', gap: 6,
-    backgroundColor: `${Colors.brand.gold}12`, borderRadius: BorderRadius.md, padding: 10,
-  },
-  voiceUnclearText: { flex: 1, fontSize: 12, color: Colors.brand.gold },
-  voiceErrorBanner: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    backgroundColor: `${Colors.status.warning}12`, borderRadius: BorderRadius.md, padding: 10,
-  },
-  voiceErrorText: { flex: 1, fontSize: 12, color: Colors.status.warning },
-
-  // Confirmed injury label
-  confirmedInjury: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    marginBottom: 8, paddingHorizontal: 4,
-  },
-  confirmedInjuryText: { fontSize: 12, color: Colors.status.success, fontWeight: '500' },
-
-  section: { width: '100%', marginBottom: 16 },
-
-  dismissBtn: {
-    width: '100%', paddingVertical: 14, borderRadius: BorderRadius.xl,
-    backgroundColor: Colors.fill.secondary, alignItems: 'center', marginBottom: 20,
-  },
-  dismissText: { fontSize: 14, color: Colors.label.secondary, fontWeight: '500' },
-
-  dialRow: { flexDirection: 'row', gap: 10, width: '100%', marginBottom: 12 },
-  dialChip: { flex: 1, alignItems: 'center', paddingVertical: 14, borderRadius: BorderRadius.xl, borderWidth: 1 },
-  dialNumber: { fontSize: 20, fontWeight: '700', letterSpacing: -0.5, marginBottom: 2 },
-  dialLabel: { fontSize: 10, color: Colors.label.secondary, fontWeight: '500' },
+  voiceBanner: { flexDirection: 'row', alignItems: 'center', gap: 6, borderRadius: BorderRadius.md, padding: 10 },
+  voiceBannerText: { flex: 1, fontSize: 12 },
 });

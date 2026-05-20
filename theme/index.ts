@@ -1,128 +1,144 @@
 /**
- * AETHER Design System — Premium iOS Light Theme
+ * AETHER Design System — Warm Parchment Theme
  *
- * Designed to match Apple's Human Interface Guidelines.
- * White primary, SF Pro typography, iOS system colors.
+ * Ported from the web prototype's design tokens.
+ * Warm, earthy palette with bold emergency accents.
  */
 
 export const Colors = {
   // ── Backgrounds ──────────────────────────────────────────────
   background: {
-    primary: '#FFFFFF',          // Pure white — main canvas
-    secondary: '#F2F2F7',        // iOS grouped background (gray-6)
-    tertiary: '#EFEFF4',         // Deeper grouped background
-    elevated: '#FFFFFF',         // Cards, sheets
-    grouped: '#F2F2F7',          // Grouped list backgrounds
+    primary: '#F7F5F0',           // Warm parchment — main canvas
+    secondary: '#EDEAE3',         // Slightly deeper parchment
+    tertiary: '#E5E2D9',          // Border-level grey
+    elevated: '#FFFFFF',          // Cards, sheets — pure white
+    grouped: '#F7F5F0',           // Grouped list backgrounds
   },
 
-  // ── Labels (iOS naming convention) ──────────────────────────
+  // ── Labels ───────────────────────────────────────────────────
   label: {
-    primary: '#000000',
-    secondary: 'rgba(60, 60, 67, 0.6)',
-    tertiary: 'rgba(60, 60, 67, 0.3)',
-    muted: 'rgba(60, 60, 67, 0.45)',
+    primary: '#141210',           // Near-black ink
+    secondary: '#706D65',         // Secondary ink
+    tertiary: '#ADAAA2',          // Muted ink
+    muted: '#D0CEC7',            // Faintest ink
     inverse: '#FFFFFF',
-    emergency: '#FF3B30',
+    emergency: '#EF3E28',
   },
 
   // ── Text (backward compat alias) ─────────────────────────────
   text: {
-    primary: '#000000',
-    secondary: 'rgba(60, 60, 67, 0.6)',
-    muted: 'rgba(60, 60, 67, 0.45)',
+    primary: '#141210',
+    secondary: '#706D65',
+    muted: '#ADAAA2',
     inverse: '#FFFFFF',
-    emergency: '#FF3B30',
+    emergency: '#EF3E28',
   },
 
   // ── Brand ────────────────────────────────────────────────────
   brand: {
-    primary: '#FF3B30',          // iOS Red — emergency, SOS
-    secondary: '#FF6B35',        // Warm orange
-    accent: '#007AFF',           // iOS Blue — actions, links
-    gold: '#FF9500',             // iOS Orange — rewards
-    success: '#34C759',          // iOS Green
-    purple: '#5856D6',           // iOS Purple — police
+    primary: '#EF3E28',          // AETHER Red — emergency, SOS
+    primaryDeep: '#C82F1C',      // Deeper red for shadows/press
+    secondary: '#C05C0A',        // Amber — fire, warnings
+    accent: '#1648D0',           // Blue — actions, police
+    gold: '#C05C0A',             // Amber (alias)
+    success: '#0E8C56',          // Green — safe, online
+    purple: '#6B35CC',           // Purple — spine/special
   },
 
-  // ── System Colors (iOS palette) ──────────────────────────────
+  // ── System Colors ────────────────────────────────────────────
   status: {
-    success: '#34C759',
-    warning: '#FF9500',
-    danger: '#FF3B30',
-    info: '#007AFF',
-    neutral: '#8E8E93',
+    success: '#0E8C56',
+    warning: '#C05C0A',
+    danger: '#EF3E28',
+    info: '#1648D0',
+    neutral: '#ADAAA2',
+  },
+
+  // ── Soft backgrounds (for tags, badges, cards) ────────────────
+  soft: {
+    red: '#FEF1EE',
+    redBorder: '#F4C5BE',
+    green: '#E8F6EF',
+    greenBorder: '#96D4B4',
+    blue: '#EBF0FC',
+    blueBorder: '#A8BEE8',
+    amber: '#FEF4E6',
+    amberBorder: '#E8C088',
+    purple: '#F4EFFE',
+    purpleBorder: '#C8A8EE',
+    heart: '#FEE8F0',
+    heartBorder: '#F4B0CC',
   },
 
   // ── Emergency Service Tints ───────────────────────────────────
-  // Pastel backgrounds for the emergency number cards
   tint: {
-    police: '#EBF3FF',            // Light blue
-    ambulance: '#FFEDEC',         // Light red
-    fire: '#FFF5E6',              // Light orange
-    universal: '#EDFAF3',         // Light green
-    hospital: '#FFEDEC',
-    towing: '#FFF5E6',
-    puncture: '#EDFAF3',
-    petrol: '#F0EEFF',
+    police: '#EBF0FC',
+    ambulance: '#FEF1EE',
+    fire: '#FEF4E6',
+    universal: '#E8F6EF',
+    hospital: '#FEF1EE',
+    towing: '#FEF4E6',
+    puncture: '#E8F6EF',
+    petrol: '#F4EFFE',
   },
 
   // ── Emergency Service Colors ──────────────────────────────────
   service: {
-    police: '#007AFF',
-    ambulance: '#FF3B30',
-    fire: '#FF9500',
-    universal: '#34C759',
-    hospital: '#FF3B30',
-    towing: '#FF9500',
-    puncture: '#34C759',
-    petrol: '#5856D6',
+    police: '#1648D0',
+    ambulance: '#EF3E28',
+    fire: '#C05C0A',
+    universal: '#0E8C56',
+    hospital: '#EF3E28',
+    towing: '#C05C0A',
+    puncture: '#0E8C56',
+    petrol: '#6B35CC',
   },
 
-  // ── Fills (iOS fill system) ──────────────────────────────────
+  // ── Fills ────────────────────────────────────────────────────
   fill: {
-    primary: 'rgba(120, 120, 128, 0.2)',
-    secondary: 'rgba(120, 120, 128, 0.16)',
-    tertiary: 'rgba(118, 118, 128, 0.12)',
-    quaternary: 'rgba(116, 116, 128, 0.08)',
+    primary: 'rgba(112, 109, 101, 0.20)',
+    secondary: 'rgba(112, 109, 101, 0.12)',
+    tertiary: 'rgba(112, 109, 101, 0.08)',
+    quaternary: 'rgba(112, 109, 101, 0.04)',
   },
 
   // ── Separators ───────────────────────────────────────────────
   separator: {
-    opaque: '#C6C6C8',
-    nonOpaque: 'rgba(60, 60, 67, 0.29)',
+    opaque: '#E5E2D9',
+    nonOpaque: '#EDEAE3',
   },
 
   // ── Borders ──────────────────────────────────────────────────
   border: {
-    subtle: 'rgba(60, 60, 67, 0.10)',
-    medium: 'rgba(60, 60, 67, 0.18)',
-    strong: 'rgba(60, 60, 67, 0.30)',
+    subtle: '#EDEAE3',
+    medium: '#E5E2D9',
+    strong: '#D0CEC7',
   },
 
   // ── Overlays ─────────────────────────────────────────────────
   overlay: {
-    light: 'rgba(0,0,0,0.04)',
-    medium: 'rgba(0,0,0,0.08)',
-    dark: 'rgba(0,0,0,0.45)',
-    emergency: 'rgba(255, 59, 48, 0.08)',
+    light: 'rgba(20, 18, 16, 0.04)',
+    medium: 'rgba(20, 18, 16, 0.08)',
+    dark: 'rgba(20, 18, 16, 0.45)',
+    emergency: 'rgba(239, 62, 40, 0.08)',
   },
 };
 
 export const Typography = {
-  // iOS Text Styles — matching Apple's HIG type scale
   size: {
-    xs: 11,           // Caption 2
-    sm: 13,           // Footnote
-    md: 15,           // Subheadline
-    lg: 17,           // Body / Headline
-    xl: 20,           // Title 3
-    '2xl': 22,        // Title 2
-    '3xl': 28,        // Title 1
-    '4xl': 34,        // Large Title
-    '5xl': 40,        // Display
+    xs: 9,            // Micro labels
+    sm: 11,           // Tags, badges
+    md: 13,           // Body small
+    lg: 14,           // Body
+    xl: 20,           // Section title
+    '2xl': 24,        // Screen title
+    '3xl': 30,        // Brand title
+    '4xl': 38,        // Large display numbers
+    '5xl': 42,        // Hero numbers
   },
 
   weight: {
+    light: '300' as const,
     regular: '400' as const,
     medium: '500' as const,
     semibold: '600' as const,
@@ -132,18 +148,18 @@ export const Typography = {
   },
 
   lineHeight: {
-    tight: 1.2,
-    normal: 1.4,
-    relaxed: 1.6,
+    tight: 1.0,
+    normal: 1.3,
+    relaxed: 1.5,
   },
 
-  // Letter spacing values (converted to letterSpacing for RN)
   tracking: {
     tight: -0.5,
-    display: -0.4,   // For large titles — Apple uses tight tracking
+    display: -1.0,
     normal: 0,
     wide: 0.5,
-    wider: 1,
+    wider: 1.5,
+    widest: 2.5,
   },
 };
 
@@ -165,66 +181,70 @@ export const BorderRadius = {
   md: 12,
   lg: 16,
   xl: 20,
-  '2xl': 28,
+  '2xl': 26,
   '3xl': 36,
   full: 9999,
 };
 
 export const Shadows = {
-  // Very subtle, iOS-style shadows
   xs: {
-    shadowColor: '#000',
+    shadowColor: '#141210',
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 4,
+    shadowOpacity: 0.06,
+    shadowRadius: 3,
     elevation: 1,
   },
   sm: {
-    shadowColor: '#000',
+    shadowColor: '#141210',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.07,
-    shadowRadius: 10,
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
     elevation: 3,
   },
   md: {
-    shadowColor: '#000',
+    shadowColor: '#141210',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.10,
+    shadowOpacity: 0.12,
     shadowRadius: 18,
     elevation: 6,
   },
   lg: {
-    shadowColor: '#000',
+    shadowColor: '#141210',
     shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.13,
+    shadowOpacity: 0.18,
     shadowRadius: 28,
     elevation: 12,
   },
-  // Navigation bar floating shadow
   nav: {
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 20,
-    elevation: 20,
+    shadowColor: '#141210',
+    shadowOffset: { width: 0, height: -1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    elevation: 8,
   },
-  // SOS button glow
   emergency: {
-    shadowColor: '#FF3B30',
+    shadowColor: '#EF3E28',
     shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.35,
+    shadowOpacity: 0.40,
     shadowRadius: 18,
     elevation: 14,
   },
+  // Red "pressed" depth shadow (prototype's 0 4px 0 #C82F1C)
+  emergencyDepth: {
+    shadowColor: '#C82F1C',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 1,
+    shadowRadius: 0,
+    elevation: 4,
+  },
 };
 
-// Bottom tab bar dimensions — used across all screens for padding
 export const Layout = {
-  TAB_BAR_HEIGHT: 72,
-  TAB_BAR_BOTTOM_MARGIN: 24,
-  CONTENT_BOTTOM_PADDING: 116, // TAB_BAR_HEIGHT + TAB_BAR_BOTTOM_MARGIN + 20
-  HORIZONTAL_PADDING: 20,
-  STATUS_BAR_HEIGHT: 52,
+  TAB_BAR_HEIGHT: 82,
+  TAB_BAR_BOTTOM_MARGIN: 0,
+  CONTENT_BOTTOM_PADDING: 100,
+  HORIZONTAL_PADDING: 22,
+  STATUS_BAR_HEIGHT: 56,
 };
 
 const Theme = {
