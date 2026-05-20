@@ -52,6 +52,7 @@
 import * as SQLite from 'expo-sqlite';
 import { POI } from './POIDatabase';
 import { POI_TYPES, type POIType } from '../utils/constants';
+import { runInDbQueue } from '../utils/dbQueue';
 import { haversineDistance, sortByDistance } from '../utils/haversine';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -112,6 +113,7 @@ class OnlinePOIService {
   private initialized = false;
   private fetching = false;
 
+
   private status: OnlinePOIStatus = {
     loading: false,
     error: null,
@@ -141,7 +143,7 @@ class OnlinePOIService {
       // This is safe to call from multiple places.
       this.db = await SQLite.openDatabaseAsync('aether_online_cache.db');
 
-      await this.db.execAsync(`
+      await runInDbQueue(() => this.db!.execAsync(`
         -- Main cache table — mirrors the bundled poi table schema
         -- plus cache metadata (cached_at, fetch origin lat/lng)
         CREATE TABLE IF NOT EXISTS poi_cache (
@@ -164,15 +166,15 @@ class OnlinePOIService {
         CREATE INDEX IF NOT EXISTS idx_cache_type ON poi_cache(type);
         CREATE INDEX IF NOT EXISTS idx_cache_loc  ON poi_cache(lat, lng);
         CREATE INDEX IF NOT EXISTS idx_cache_age  ON poi_cache(cached_at);
-      `);
+      `));
 
       // Purge expired entries from previous sessions
       await this.purgeExpired();
 
       // Count what's already in cache
-      const row = await this.db.getFirstAsync<{ n: number }>(
+      const row = await runInDbQueue(() => this.db!.getFirstAsync<{ n: number }>(
         'SELECT COUNT(*) as n FROM poi_cache'
-      );
+      ));
       const count = row?.n ?? 0;
       if (count > 0) {
         this.emit({ source: 'cached', poiCount: count });
@@ -355,22 +357,23 @@ out body center;`;
       // Write to SQLite cache in a single transaction for speed
       if (pois.length > 0) {
         const now = Date.now();
-        // Use execAsync for batch inserts (faster than individual runAsync calls)
-        for (const poi of pois) {
-          await this.db.runAsync(
-            `INSERT OR REPLACE INTO poi_cache
-             (id, type, name, lat, lng, phone, hours, capabilities,
-              country_code, confidence, cached_at, fetch_lat, fetch_lng)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [
-              poi.id, poi.type, poi.name, poi.lat, poi.lng,
-              poi.phone ?? null, poi.hours ?? null,
-              JSON.stringify(poi.capabilities),
-              poi.country_code, poi.confidence,
-              now, lat, lng,
-            ]
-          );
-        }
+        await runInDbQueue(async () => {
+          for (const poi of pois) {
+            await this.db!.runAsync(
+              `INSERT OR REPLACE INTO poi_cache
+               (id, type, name, lat, lng, phone, hours, capabilities,
+                country_code, confidence, cached_at, fetch_lat, fetch_lng)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+              [
+                poi.id, poi.type, poi.name, poi.lat, poi.lng,
+                poi.phone ?? null, poi.hours ?? null,
+                JSON.stringify(poi.capabilities),
+                poi.country_code, poi.confidence,
+                now, lat, lng,
+              ]
+            );
+          }
+        });
       }
 
       const finalCount = pois.length;
@@ -413,11 +416,11 @@ out body center;`;
     if (!this.db) return false;
 
     try {
-      const row = await this.db.getFirstAsync<{
+      const row = await runInDbQueue(() => this.db!.getFirstAsync<{
         cached_at: number;
         fetch_lat: number;
         fetch_lng: number;
-      }>('SELECT cached_at, fetch_lat, fetch_lng FROM poi_cache ORDER BY cached_at DESC LIMIT 1');
+      }>('SELECT cached_at, fetch_lat, fetch_lng FROM poi_cache ORDER BY cached_at DESC LIMIT 1'));
 
       if (!row) return false;
 
@@ -475,7 +478,7 @@ out body center;`;
       }>;
 
       if (type === 'all') {
-        rows = await this.db.getAllAsync(
+        rows = await runInDbQueue(() => this.db!.getAllAsync(
           `SELECT id, type, name, lat, lng, phone, hours, capabilities, country_code, confidence
            FROM poi_cache
            WHERE lat BETWEEN ? AND ?
@@ -486,9 +489,9 @@ out body center;`;
             userLat - latDelta, userLat + latDelta,
             userLng - lngDelta, userLng + lngDelta,
           ]
-        );
+        ));
       } else {
-        rows = await this.db.getAllAsync(
+        rows = await runInDbQueue(() => this.db!.getAllAsync(
           `SELECT id, type, name, lat, lng, phone, hours, capabilities, country_code, confidence
            FROM poi_cache
            WHERE type = ?
@@ -501,7 +504,7 @@ out body center;`;
             userLat - latDelta, userLat + latDelta,
             userLng - lngDelta, userLng + lngDelta,
           ]
-        );
+        ));
       }
 
       // Parse and attach Haversine distance
@@ -536,9 +539,9 @@ out body center;`;
     if (!this.initialized) await this.initialize();
     if (!this.db) return false;
     try {
-      const row = await this.db.getFirstAsync<{ n: number }>(
+      const row = await runInDbQueue(() => this.db!.getFirstAsync<{ n: number }>(
         'SELECT COUNT(*) as n FROM poi_cache LIMIT 1'
-      );
+      ));
       return (row?.n ?? 0) > 0;
     } catch {
       return false;
@@ -554,9 +557,9 @@ out body center;`;
     if (!this.db) return;
     try {
       const cutoff = Date.now() - CACHE_TTL_MS;
-      const result = await this.db.runAsync(
+      const result = await runInDbQueue(() => this.db!.runAsync(
         'DELETE FROM poi_cache WHERE cached_at < ?', [cutoff]
-      );
+      ));
       if (result.changes > 0) {
         console.log(`[OnlinePOI] Purged ${result.changes} expired cache entries`);
       }
@@ -569,7 +572,7 @@ out body center;`;
   async clearCache(): Promise<void> {
     if (!this.db) return;
     try {
-      await this.db.runAsync('DELETE FROM poi_cache');
+      await runInDbQueue(() => this.db!.runAsync('DELETE FROM poi_cache'));
       this.emit({ source: 'offline', poiCount: 0, fetchedAt: null });
       console.log('[OnlinePOI] Cache cleared');
     } catch (err) {

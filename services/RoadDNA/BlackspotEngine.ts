@@ -200,29 +200,31 @@ export async function loadCachedBlackspots(): Promise<Blackspot[]> {
  * This function should ONLY be called from the debug panel; never in production.
  */
 export async function seedTestBlackspot(lat: number, lng: number): Promise<void> {
-    const { initDrivingEventsDB } = await import('./DrivingEventLogger');
+    const { initDrivingEventsDB, runInDbQueue } = await import('./DrivingEventLogger');
     const SQLite = await import('expo-sqlite');
     const db = await SQLite.openDatabaseAsync('aether_road_dna.db');
 
     const now = Date.now();
-    for (let i = 0; i < 25; i++) {
-        // Small random jitter within the same 50m cell
-        const jitterLat = lat + (Math.random() - 0.5) * CELL_DEGREES * 0.5;
-        const jitterLng = lng + (Math.random() - 0.5) * CELL_DEGREES * 0.5;
-        await db.runAsync(
-            `INSERT INTO driving_events (event_type, lat, lng, timestamp, speed_kmh, magnitude, uploaded)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
-            [
-                i % 3 === 0 ? 'hard_brake' : i % 3 === 1 ? 'lateral_swerve' : 'heading_change',
-                jitterLat,
-                jitterLng,
-                now - i * 60000, // events spread over 25 minutes
-                45 + Math.random() * 30,
-                0.7 + Math.random() * 0.5,
-                0,
-            ]
-        );
-    }
+    await runInDbQueue(async () => {
+        for (let i = 0; i < 25; i++) {
+            // Small random jitter within the same 50m cell
+            const jitterLat = lat + (Math.random() - 0.5) * CELL_DEGREES * 0.5;
+            const jitterLng = lng + (Math.random() - 0.5) * CELL_DEGREES * 0.5;
+            await db.runAsync(
+                `INSERT INTO driving_events (event_type, lat, lng, timestamp, speed_kmh, magnitude, uploaded)
+           VALUES (?, ?, ?, ?, ?, ?, ?)`,
+                [
+                    i % 3 === 0 ? 'hard_brake' : i % 3 === 1 ? 'lateral_swerve' : 'heading_change',
+                    jitterLat,
+                    jitterLng,
+                    now - i * 60000, // events spread over 25 minutes
+                    45 + Math.random() * 30,
+                    0.7 + Math.random() * 0.5,
+                    0,
+                ]
+            );
+        }
+    });
 
     console.log(`[RoadDNA] Seeded 25 test events at ${lat.toFixed(4)},${lng.toFixed(4)}`);
 }

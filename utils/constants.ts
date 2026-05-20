@@ -39,27 +39,27 @@ export const POI_TYPES = {
 export type POIType = typeof POI_TYPES[keyof typeof POI_TYPES];
 
 export const LANGUAGES = [
-  { code: 'en', name: 'English',    nativeName: 'English' },
-  { code: 'hi', name: 'Hindi',      nativeName: 'हिन्दी' },
-  { code: 'ta', name: 'Tamil',      nativeName: 'தமிழ்' },
-  { code: 'te', name: 'Telugu',     nativeName: 'తెలుగు' },
-  { code: 'kn', name: 'Kannada',    nativeName: 'ಕನ್ನಡ' },
-  { code: 'ml', name: 'Malayalam',  nativeName: 'മലയാളം' },
-  { code: 'mr', name: 'Marathi',    nativeName: 'मराठी' },
-  { code: 'bn', name: 'Bengali',    nativeName: 'বাংলা' },
-  { code: 'gu', name: 'Gujarati',   nativeName: 'ગુજરાતી' },
-  { code: 'pa', name: 'Punjabi',    nativeName: 'ਪੰਜਾਬੀ' },
-  { code: 'ur', name: 'Urdu',       nativeName: 'اردو' },
-  { code: 'or', name: 'Odia',       nativeName: 'ଓଡ଼ିଆ' },
-  { code: 'as', name: 'Assamese',   nativeName: 'অসমীয়া' },
-  { code: 'ne', name: 'Nepali',     nativeName: 'नेपाली' },
-  { code: 'si', name: 'Sinhala',    nativeName: 'සිංහල' },
-  { code: 'my', name: 'Burmese',    nativeName: 'မြန်မာဘာသာ' },
-  { code: 'th', name: 'Thai',       nativeName: 'ภาษาไทย' },
-  { code: 'fr', name: 'French',     nativeName: 'Français' },
-  { code: 'ar', name: 'Arabic',     nativeName: 'العربية' },
-  { code: 'zh', name: 'Chinese',    nativeName: '中文' },
-  { code: 'es', name: 'Spanish',    nativeName: 'Español' },
+  { code: 'en', name: 'English', nativeName: 'English' },
+  { code: 'hi', name: 'Hindi', nativeName: 'हिन्दी' },
+  { code: 'ta', name: 'Tamil', nativeName: 'தமிழ்' },
+  { code: 'te', name: 'Telugu', nativeName: 'తెలుగు' },
+  { code: 'kn', name: 'Kannada', nativeName: 'ಕನ್ನಡ' },
+  { code: 'ml', name: 'Malayalam', nativeName: 'മലയാളം' },
+  { code: 'mr', name: 'Marathi', nativeName: 'मराठी' },
+  { code: 'bn', name: 'Bengali', nativeName: 'বাংলা' },
+  { code: 'gu', name: 'Gujarati', nativeName: 'ગુજરાતી' },
+  { code: 'pa', name: 'Punjabi', nativeName: 'ਪੰਜਾਬੀ' },
+  { code: 'ur', name: 'Urdu', nativeName: 'اردو' },
+  { code: 'or', name: 'Odia', nativeName: 'ଓଡ଼ିଆ' },
+  { code: 'as', name: 'Assamese', nativeName: 'অসমীয়া' },
+  { code: 'ne', name: 'Nepali', nativeName: 'नेपाली' },
+  { code: 'si', name: 'Sinhala', nativeName: 'සිංහල' },
+  { code: 'my', name: 'Burmese', nativeName: 'မြန်မာဘာသာ' },
+  { code: 'th', name: 'Thai', nativeName: 'ภาษาไทย' },
+  { code: 'fr', name: 'French', nativeName: 'Français' },
+  { code: 'ar', name: 'Arabic', nativeName: 'العربية' },
+  { code: 'zh', name: 'Chinese', nativeName: '中文' },
+  { code: 'es', name: 'Spanish', nativeName: 'Español' },
   { code: 'pt', name: 'Portuguese', nativeName: 'Português' },
 ] as const;
 
@@ -92,7 +92,7 @@ export const MESH = {
  * Windows: ipconfig → IPv4 Address under Wi-Fi
  * Mac/Linux: ifconfig → inet under en0/wlan0
  */
-export const SIMULATION_SERVER_URL = 'ws://172.17.15.40:3001'; // ← CHANGE IP
+export const SIMULATION_SERVER_URL = 'ws://172.17.2.64:3001'; // ← CHANGE IP
 
 export const CRASH_THRESHOLDS_CANCEL_WINDOW = 5;
 

@@ -641,6 +641,28 @@ const styles = StyleSheet.create({
   incidentDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: Colors.brand.primary },
   incidentBadgeText: { fontSize: 12, fontWeight: '600', color: Colors.brand.primary },
 
+  blackspotBadge: {
+    position: 'absolute',
+    top: Layout.STATUS_BAR_HEIGHT + 86,
+    alignSelf: 'center',
+    zIndex: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: 'rgba(255,255,255,0.95)',
+    borderRadius: BorderRadius.full,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderWidth: 1,
+    borderColor: 'rgba(204,0,0,0.25)',
+    ...Shadows.sm,
+  },
+  blackspotBadgeText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#CC0000',
+  },
+
   incidentPin: {
     width: 20, height: 20, borderRadius: 10,
     backgroundColor: 'rgba(255,59,48,0.25)',

@@ -33,6 +33,7 @@
  */
 
 import * as SQLite from 'expo-sqlite';
+import { runInDbQueue } from '../utils/dbQueue';
 import { haversineDistance, sortByDistance } from '../utils/haversine';
 import { SEARCH_RADIUS, POI_TYPES, type POIType } from '../utils/constants';
 import seedData from '../assets/data/seed_pois.json';
@@ -72,7 +73,7 @@ export async function initializeDatabase(): Promise<void> {
 
     // Create table if it doesn't exist
     // The IF NOT EXISTS means this is safe to run on every launch
-    await db.execAsync(`
+    await runInDbQueue(() => db!.execAsync(`
       CREATE TABLE IF NOT EXISTS poi (
         id TEXT PRIMARY KEY,
         type TEXT NOT NULL,
@@ -94,7 +95,7 @@ export async function initializeDatabase(): Promise<void> {
 
       -- Index on country for country-specific filtering
       CREATE INDEX IF NOT EXISTS idx_poi_country ON poi(country_code);
-    `);
+    `));
 
     const count = await getPoiCount();
     console.log(`[POIDatabase] Initialized. ${count} POIs in database.`);
@@ -186,7 +187,7 @@ async function searchWithinRadius(
   const maxLng = lng + lngDelta;
 
   // SQL query: fast bounding box filter using the lat/lng index
-  const rows = await db.getAllAsync<{
+  const rows = await runInDbQueue(() => db!.getAllAsync<{
     id: string;
     type: string;
     name: string;
@@ -206,7 +207,7 @@ async function searchWithinRadius(
      ORDER BY confidence DESC
      LIMIT 50`,
     [type, minLat, maxLat, minLng, maxLng]
-  );
+  ));
 
   // Parse each row and calculate exact Haversine distance
   const pois: POI[] = rows.map((row) => ({
@@ -234,7 +235,7 @@ async function searchWithinRadius(
 export async function upsertPOI(poi: Omit<POI, 'distance' | 'distanceText'>): Promise<void> {
   if (!db) return;
 
-  await db.runAsync(
+  await runInDbQueue(() => db!.runAsync(
     `INSERT OR REPLACE INTO poi
      (id, type, name, lat, lng, phone, hours, capabilities, country_code, confidence)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -250,7 +251,7 @@ export async function upsertPOI(poi: Omit<POI, 'distance' | 'distanceText'>): Pr
       poi.country_code,
       poi.confidence,
     ]
-  );
+  ));
 }
 
 /**
@@ -258,7 +259,7 @@ export async function upsertPOI(poi: Omit<POI, 'distance' | 'distanceText'>): Pr
  */
 export async function getPoiCount(): Promise<number> {
   if (!db) return 0;
-  const result = await db.getFirstAsync<{ count: number }>('SELECT COUNT(*) as count FROM poi');
+  const result = await runInDbQueue(() => db!.getFirstAsync<{ count: number }>('SELECT COUNT(*) as count FROM poi'));
   return result?.count ?? 0;
 }
 
@@ -267,9 +268,9 @@ export async function getPoiCount(): Promise<number> {
  */
 export async function getPoiCountByType(): Promise<Record<string, number>> {
   if (!db) return {};
-  const rows = await db.getAllAsync<{ type: string; count: number }>(
+  const rows = await runInDbQueue(() => db!.getAllAsync<{ type: string; count: number }>(
     'SELECT type, COUNT(*) as count FROM poi GROUP BY type'
-  );
+  ));
   return rows.reduce((acc, row) => ({ ...acc, [row.type]: row.count }), {});
 }
 

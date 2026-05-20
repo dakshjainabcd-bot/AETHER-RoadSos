@@ -45,28 +45,28 @@ let db: SQLite.SQLiteDatabase | null = null;
  * Open (or create) the driving events SQLite database.
  * Separate from the Phase 1 POI database — cleaner separation of concerns.
  */
+// Export global queue so existing imports in BlackspotEngine keep working
+export { runInDbQueue } from '../../utils/dbQueue';
+import { runInDbQueue } from '../../utils/dbQueue';
+
 export async function initDrivingEventsDB(): Promise<void> {
     db = await SQLite.openDatabaseAsync('aether_road_dna.db');
 
-    await db.execAsync(`
-    CREATE TABLE IF NOT EXISTS driving_events (
-      id         INTEGER PRIMARY KEY AUTOINCREMENT,
-      event_type TEXT    NOT NULL,
-      lat        REAL    NOT NULL,
-      lng        REAL    NOT NULL,
-      timestamp  INTEGER NOT NULL,
-      speed_kmh  REAL    NOT NULL,
-      magnitude  REAL    NOT NULL,
-      uploaded   INTEGER DEFAULT 0
-    );
-
-    -- Index for fast queries by upload status
-    CREATE INDEX IF NOT EXISTS idx_de_uploaded  ON driving_events(uploaded);
-    -- Index for fast spatial queries
-    CREATE INDEX IF NOT EXISTS idx_de_location  ON driving_events(lat, lng);
-    -- Index for time-based queries
-    CREATE INDEX IF NOT EXISTS idx_de_timestamp ON driving_events(timestamp);
-  `);
+    await runInDbQueue(() => db!.execAsync(`
+        CREATE TABLE IF NOT EXISTS driving_events (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            event_type TEXT NOT NULL,
+            lat REAL NOT NULL,
+            lng REAL NOT NULL,
+            timestamp INTEGER NOT NULL,
+            speed_kmh REAL NOT NULL,
+            magnitude REAL NOT NULL,
+            uploaded INTEGER DEFAULT 0
+        );
+        CREATE INDEX IF NOT EXISTS idx_events_uploaded ON driving_events(uploaded);
+        CREATE INDEX IF NOT EXISTS idx_events_timestamp ON driving_events(timestamp);
+        CREATE INDEX IF NOT EXISTS idx_de_location ON driving_events(lat, lng);
+    `));
 
     console.log('[RoadDNA] Driving events DB initialized');
 }
@@ -76,9 +76,9 @@ export async function initDrivingEventsDB(): Promise<void> {
  */
 export async function getPendingEvents(): Promise<DrivingEvent[]> {
     if (!db) return [];
-    return db.getAllAsync<DrivingEvent>(
+    return runInDbQueue(() => db!.getAllAsync<DrivingEvent>(
         'SELECT * FROM driving_events WHERE uploaded = 0 ORDER BY timestamp ASC LIMIT 200'
-    );
+    ));
 }
 
 /**
@@ -87,10 +87,10 @@ export async function getPendingEvents(): Promise<DrivingEvent[]> {
 export async function markEventsUploaded(ids: number[]): Promise<void> {
     if (!db || ids.length === 0) return;
     const placeholders = ids.map(() => '?').join(',');
-    await db.runAsync(
+    await runInDbQueue(() => db!.runAsync(
         `UPDATE driving_events SET uploaded = 1 WHERE id IN (${placeholders})`,
         ids
-    );
+    ));
 }
 
 /**
@@ -98,10 +98,14 @@ export async function markEventsUploaded(ids: number[]): Promise<void> {
  */
 export async function getDrivingEventCount(): Promise<number> {
     if (!db) return 0;
-    const row = await db.getFirstAsync<{ n: number }>(
-        'SELECT COUNT(*) as n FROM driving_events'
-    );
-    return row?.n ?? 0;
+    try {
+        const row = await runInDbQueue(() => db!.getFirstAsync<{ count: number }>(
+            'SELECT COUNT(*) as count FROM driving_events'
+        ));
+        return row?.count ?? 0;
+    } catch {
+        return 0;
+    }
 }
 
 /**
@@ -109,9 +113,9 @@ export async function getDrivingEventCount(): Promise<number> {
  */
 export async function getAllLocalEvents(): Promise<DrivingEvent[]> {
     if (!db) return [];
-    return db.getAllAsync<DrivingEvent>(
+    return runInDbQueue(() => db!.getAllAsync<DrivingEvent>(
         'SELECT * FROM driving_events ORDER BY timestamp DESC'
-    );
+    ));
 }
 
 /**
@@ -120,7 +124,7 @@ export async function getAllLocalEvents(): Promise<DrivingEvent[]> {
 export async function pruneOldEvents(): Promise<void> {
     if (!db) return;
     const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
-    await db.runAsync('DELETE FROM driving_events WHERE timestamp < ?', [cutoff]);
+    await runInDbQueue(() => db!.runAsync('DELETE FROM driving_events WHERE timestamp < ?', [cutoff]));
 }
 
 // ─── LOGGER CLASS ─────────────────────────────────────────────────────────────
@@ -324,26 +328,29 @@ export class DrivingEventLogger {
             uploaded: 0,
         };
 
-        db.runAsync(
-            `INSERT INTO driving_events
+        runInDbQueue(async () => {
+            try {
+                await db!.runAsync(
+                    `INSERT INTO driving_events
        (event_type, lat, lng, timestamp, speed_kmh, magnitude, uploaded)
        VALUES (?, ?, ?, ?, ?, ?, ?)`,
-            [
-                event.event_type,
-                event.lat,
-                event.lng,
-                event.timestamp,
-                event.speed_kmh,
-                event.magnitude,
-                0,
-            ]
-        ).then(() => {
-            console.log(
-                `[RoadDNA] Logged ${type} at ${event.lat.toFixed(4)},${event.lng.toFixed(4)} ` +
-                `speed=${event.speed_kmh.toFixed(0)}km/h mag=${event.magnitude.toFixed(2)}`
-            );
-        }).catch((err) => {
-            console.error('[RoadDNA] Failed to log event:', err);
+                    [
+                        event.event_type,
+                        event.lat,
+                        event.lng,
+                        event.timestamp,
+                        event.speed_kmh,
+                        event.magnitude,
+                        0,
+                    ]
+                );
+                console.log(
+                    `[RoadDNA] Logged ${type} at ${event.lat.toFixed(4)},${event.lng.toFixed(4)} ` +
+                    `speed=${event.speed_kmh.toFixed(0)}km/h mag=${event.magnitude.toFixed(2)}`
+                );
+            } catch (err) {
+                console.error('[RoadDNA] Failed to log event:', err);
+            }
         });
 
         this.lastEventTime[type] = Date.now();
