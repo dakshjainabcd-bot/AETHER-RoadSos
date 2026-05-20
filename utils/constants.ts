@@ -92,7 +92,7 @@ export const MESH = {
  * Windows: ipconfig → IPv4 Address under Wi-Fi
  * Mac/Linux: ifconfig → inet under en0/wlan0
  */
-export const SIMULATION_SERVER_URL = 'ws://172.17.3.232:3001'; // ← CHANGE IP
+export const SIMULATION_SERVER_URL = 'ws://172.17.15.40:3001'; // ← CHANGE IP
 
 export const CRASH_THRESHOLDS_CANCEL_WINDOW = 5;
 

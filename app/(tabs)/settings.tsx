@@ -28,6 +28,10 @@ import { Colors, BorderRadius, Shadows, Layout } from '../../theme';
 import { crashDetectionEngine } from '../../services/CrashDetection/CrashDetectionEngine';
 import { onlinePOIService } from '../../services/OnlinePOIService';
 
+// ── PHASE 9 ──────────────────────────────────────────────────────────────────
+import { RoadDNASettingsSection } from '../../components/RoadDNASettingsSection';
+// ─────────────────────────────────────────────────────────────────────────────
+
 
 export default function SettingsScreen() {
   const { emergencyNumbers, language, setLanguage } = useAppContext();
@@ -55,9 +59,9 @@ export default function SettingsScreen() {
   }
 
   async function loadDebug() {
-    const loc  = await getLastKnownLocation();
-    const db   = await getPoiCountByType();
-    const mcc  = await AsyncStorage.getItem(STORAGE_KEYS.MCC);
+    const loc = await getLastKnownLocation();
+    const db = await getPoiCountByType();
+    const mcc = await AsyncStorage.getItem(STORAGE_KEYS.MCC);
     const fpRaw = await AsyncStorage.getItem(STORAGE_KEYS.FALSE_POSITIVE_COUNT);
     const crashScore = crashDetectionEngine.getCurrentScore();
     const lines = [
@@ -121,10 +125,10 @@ export default function SettingsScreen() {
         <View style={styles.separator} />
         {/* Inline emergency number display */}
         {[
-          { label: 'Police',    number: emergencyNumbers.police,    color: Colors.brand.accent  },
+          { label: 'Police', number: emergencyNumbers.police, color: Colors.brand.accent },
           { label: 'Ambulance', number: emergencyNumbers.ambulance, color: Colors.brand.primary },
-          { label: 'Fire',      number: emergencyNumbers.fire,      color: Colors.brand.gold    },
-          { label: 'Universal', number: emergencyNumbers.unified,   color: Colors.status.success},
+          { label: 'Fire', number: emergencyNumbers.fire, color: Colors.brand.gold },
+          { label: 'Universal', number: emergencyNumbers.unified, color: Colors.status.success },
         ].map((item, i, arr) => (
           <View key={item.label}>
             <View style={styles.numRow}>
@@ -135,6 +139,10 @@ export default function SettingsScreen() {
           </View>
         ))}
       </View>
+
+      {/* ── PHASE 9: Road DNA Settings ────────────────────────── */}
+      <SectionLabel text="Safety" />
+      <RoadDNASettingsSection />
 
       {/* ── About ────────────────────────────────────────────── */}
       <SectionLabel text="About" />
