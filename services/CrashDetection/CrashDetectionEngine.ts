@@ -135,6 +135,9 @@ class CrashDetectionEngine {
 
     console.log('[CrashDetection] Initializing Phase 3 crash detection...');
 
+    this.acousticActive = true;
+    this.acousticDetector.activate();
+
     // Set up manual trigger callback (shake, button, voice sim)
     this.manualTrigger.setCallback((triggerType) => {
       console.log(`[CrashDetection] Manual trigger received: ${triggerType}`);
@@ -185,28 +188,9 @@ class CrashDetectionEngine {
     this.manualTrigger.checkForShake(gForce);
 
     // ── ACOUSTIC ACTIVATION ───────────────────────────────────────────
-    // Get latest acoustic score (may be 0 if mic not yet activated)
+    // The microphone is now dedicated entirely to crash detection and 
+    // runs continuously from initialization.
     const acousticScore = this.acousticDetector.getScore();
-
-    // If accelerometer detects something interesting (accelScore > 0.3),
-    // activate the microphone for a 3-second listen window.
-    // WHY 0.3? That's roughly 1.2g — above normal driving but below the
-    // crash threshold. This gives the acoustic detector a head start.
-    if (accelScore > 0.3 && !this.acousticActive) {
-      this.acousticActive = true;
-      this.acousticDetector.activate().then((started) => {
-        if (!started) {
-          // Mic is busy (WhisperSTT active) — don't retry until next window naturally
-          this.acousticActive = false;
-          return;
-        }
-        // Auto-deactivate after 3 seconds to save battery
-        setTimeout(async () => {
-          await this.acousticDetector.deactivate();
-          this.acousticActive = false;
-        }, 3000);
-      });
-    }
 
     // ── SENSOR FUSION CALCULATION ─────────────────────────────────────
     // Choose weights based on microphone availability

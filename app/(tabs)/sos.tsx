@@ -22,7 +22,7 @@ import { useAppContext } from '../../app/_layout';
 import { Colors, Spacing, BorderRadius, Layout, Shadows } from '../../theme';
 import { crashDetectionEngine } from '../../services/CrashDetection/CrashDetectionEngine';
 import type { CrashDetectionState, FusionScore } from '../../services/CrashDetection/types';
-import { postSOSVoice, PostSOSVoiceState } from '../../services/PostSOSVoice';
+
 
 // Phase 6 components
 import { HospitalMatchCard } from '../../components/HospitalMatchCard';
@@ -62,45 +62,14 @@ export default function SOSScreen() {
     accelScore: 0, gyroScore: 0, acousticScore: 0, confidence: 0, gForce: 0,
   });
 
-  // ── PostSOSVoice state ────────────────────────────────────────────────────
-  const [voiceState, setVoiceState]           = useState<any>('idle');
-  const [voiceTranscript, setVoiceTranscript] = useState('');
-  const [voiceLanguage, setVoiceLanguage]     = useState('');
-  const [voiceUnclear, setVoiceUnclear]       = useState(false);
 
   // ── Refs ──────────────────────────────────────────────────────────────────
   const holdTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const buttonScale = useRef(new Animated.Value(1)).current;
-  const micPulse = useRef(new Animated.Value(1)).current;
-  const micPulseLoopRef = useRef<Animated.CompositeAnimation | null>(null);
 
   const sosActive = crashState === 'active_sos' || crashState === 'countdown' || crashState === 'dispatching';
 
-  // ── Wire PostSOSVoice callbacks ───────────────────────────────────────────
-  useEffect(() => {
-    postSOSVoice.setCallbacks({
-      onStateChange: (state) => {
-        setVoiceState(state);
-        if (state === 'listening') startMicPulse();
-        else stopMicPulse();
-      },
-      onInjuryDetected: (result) => {
-        setVoiceTranscript(result.transcript);
-        setVoiceLanguage(result.language);
-        setVoiceUnclear(result.unclear);
-        if (result.injuryType && !result.unclear) {
-          setInjuryType(result.injuryType);
-        }
-      },
-      onUnclear: (transcript, lang) => {
-        setVoiceTranscript(transcript);
-        setVoiceLanguage(lang);
-        setVoiceUnclear(true);
-      },
-      onError: () => { setVoiceUnclear(true); },
-    });
-    return () => { postSOSVoice.reset(); };
-  }, []);
+
 
   // ── Subscribe to sensor scores ────────────────────────────────────────────
   useEffect(() => {
@@ -110,21 +79,6 @@ export default function SOSScreen() {
     return () => unsub();
   }, []);
 
-  // ── Mic pulse ─────────────────────────────────────────────────────────────
-  function startMicPulse() {
-    micPulseLoopRef.current = Animated.loop(
-      Animated.sequence([
-        Animated.timing(micPulse, { toValue: 1.2, duration: 500, useNativeDriver: true }),
-        Animated.timing(micPulse, { toValue: 1.0, duration: 500, useNativeDriver: true }),
-      ])
-    );
-    micPulseLoopRef.current.start();
-  }
-
-  function stopMicPulse() {
-    micPulseLoopRef.current?.stop();
-    micPulse.setValue(1);
-  }
 
   // ── Hold-to-activate (5 second countdown) ─────────────────────────────────
   function onPressIn() {
@@ -160,18 +114,13 @@ export default function SOSScreen() {
 
   // ── Dismiss SOS ───────────────────────────────────────────────────────────
   function handleDismissSOS() {
-    postSOSVoice.reset();
-    setVoiceTranscript('');
-    setVoiceLanguage('');
-    setVoiceUnclear(false);
-    setVoiceState('idle');
+
     clearPreAlert();
     crashDetectionEngine.resetToIdle();
   }
 
   const showHospitalCard = preAlertState.status !== 'idle';
-  const showManualSelector = sosActive && !injuryType && !showHospitalCard
-    && (voiceUnclear || voiceState === 'error' || voiceState === 'idle');
+  const showManualSelector = sosActive && !injuryType && !showHospitalCard;
 
   // ───────────────────────────────────────────────────────────────────────────
   // ACTIVE SOS → Injury type grid
@@ -206,17 +155,6 @@ export default function SOSScreen() {
         <Text style={styles.injuryTitle}>What type of injury?</Text>
         <Text style={styles.injurySub}>This helps us find the right hospital — tap the best match</Text>
 
-        {/* Voice panel */}
-        {voiceState !== 'idle' && (
-          <VoiceInjuryPanel
-            voiceState={voiceState}
-            transcript={voiceTranscript}
-            language={voiceLanguage}
-            unclear={voiceUnclear}
-            micPulse={micPulse}
-            onStopEarly={() => postSOSVoice.stopEarly()}
-          />
-        )}
 
         {/* Injury type grid */}
         {showManualSelector && (
@@ -251,7 +189,7 @@ export default function SOSScreen() {
               <View style={styles.confirmedRow}>
                 <Ionicons name="checkmark-circle" size={14} color={Colors.status.success} />
                 <Text style={styles.confirmedText}>
-                  Injury type confirmed via {voiceTranscript ? 'voice' : 'manual selection'}
+                  Injury type confirmed via manual selection
                 </Text>
               </View>
             )}
@@ -347,78 +285,7 @@ export default function SOSScreen() {
   );
 }
 
-// ── Voice Panel ──────────────────────────────────────────────────────────────
 
-function VoiceInjuryPanel({
-  voiceState, transcript, language, unclear, micPulse, onStopEarly,
-}: {
-  voiceState: PostSOSVoiceState; transcript: string; language: string;
-  unclear: boolean; micPulse: Animated.Value; onStopEarly: () => void;
-}) {
-  return (
-    <View style={styles.voicePanel}>
-      <View style={styles.voiceHeader}>
-        <Ionicons name="mic" size={14} color={Colors.status.info} />
-        <Text style={styles.voiceTitle}>Voice Injury Report</Text>
-        {language ? (
-          <View style={styles.langBadge}>
-            <Text style={styles.langBadgeText}>{language.toUpperCase()}</Text>
-          </View>
-        ) : null}
-      </View>
-
-      {voiceState === 'listening' && (
-        <View style={styles.voiceListening}>
-          <Animated.View style={[styles.micCircle, { transform: [{ scale: micPulse }] }]}>
-            <Ionicons name="mic" size={28} color="#FFF" />
-          </Animated.View>
-          <Text style={styles.voiceInstruction}>Say the injury type in any language</Text>
-          <TouchableOpacity style={styles.voiceStopBtn} onPress={onStopEarly}>
-            <Text style={styles.voiceStopBtnText}>Done speaking</Text>
-          </TouchableOpacity>
-        </View>
-      )}
-
-      {voiceState === 'transcribing' && (
-        <View style={styles.voiceTranscribing}>
-          <ActivityIndicator size="small" color={Colors.status.info} />
-          <Text style={styles.voiceTranscribingText}>Transcribing...</Text>
-        </View>
-      )}
-
-      {voiceState === 'done' && transcript ? (
-        <View style={styles.voiceResult}>
-          <Text style={styles.voiceResultLabel}>YOU SAID:</Text>
-          <Text style={styles.voiceResultText}>"{transcript}"</Text>
-          {unclear ? (
-            <View style={[styles.voiceBanner, { backgroundColor: Colors.soft.amber }]}>
-              <Ionicons name="help-circle-outline" size={14} color={Colors.status.warning} />
-              <Text style={[styles.voiceBannerText, { color: Colors.status.warning }]}>
-                Couldn't match — please select manually below
-              </Text>
-            </View>
-          ) : (
-            <View style={[styles.voiceBanner, { backgroundColor: Colors.soft.green }]}>
-              <Ionicons name="checkmark-circle" size={14} color={Colors.status.success} />
-              <Text style={[styles.voiceBannerText, { color: Colors.status.success }]}>
-                Injury identified — hospital pre-alert sent
-              </Text>
-            </View>
-          )}
-        </View>
-      ) : null}
-
-      {voiceState === 'error' && (
-        <View style={[styles.voiceBanner, { backgroundColor: Colors.soft.amber }]}>
-          <Ionicons name="warning-outline" size={14} color={Colors.status.warning} />
-          <Text style={[styles.voiceBannerText, { color: Colors.status.warning }]}>
-            Voice unavailable — select below
-          </Text>
-        </View>
-      )}
-    </View>
-  );
-}
 
 // ── Quick Dial ──────────────────────────────────────────────────────────────
 

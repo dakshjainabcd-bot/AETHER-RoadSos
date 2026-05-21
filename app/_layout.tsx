@@ -19,7 +19,7 @@
  */
 
 import { useEffect, useState, useRef, createContext, useContext } from 'react';
-import { Stack } from 'expo-router';
+import { Stack, router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { View, ActivityIndicator, StyleSheet, Text } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -39,8 +39,7 @@ import { Colors } from '../theme';
 import { hospitalPreAlert, type PreAlertState } from '../services/HospitalPreAlert';
 import { matchHospital, type InjuryType } from '../services/TraumaMatch';
 
-// PostSOSVoice
-import { postSOSVoice } from '../services/PostSOSVoice';
+
 
 // ── PHASE 9 IMPORTS ──────────────────────────────────────────────────────────
 import {
@@ -52,6 +51,7 @@ import {
 } from '../services/RoadDNA';
 import type { BlackspotAlertState } from '../services/RoadDNA/types';
 import { BlackspotAlert } from '../components/BlackspotAlert';
+import { BystanderAlert } from '../components/BystanderAlert';
 // ─────────────────────────────────────────────────────────────────────────────
 
 // ─── App Context ──────────────────────────────────────────────────────────────
@@ -183,19 +183,6 @@ export default function RootLayout() {
       setSecondsRemaining(5);
       const incidentId = event.crashEvent?.incidentId ?? `local_${Date.now()}`;
       activeIncidentIdRef.current = incidentId;
-      postSOSVoice.setCallbacks({
-        onInjuryDetected: async (result) => {
-          if (result.injuryType && !result.unclear) {
-            await handleSetInjuryType(result.injuryType);
-          }
-        },
-        onUnclear: () => { },
-        onStateChange: () => { },
-        onError: () => { },
-      });
-      postSOSVoice.start(incidentId, language).catch((err) => {
-        console.error('[Layout] PostSOSVoice start error:', err);
-      });
     });
     return () => {
       unsubConfirmed(); unsubState(); unsubScore();
@@ -304,7 +291,6 @@ export default function RootLayout() {
 
   function clearPreAlert() {
     setInjuryTypeState(null);
-    postSOSVoice.reset();
     hospitalPreAlert.reset();
     setPreAlertState(hospitalPreAlert.getState());
     activeIncidentIdRef.current = '';
@@ -361,6 +347,20 @@ export default function RootLayout() {
         onDismiss={() => setBlackspotAlert(null)}
       />
       {/* ─────────────────────────────────────────────────────────────────── */}
+
+      <BystanderAlert
+        packet={activeBystanderAlert?.packet ?? null}
+        distanceM={activeBystanderAlert?.distanceM ?? 0}
+        emergencyAmbulanceNumber={emergencyNumbers.ambulance}
+        onDismiss={() => setAlert(null)}
+        onHelpPress={() => {
+          setAlert(null);
+          router.push({
+            pathname: '/bystander',
+            params: { incidentTimestamp: activeBystanderAlert?.packet?.timestamp?.toString() ?? '' },
+          });
+        }}
+      />
 
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
