@@ -32,6 +32,9 @@ import { onlinePOIService } from '../../services/OnlinePOIService';
 import { RoadDNASettingsSection } from '../../components/RoadDNASettingsSection';
 // ─────────────────────────────────────────────────────────────────────────────
 
+// Phase 10: Privacy — add after existing imports
+import { deleteAllUserData } from '../../utils/PrivacyManager';
+
 
 export default function SettingsScreen() {
   const { emergencyNumbers, language, setLanguage } = useAppContext();
@@ -41,6 +44,34 @@ export default function SettingsScreen() {
   const [debugInfo, setDebugInfo] = useState<string | null>(null);
 
   const countries = getAllCountries();
+
+  // Phase 10: Delete all user data handler
+  async function handleDeleteAllData() {
+    Alert.alert(
+      '⚠️ Delete All My Data',
+      'This will permanently delete:\n\n• GPS history\n• Driving event logs\n• Cached POI data\n• Translation cache\n• All preferences\n\nYou will need to accept consent again on next launch.\n\nThis cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete Everything',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteAllUserData();
+              Alert.alert(
+                '✅ Data Deleted',
+                'All your data has been deleted. Please restart the app to see the consent screen again.',
+                [{ text: 'OK' }]
+              );
+            } catch (error) {
+              Alert.alert('Error', 'Some data could not be deleted. Please try again.');
+            }
+          },
+        },
+      ]
+    );
+  }
+
   const currentLang = LANGUAGES.find(l => l.code === language);
 
   async function handleLanguage(code: LanguageCode) {
@@ -143,6 +174,34 @@ export default function SettingsScreen() {
       {/* ── PHASE 9: Road DNA Settings ────────────────────────── */}
       <SectionLabel text="Safety" />
       <RoadDNASettingsSection />
+
+      {/* ── Privacy (Phase 10) ─────────────────────────────────────────── */}
+      <SectionLabel text="Privacy" />
+      <View style={styles.group}>
+        <SettingsRow
+          icon="shield-checkmark-outline"
+          iconBg="#E8F6EF"
+          iconColor={Colors.status.success}
+          label="View Consent Status"
+          value="DPDP Act 2023 compliant"
+          onPress={() => Alert.alert(
+            'Your Privacy',
+            'AETHER collects:\n\n✅ GPS (for crash detection)\n✅ Accelerometer (crash detection)\n✅ Anonymous driving events (road safety)\n\n❌ No audio recordings\n❌ No personal identity\n❌ No advertising data\n\nYou can delete all data at any time.',
+            [{ text: 'OK' }]
+          )}
+          showChevron
+        />
+        <View style={styles.separator} />
+        <SettingsRow
+          icon="trash-outline"
+          iconBg="#FFEDEC"
+          iconColor={Colors.brand.primary}
+          label="Delete All My Data"
+          value="Right to Erasure — DPDP Section 12"
+          onPress={handleDeleteAllData}
+          showChevron
+        />
+      </View>
 
       {/* ── About ────────────────────────────────────────────── */}
       <SectionLabel text="About" />

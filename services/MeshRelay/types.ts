@@ -10,13 +10,17 @@
  */
 
 export interface SOSPacket {
-  incidentId: string;             // Unique ID like "a1b2c3d4" — identifies THIS crash
-  lat: number;                    // Crash latitude (e.g., 12.9716)
-  lng: number;                    // Crash longitude (e.g., 77.5946)
-  severity: 1 | 2 | 3 | 4 | 5;  // 1 = minor fender bender, 5 = major crash
-  timestamp: number;              // Unix milliseconds when crash happened
-  hopCount: number;               // How many phones have relayed this so far (0 = victim's phone)
-  deviceHash: string;             // Anonymous ID of the phone that originated this SOS
+  incidentId: string;
+  lat: number;
+  lng: number;
+  severity: 1 | 2 | 3 | 4 | 5;
+  timestamp: number;
+  hopCount: number;
+  deviceHash: string;
+  // Phase 10: HMAC integrity fingerprint (optional for backward compat)
+  // Computed over incidentId + lat + lng + severity + timestamp
+  // hopCount is excluded because it changes at each relay hop
+  hmac?: string;
 }
 
 // How the mesh relay behaves

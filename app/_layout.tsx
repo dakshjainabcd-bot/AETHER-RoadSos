@@ -24,6 +24,10 @@ import { StatusBar } from 'expo-status-bar';
 import { View, ActivityIndicator, StyleSheet, Text } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+// Phase 10: Privacy & Consent — add these after the existing imports
+import { ConsentDialog } from '../components/ConsentDialog';
+import { hasFullConsent, saveConsent, saveDecline, CONSENT_STORAGE_KEY } from '../utils/PrivacyManager';
+
 import { initializeMCCService, type EmergencyNumbers } from '../services/MCCService';
 import { initializeDatabase } from '../services/POIDatabase';
 import { requestLocationPermissions, startBackgroundTracking, getLastKnownLocation } from '../services/GPSService';
@@ -131,6 +135,14 @@ export default function RootLayout() {
   const [injuryType, setInjuryTypeState] = useState<InjuryType | null>(null);
   const [preAlertState, setPreAlertState] = useState<PreAlertState>(hospitalPreAlert.getState());
 
+  // ── PHASE 10: Consent state ────────────────────────────────────────────────
+  // null = still checking AsyncStorage (brief)
+  // false = first time user, needs to see consent dialog
+  // true  = consent already given, proceed normally
+  const [consentChecked, setConsentChecked] = useState<boolean | null>(null);
+  const consentGrantedRef = useRef<boolean>(false);
+  // ─────────────────────────────────────────────────────────────────────────
+
   // ── PHASE 9 STATE ──────────────────────────────────────────────────────────
   const [blackspotAlert, setBlackspotAlert] = useState<BlackspotAlertState | null>(null);
   const [roadDNAEnabled, setRoadDNAEnabled] = useState(true);
@@ -229,7 +241,53 @@ export default function RootLayout() {
   }
 
   // ── App initialization ────────────────────────────────────────────────────
-  useEffect(() => { initializeApp(); }, []);
+  // Phase 10: Check consent BEFORE initializing (DPDP compliance)
+  useEffect(() => {
+    checkConsentAndInit();
+  }, []);
+
+  // ── PHASE 10: Consent Functions ────────────────────────────────────────────
+
+  /**
+   * Check if user has already given consent.
+   * - If yes: proceed with normal initialization (including location)
+   * - If no:  show consent dialog, do NOT initialize location tracking yet
+   */
+  async function checkConsentAndInit() {
+    const hasConsent = await hasFullConsent();
+    consentGrantedRef.current = hasConsent;
+    setConsentChecked(hasConsent);
+    if (hasConsent) {
+      // Existing user who already consented → initialize normally
+      initializeApp();
+    }
+    // If !hasConsent, setConsentChecked(false) → UI shows consent dialog
+  }
+
+  /**
+   * User tapped "I Agree" on the consent dialog.
+   * Save consent, then proceed with full initialization.
+   */
+  async function handleConsentAccepted() {
+    await saveConsent();
+    consentGrantedRef.current = true;
+    setConsentChecked(true);
+    initializeApp(); // Now safe to start location tracking
+  }
+
+  /**
+   * User tapped "Continue Without Location" on the consent dialog.
+   * Save their choice, then initialize with limited features.
+   */
+  async function handleConsentDeclined() {
+    await saveDecline();
+    consentGrantedRef.current = false;
+    setConsentChecked(true);
+    // Still initialize (for offline POI, mesh relay, etc.)
+    // but location tracking will be skipped below
+    initializeApp();
+  }
+  // ─────────────────────────────────────────────────────────────────────────
 
   async function initializeApp() {
     try {
@@ -240,9 +298,16 @@ export default function RootLayout() {
       const numbers = await initializeMCCService();
       setEmergencyNumbers(numbers);
 
-      const gpsGranted = await requestLocationPermissions();
-      setGpsGranted(gpsGranted);
-      if (gpsGranted) await startBackgroundTracking();
+      let gpsGranted = false;
+      // Phase 10: Only request location if user gave consent
+      if (consentGrantedRef.current) {
+        gpsGranted = await requestLocationPermissions();
+        setGpsGranted(gpsGranted);
+        if (gpsGranted) await startBackgroundTracking();
+      } else {
+        console.log('[App] Location tracking skipped — user declined consent');
+        setGpsGranted(false);
+      }
 
       await meshRelayManager.initialize();
       crashDetectionEngine.initialize();
@@ -296,6 +361,22 @@ export default function RootLayout() {
     activeIncidentIdRef.current = '';
   }
 
+  // Phase 10: While we check AsyncStorage for consent status (< 100ms)
+  if (consentChecked === null) {
+    return <View style={{ flex: 1, backgroundColor: Colors.background.primary }} />;
+  }
+
+  // Phase 10: First-time user — show DPDP consent dialog
+  if (consentChecked === false) {
+    return (
+      <ConsentDialog
+        onAccept={handleConsentAccepted}
+        onDecline={handleConsentDeclined}
+      />
+    );
+  }
+
+  // Normal loading screen while app initializes
   if (!isInitialized) {
     return (
       <View style={styles.loading}>

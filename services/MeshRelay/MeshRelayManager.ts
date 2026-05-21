@@ -32,6 +32,8 @@ import { haversineDistance } from '../../utils/haversine';
 import { getLastKnownLocation } from '../GPSService';
 import { cloudEgress } from '../CloudEgress';
 import { MESH } from '../../utils/constants';
+import { verifyHMAC } from '../../utils/AESCrypto';
+import { SECURITY } from '../../utils/constants';
 
 type EventCallback = (event: MeshEvent) => void;
 
@@ -39,6 +41,7 @@ class MeshRelayManager {
   // Map of eventType → list of callback functions
   private listeners: Map<string, EventCallback[]> = new Map();
   private isInitialized = false;
+  private lastSOSTriggerTime: number = 0;
 
   /**
    * Initialize the mesh relay system.
@@ -93,6 +96,27 @@ class MeshRelayManager {
    */
   async triggerSOS(severity: 1 | 2 | 3 | 4 | 5 = 3): Promise<SOSPacket | null> {
     try {
+      // ── PHASE 10: Rate Limiting ────────────────────────────────────────────
+      // Prevent SOS flooding: max 1 trigger per 60 seconds.
+      // This defends against:
+      // (a) Accidental double-taps
+      // (b) Malicious apps trying to flood the mesh with fake SOS packets
+      const now = Date.now();
+      const timeSinceLast = now - this.lastSOSTriggerTime;
+
+      if (this.lastSOSTriggerTime > 0 && timeSinceLast < SECURITY.SOS_RATE_LIMIT_MS) {
+        const waitSec = Math.ceil((SECURITY.SOS_RATE_LIMIT_MS - timeSinceLast) / 1000);
+        console.warn(
+          `[MeshRelay] ⚠️ RATE LIMITED — SOS blocked.`,
+          `Last SOS was ${Math.floor(timeSinceLast / 1000)}s ago.`,
+          `Wait ${waitSec}s more.`
+        );
+        return null; // Caller handles null by showing "please wait" message
+      }
+
+      this.lastSOSTriggerTime = now; // Record this trigger attempt
+      // ─────────────────────────────────────────────────────────────────────
+
       // Get current GPS location
       const location = await getLastKnownLocation();
       if (!location) {
@@ -115,7 +139,13 @@ class MeshRelayManager {
       }
 
       // Queue for cloud upload (retries automatically when internet available)
-      cloudEgress.enqueue(packet);
+      // Phase 10: We keep precise coords for cloud upload, while the 'packet' 
+      // broadcasted to mesh relay only has rounded ±111m precision coords.
+      cloudEgress.enqueue({
+        ...packet,
+        lat: location.lat,
+        lng: location.lng,
+      });
 
       // Notify all UI subscribers
       this.emit({ type: 'SOS_TRIGGERED', packet });
@@ -137,6 +167,34 @@ class MeshRelayManager {
       console.log('[MeshRelay] Rejected invalid packet');
       return;
     }
+
+    // ── PHASE 10: HMAC Integrity Verification ─────────────────────────────
+    // If the packet has an HMAC attached, verify it.
+    // If it doesn't (old format or test packet), pass through.
+    if (packet.hmac) {
+      const dataToVerify = JSON.stringify({
+        incidentId: packet.incidentId,
+        lat: packet.lat,
+        lng: packet.lng,
+        severity: packet.severity,
+        timestamp: packet.timestamp,
+      });
+
+      const isAuthentic = verifyHMAC(dataToVerify, packet.hmac);
+
+      if (!isAuthentic) {
+        console.warn(
+          `[MeshRelay] ❌ HMAC VERIFICATION FAILED for packet ${packet.incidentId}`,
+          `— packet may have been tampered with. Dropping.`
+        );
+        return; // Reject tampered packet — do not process or relay
+      }
+
+      console.log(`[MeshRelay] ✅ HMAC verified — packet ${packet.incidentId} is authentic`);
+    } else {
+      console.log(`[MeshRelay] ℹ️ Packet ${packet.incidentId} has no HMAC — accepting (legacy format)`);
+    }
+    // ─────────────────────────────────────────────────────────────────────
 
     // ── Step 2: Deduplicate ──────────────────────────────────────
     if (!deduplicationBuffer.isNew(packet.incidentId)) {

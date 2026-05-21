@@ -13,6 +13,7 @@
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SOSPacket, MAX_HOPS } from './types';
+import { computeHMAC, roundForMeshRelay } from '../../utils/AESCrypto';
 
 // Cache the device hash in memory so we don't read AsyncStorage on every packet
 let _deviceHashCache: string | null = null;
@@ -62,9 +63,19 @@ function generateIncidentId(): string {
 /**
  * Create a NEW SOS packet — called when THIS phone detects a crash.
  *
- * @param lat       Crash latitude from GPS
- * @param lng       Crash longitude from GPS
- * @param severity  1 (minor) to 5 (critical) — derived from crash force
+ * Phase 10 changes:
+ * 1. GPS coordinates are ROUNDED to 3 decimal places (±111m) before
+ *    broadcasting over mesh relay. Relay phones (strangers' devices)
+ *    only need approximate location to pass the alert along.
+ *    The precise GPS is stored locally and goes to cloud via HTTPS — not mesh.
+ *
+ * 2. An HMAC fingerprint is computed and attached. If any relay phone
+ *    tampers with the data (changes severity, lat, lng), the HMAC won't
+ *    match when the next phone verifies it — packet is rejected.
+ *
+ * @param lat       Crash latitude (precise — from GPS)
+ * @param lng       Crash longitude (precise — from GPS)
+ * @param severity  1 (minor) to 5 (critical)
  */
 export async function createSOSPacket(
   lat: number,
@@ -73,17 +84,45 @@ export async function createSOSPacket(
 ): Promise<SOSPacket> {
   const deviceHash = await getDeviceHash();
 
+  // PHASE 10: Round GPS for mesh relay privacy
+  // We keep precise coords for cloud upload (CloudEgress uses original lat/lng)
+  // but relay phones only see ±111m precision
+  const meshLat = roundForMeshRelay(lat);
+  const meshLng = roundForMeshRelay(lng);
+
+  const incidentId = generateIncidentId();
+  const timestamp = Date.now();
+
   const packet: SOSPacket = {
-    incidentId: generateIncidentId(),
-    lat,
-    lng,
+    incidentId,
+    lat: meshLat,      // Rounded for relay privacy
+    lng: meshLng,      // Rounded for relay privacy
     severity,
-    timestamp: Date.now(),
-    hopCount: 0,  // ← 0 means "I am the origin phone"
+    timestamp,
+    hopCount: 0,       // 0 = this phone is the origin
     deviceHash,
   };
 
-  console.log(`[PacketProtocol] Created SOS packet: ${packet.incidentId} severity=${severity}`);
+  // PHASE 10: Compute HMAC fingerprint for tamper detection
+  // We include fields that MUST NOT change during relay.
+  // hopCount is excluded because relay nodes legitimately increment it.
+  // deviceHash is excluded because it identifies the originating phone.
+  const dataToSign = JSON.stringify({
+    incidentId: packet.incidentId,
+    lat: packet.lat,
+    lng: packet.lng,
+    severity: packet.severity,
+    timestamp: packet.timestamp,
+  });
+  packet.hmac = computeHMAC(dataToSign);
+
+  console.log(
+    `[PacketProtocol] ✅ Packet created: ${packet.incidentId}`,
+    `| severity=${severity}`,
+    `| GPS rounded: (${lat.toFixed(5)},${lng.toFixed(5)}) → (${meshLat},${meshLng})`,
+    `| HMAC attached: ${packet.hmac.substring(0, 8)}...`
+  );
+
   return packet;
 }
 

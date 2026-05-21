@@ -24,6 +24,7 @@ export const STORAGE_KEYS = {
   EMERGENCY_NUMBERS: 'aether_emergency',
   ONBOARDING_DONE: 'aether_onboarded',
   FALSE_POSITIVE_COUNT: 'aether_fp_count',
+  CONSENT: 'aether_consent_v1',
 };
 
 export const POI_TYPES = {
@@ -132,3 +133,19 @@ export const OPENAI_API_KEY = 'YOUR_OPENAI_API_KEY_HERE'; // ← PASTE YOUR KEY 
 // ─────────────────────────────────────────────────────────────────────────────
 export const GEMINI_API_KEY = 'YOUR_GEMINI_API_KEY_HERE';
 export const GEMINI_STT_MODEL = 'gemini-1.5-flash'; // kept for vision in BystAI only
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Phase 10: Security Hardening Constants
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const SECURITY = {
+  /** How long to wait between SOS triggers (rate limiting) */
+  SOS_RATE_LIMIT_MS: 60_000, // 60 seconds
+
+  /** GPS decimal places for mesh relay (3 = ±111m precision) */
+  MESH_GPS_PRECISION: 3,
+
+  /** Max hops before a packet is dropped (prevents infinite relay loops) */
+  MAX_RELAY_HOPS: 30,
+} as const;
