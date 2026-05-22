@@ -7,6 +7,7 @@
  */
 
 import { useState, useCallback, useRef } from 'react';
+import { WeeklySafetyCard } from '../../components/WeeklySafetyCard';
 import {
   View,
   Text,
@@ -247,6 +248,9 @@ export default function HomeScreen() {
           </View>
         </View>
       </TouchableOpacity>
+
+      {/* Phase 12: Weekly driver score */}
+      <WeeklySafetyCard />
 
       {/* ── Secondary Numbers ──────────────────────────────── */}
       <View style={styles.numbersGrid}>

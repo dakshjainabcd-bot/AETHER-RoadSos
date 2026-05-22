@@ -112,7 +112,7 @@ class OnlinePOIService {
   private db: SQLite.SQLiteDatabase | null = null;
   private initialized = false;
   private fetching = false;
-
+  private initPromise: Promise<void> | null = null;
 
   private status: OnlinePOIStatus = {
     loading: false,
@@ -137,8 +137,10 @@ class OnlinePOIService {
    */
   async initialize(): Promise<void> {
     if (this.initialized) return;
+    if (this.initPromise) return this.initPromise;
 
-    try {
+    this.initPromise = (async () => {
+      try {
       // Note: expo-sqlite returns the SAME connection for the same filename.
       // This is safe to call from multiple places.
       this.db = await SQLite.openDatabaseAsync('aether_online_cache.db');
@@ -185,8 +187,12 @@ class OnlinePOIService {
     } catch (err) {
       console.error('[OnlinePOI] Init failed:', err);
       // Non-fatal: app still works with bundled offline data
+    } finally {
+      this.initPromise = null;
     }
-  }
+  })();
+  return this.initPromise;
+}
 
   // ════════════════════════════════════════════════════════════════════════════
   // OVERPASS API FETCH

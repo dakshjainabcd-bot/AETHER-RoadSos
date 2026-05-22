@@ -1,11 +1,12 @@
 /**
- * Map Screen — Phase 9 Updated
+ * Map Screen — Phase 9 Updated + Phase 12 Hazard Reporting
  *
  * CHANGES FROM PREVIOUS VERSION:
  * 1. Added BlackspotMapLayer — renders danger zones as colored circles
  * 2. Added blackspot filter chip "Danger Zones" in the filter bar
  * 3. Added showBlackspots toggle state
  * 4. Loads cached blackspots on screen focus
+ * 5. (NEW) Added "Report Hazard" floating button with Alert dialog
  *
  * Everything else is IDENTICAL to the original map.tsx.
  * We only ADD — we never remove or break existing functionality.
@@ -43,6 +44,9 @@ import { Colors, BorderRadius, Shadows, Layout } from '../../theme';
 import { BlackspotMapLayer } from '../../components/BlackspotMapLayer';
 import { loadCachedBlackspots } from '../../services/RoadDNA/BlackspotEngine';
 import type { Blackspot } from '../../services/RoadDNA/types';
+
+// ── PHASE 12 IMPORTS ─────────────────────────────────────────────────────────
+import { hazardBroadcaster } from '../../services/DriverIntelligence';
 
 // ─── Filter config (unchanged from original) ──────────────────────────────────
 
@@ -195,6 +199,45 @@ export default function MapScreen() {
   const [blackspots, setBlackspots] = useState<Blackspot[]>([]);
   const [showBlackspots, setShowBlackspots] = useState(true);
 
+  // ── PHASE 12: Hazard reporting function ───────────────────────────────────
+  function handleReportHazard() {
+    Alert.alert(
+      'Report a Hazard',
+      'What type of hazard did you see? It will be broadcast to AETHER devices nearby.',
+      [
+        {
+          text: '🕳️ Pothole',
+          onPress: () => {
+            hazardBroadcaster.reportHazard('pothole', 2);
+            Alert.alert('Reported!', 'Pothole broadcast to nearby AETHER users.');
+          },
+        },
+        {
+          text: '💥 Accident',
+          onPress: () => {
+            hazardBroadcaster.reportHazard('accident', 3);
+            Alert.alert('Reported!', 'Accident broadcast to nearby AETHER users.');
+          },
+        },
+        {
+          text: '🚧 Road Closed',
+          onPress: () => {
+            hazardBroadcaster.reportHazard('road_closed', 3);
+            Alert.alert('Reported!', 'Road closure broadcast to nearby AETHER users.');
+          },
+        },
+        {
+          text: '🪨 Debris',
+          onPress: () => {
+            hazardBroadcaster.reportHazard('debris', 1);
+            Alert.alert('Reported!', 'Debris broadcast to nearby AETHER users.');
+          },
+        },
+        { text: 'Cancel', style: 'cancel' },
+      ]
+    );
+  }
+
   useEffect(() => {
     const unsub = onlinePOIService.onStatusChange(s => {
       setOnlineLoading(s.loading);
@@ -274,6 +317,34 @@ export default function MapScreen() {
   const badge = getBadgeConfig(isConnected ? dataSource : 'offline', onlineLoading);
   const activeCrash = activeBystanderAlert?.packet ?? null;
 
+  // Styles for hazard button (Phase 12)
+  const hazardBtnStyle = {
+    position: 'absolute' as const,
+    top: 16,
+    right: 16,
+    backgroundColor: '#1C1C1E',
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 6,
+    zIndex: 100,
+    borderWidth: 1,
+    borderColor: 'rgba(255,200,0,0.3)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 5,
+  };
+
+  const hazardBtnTextStyle = {
+    color: '#FFD60A',
+    fontSize: 13,
+    fontWeight: '700' as const,
+  };
+
   return (
     <View style={styles.container}>
 
@@ -343,6 +414,16 @@ export default function MapScreen() {
           </Text>
         </View>
       )}
+
+      {/* ── PHASE 12: Report Hazard button ───────────────────────────────── */}
+      <TouchableOpacity
+        style={hazardBtnStyle}
+        onPress={handleReportHazard}
+        activeOpacity={0.85}
+      >
+        <Text style={{ fontSize: 16 }}>⚠️</Text>
+        <Text style={hazardBtnTextStyle}>Report Hazard</Text>
+      </TouchableOpacity>
 
       {/* Map */}
       <MapView

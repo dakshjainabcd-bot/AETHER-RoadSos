@@ -1,21 +1,11 @@
 /**
- * Root Layout — Phase 9 Updated
+ * Root Layout — Phase 12 Merged (Phase 9 + Phase 10 + Phase 12)
  *
- * CHANGES FROM PREVIOUS VERSION:
- * 1. Initialize RoadDNA services on app startup:
- *    - initDrivingEventsDB() — creates SQLite table
- *    - drivingEventLogger.start() — begins sensor monitoring
- *    - blackspotUploader.startMonitoring() — watches for WiFi
- *    - proximityAlertService.start() — begins 5s geofence polls
- * 2. Subscribe to proximity alerts → show BlackspotAlert banner
- * 3. Added blackspotAlert state and clearBlackspotAlert to AppContext
- * 4. BlackspotAlert rendered at root level (above all screens)
+ * Phase 9: Road DNA (blackspots, driving events, proximity alerts)
+ * Phase 10: DPDP consent dialog (first‑time user)
+ * Phase 12: Driver Intelligence (hazard mesh, trip scoring, badges)
  *
- * EVERYTHING ELSE IS IDENTICAL TO THE PREVIOUS _layout.tsx.
- * We only ADD — we never remove or break existing functionality.
- *
- * IMPORTANT: The Phase 9 additions are clearly marked with
- * "── PHASE 9" comments so you can find them instantly.
+ * NO EXISTING FEATURE REMOVED — only additions.
  */
 
 import { useEffect, useState, useRef, createContext, useContext } from 'react';
@@ -24,9 +14,9 @@ import { StatusBar } from 'expo-status-bar';
 import { View, ActivityIndicator, StyleSheet, Text } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// Phase 10: Privacy & Consent — add these after the existing imports
+// Phase 10: Privacy & Consent
 import { ConsentDialog } from '../components/ConsentDialog';
-import { hasFullConsent, saveConsent, saveDecline, CONSENT_STORAGE_KEY } from '../utils/PrivacyManager';
+import { hasFullConsent, saveConsent, saveDecline } from '../utils/PrivacyManager';
 
 import { initializeMCCService, type EmergencyNumbers } from '../services/MCCService';
 import { initializeDatabase } from '../services/POIDatabase';
@@ -43,9 +33,10 @@ import { Colors } from '../theme';
 import { hospitalPreAlert, type PreAlertState } from '../services/HospitalPreAlert';
 import { matchHospital, type InjuryType } from '../services/TraumaMatch';
 
+// Phase 5 (PostSOSVoice)
+import { postSOSVoice } from '../services/PostSOSVoice';
 
-
-// ── PHASE 9 IMPORTS ──────────────────────────────────────────────────────────
+// ── PHASE 9 IMPORTS (Road DNA) ──────────────────────────────────────────────
 import {
   initDrivingEventsDB,
   drivingEventLogger,
@@ -56,7 +47,18 @@ import {
 import type { BlackspotAlertState } from '../services/RoadDNA/types';
 import { BlackspotAlert } from '../components/BlackspotAlert';
 import { BystanderAlert } from '../components/BystanderAlert';
-// ─────────────────────────────────────────────────────────────────────────────
+
+// ── PHASE 12 IMPORTS (Driver Intelligence) ──────────────────────────────────
+import {
+  tripScoreService,
+  hazardBroadcaster,
+  badgeService,
+  type TripScore,
+  type HazardAlertState,
+} from '../services/DriverIntelligence';
+import { HazardAlert } from '../components/HazardAlert';
+import { TripSummaryModal } from '../components/TripSummaryModal';
+// ────────────────────────────────────────────────────────────────────────────
 
 // ─── App Context ──────────────────────────────────────────────────────────────
 
@@ -76,11 +78,15 @@ interface AppContextType {
   setInjuryType: (type: InjuryType) => Promise<void>;
   preAlertState: PreAlertState;
   clearPreAlert: () => void;
-  // ── PHASE 9 ────────────────────────────────────────────────────────────────
+  // Phase 9
   blackspotAlert: BlackspotAlertState | null;
   clearBlackspotAlert: () => void;
   roadDNAEnabled: boolean;
-  // ───────────────────────────────────────────────────────────────────────────
+  // Phase 12
+  hazardAlert: HazardAlertState | null;
+  clearHazardAlert: () => void;
+  latestTripScore: TripScore | null;
+  clearLatestTripScore: () => void;
 }
 
 const DEFAULT_PREALERT_STATE: PreAlertState = {
@@ -105,11 +111,15 @@ const AppContext = createContext<AppContextType>({
   setInjuryType: async () => { },
   preAlertState: DEFAULT_PREALERT_STATE,
   clearPreAlert: () => { },
-  // ── PHASE 9 defaults ────────────────────────────────────────────────────────
+  // Phase 9 defaults
   blackspotAlert: null,
   clearBlackspotAlert: () => { },
   roadDNAEnabled: true,
-  // ───────────────────────────────────────────────────────────────────────────
+  // Phase 12 defaults
+  hazardAlert: null,
+  clearHazardAlert: () => { },
+  latestTripScore: null,
+  clearLatestTripScore: () => { },
 });
 
 export function useAppContext(): AppContextType {
@@ -135,23 +145,22 @@ export default function RootLayout() {
   const [injuryType, setInjuryTypeState] = useState<InjuryType | null>(null);
   const [preAlertState, setPreAlertState] = useState<PreAlertState>(hospitalPreAlert.getState());
 
-  // ── PHASE 10: Consent state ────────────────────────────────────────────────
-  // null = still checking AsyncStorage (brief)
-  // false = first time user, needs to see consent dialog
-  // true  = consent already given, proceed normally
+  // Phase 10: Consent state
   const [consentChecked, setConsentChecked] = useState<boolean | null>(null);
   const consentGrantedRef = useRef<boolean>(false);
-  // ─────────────────────────────────────────────────────────────────────────
 
-  // ── PHASE 9 STATE ──────────────────────────────────────────────────────────
+  // Phase 9 state
   const [blackspotAlert, setBlackspotAlert] = useState<BlackspotAlertState | null>(null);
   const [roadDNAEnabled, setRoadDNAEnabled] = useState(true);
-  // ───────────────────────────────────────────────────────────────────────────
+
+  // Phase 12 state
+  const [hazardAlert, setHazardAlert] = useState<HazardAlertState | null>(null);
+  const [latestTripScore, setLatestTripScore] = useState<TripScore | null>(null);
 
   const activeIncidentIdRef = useRef<string>('');
   const countdownIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // ── Mesh relay subscriptions (unchanged) ─────────────────────────────────
+  // ── Existing: Mesh relay subscriptions ─────────────────────────────────────
   useEffect(() => {
     const unsubSOS = meshRelayManager.on('SOS_RECEIVED', (event) => {
       if (event.packet && event.data) {
@@ -171,7 +180,7 @@ export default function RootLayout() {
     return () => { unsubSOS(); unsubOn(); unsubOff(); };
   }, []);
 
-  // ── Crash detection subscriptions (unchanged) ────────────────────────────
+  // ── Existing: Crash detection subscriptions ────────────────────────────────
   useEffect(() => {
     const unsubConfirmed = crashDetectionEngine.on('CRASH_CONFIRMED', () => {
       setSecondsRemaining(5);
@@ -202,7 +211,7 @@ export default function RootLayout() {
     };
   }, [language]);
 
-  // ── HospitalPreAlert subscriptions (unchanged) ───────────────────────────
+  // ── Existing: HospitalPreAlert subscriptions ───────────────────────────────
   useEffect(() => {
     const unsub = hospitalPreAlert.subscribe((state) => {
       setPreAlertState({ ...state });
@@ -210,18 +219,31 @@ export default function RootLayout() {
     return () => unsub();
   }, []);
 
-  // ── PHASE 9: Subscribe to proximity alerts ─────────────────────────────────
+  // ── Existing: Phase 9 proximity alerts ─────────────────────────────────────
   useEffect(() => {
     const unsubProximity = proximityAlertService.onAlert((alert) => {
       if (alert) {
         setBlackspotAlert(alert);
       }
-      // We do NOT clear the alert automatically here —
-      // BlackspotAlert component auto-dismisses after 8 seconds
     });
     return () => unsubProximity();
   }, []);
-  // ───────────────────────────────────────────────────────────────────────────
+
+  // ── NEW Phase 12: Hazard and trip score subscriptions ──────────────────────
+  useEffect(() => {
+    // Show hazard alert banner when a hazard is received
+    const unsubHazard = hazardBroadcaster.onHazardAlert((alert) => {
+      setHazardAlert(alert);
+    });
+    // Show trip summary modal when a trip completes
+    const unsubTrip = tripScoreService.onTripComplete((score) => {
+      setLatestTripScore(score);
+    });
+    return () => {
+      unsubHazard();
+      unsubTrip();
+    };
+  }, []);
 
   function startCountdownTimer() {
     stopCountdownTimer();
@@ -240,54 +262,33 @@ export default function RootLayout() {
     }
   }
 
-  // ── App initialization ────────────────────────────────────────────────────
-  // Phase 10: Check consent BEFORE initializing (DPDP compliance)
+  // ── App initialization (Phase 10 consent + Phase 9 + Phase 12) ──────────────
   useEffect(() => {
     checkConsentAndInit();
   }, []);
 
-  // ── PHASE 10: Consent Functions ────────────────────────────────────────────
-
-  /**
-   * Check if user has already given consent.
-   * - If yes: proceed with normal initialization (including location)
-   * - If no:  show consent dialog, do NOT initialize location tracking yet
-   */
   async function checkConsentAndInit() {
     const hasConsent = await hasFullConsent();
     consentGrantedRef.current = hasConsent;
     setConsentChecked(hasConsent);
     if (hasConsent) {
-      // Existing user who already consented → initialize normally
       initializeApp();
     }
-    // If !hasConsent, setConsentChecked(false) → UI shows consent dialog
   }
 
-  /**
-   * User tapped "I Agree" on the consent dialog.
-   * Save consent, then proceed with full initialization.
-   */
   async function handleConsentAccepted() {
     await saveConsent();
     consentGrantedRef.current = true;
     setConsentChecked(true);
-    initializeApp(); // Now safe to start location tracking
+    initializeApp();
   }
 
-  /**
-   * User tapped "Continue Without Location" on the consent dialog.
-   * Save their choice, then initialize with limited features.
-   */
   async function handleConsentDeclined() {
     await saveDecline();
     consentGrantedRef.current = false;
     setConsentChecked(true);
-    // Still initialize (for offline POI, mesh relay, etc.)
-    // but location tracking will be skipped below
     initializeApp();
   }
-  // ─────────────────────────────────────────────────────────────────────────
 
   async function initializeApp() {
     try {
@@ -299,7 +300,6 @@ export default function RootLayout() {
       setEmergencyNumbers(numbers);
 
       let gpsGranted = false;
-      // Phase 10: Only request location if user gave consent
       if (consentGrantedRef.current) {
         gpsGranted = await requestLocationPermissions();
         setGpsGranted(gpsGranted);
@@ -315,22 +315,22 @@ export default function RootLayout() {
       // ── PHASE 9: Initialize Road DNA ──────────────────────────────────────
       await initDrivingEventsDB();
       blackspotUploader.startMonitoring();
-
-      // Start proximity service (loads cached blackspots)
       await proximityAlertService.start();
-
-      // Start driving event logger only if GPS granted
       if (gpsGranted) {
         await drivingEventLogger.start();
       }
-
-      // Run blackspot computation once at startup (background, non-blocking)
       computeBlackspots().then((spots) => {
         console.log(`[RoadDNA] Startup computation: ${spots.length} blackspots found`);
-        // Refresh proximity service with latest blackspots
         proximityAlertService.refreshBlackspots();
       });
-      // ─────────────────────────────────────────────────────────────────────
+      // ───────────────────────────────────────────────────────────────────────
+
+      // ── PHASE 12: Initialize Driver Intelligence (after mesh) ──────────────
+      // hazardBroadcaster needs the WebSocket bridge (already set up by meshRelayManager)
+      await hazardBroadcaster.initialize();
+      tripScoreService.start();  // begins 30s GPS poll for trip scoring
+      // badgeService is auto‑initialized by tripScoreService, no separate call needed
+      // ───────────────────────────────────────────────────────────────────────
 
       setIsInitialized(true);
     } catch (error) {
@@ -361,12 +361,11 @@ export default function RootLayout() {
     activeIncidentIdRef.current = '';
   }
 
-  // Phase 10: While we check AsyncStorage for consent status (< 100ms)
+  // Phase 10: While checking consent
   if (consentChecked === null) {
     return <View style={{ flex: 1, backgroundColor: Colors.background.primary }} />;
   }
 
-  // Phase 10: First-time user — show DPDP consent dialog
   if (consentChecked === false) {
     return (
       <ConsentDialog
@@ -376,7 +375,6 @@ export default function RootLayout() {
     );
   }
 
-  // Normal loading screen while app initializes
   if (!isInitialized) {
     return (
       <View style={styles.loading}>
@@ -403,11 +401,15 @@ export default function RootLayout() {
         injuryType,
         setInjuryType: handleSetInjuryType,
         preAlertState, clearPreAlert,
-        // ── PHASE 9 ─────────────────────────────────────────────────────────
+        // Phase 9
         blackspotAlert,
         clearBlackspotAlert: () => setBlackspotAlert(null),
         roadDNAEnabled,
-        // ────────────────────────────────────────────────────────────────────
+        // Phase 12
+        hazardAlert,
+        clearHazardAlert: () => setHazardAlert(null),
+        latestTripScore,
+        clearLatestTripScore: () => setLatestTripScore(null),
       }}
     >
       <StatusBar style="dark" />
@@ -422,12 +424,24 @@ export default function RootLayout() {
         onCountdownComplete={() => crashDetectionEngine.dispatchSOS()}
       />
 
-      {/* ── PHASE 9: Blackspot proximity alert banner ─────────────────────── */}
+      {/* Phase 9: Blackspot proximity alert banner */}
       <BlackspotAlert
         alert={blackspotAlert}
         onDismiss={() => setBlackspotAlert(null)}
       />
-      {/* ─────────────────────────────────────────────────────────────────── */}
+
+      {/* Phase 12: Hazard alert banner */}
+      <HazardAlert
+        alert={hazardAlert}
+        onDismiss={() => setHazardAlert(null)}
+      />
+
+      {/* Phase 12: Trip summary modal (shown after trip ends) */}
+      <TripSummaryModal
+        visible={latestTripScore !== null}
+        tripScore={latestTripScore}
+        onDismiss={() => setLatestTripScore(null)}
+      />
 
       <BystanderAlert
         packet={activeBystanderAlert?.packet ?? null}

@@ -1,47 +1,37 @@
 /**
  * Phase 2 — Simulation Bridge (Expo Go Mode)
+ * Phase 12 — Extended with HAZARD packet support
  *
- * In PRODUCTION: AETHER uses Bluetooth Low Energy (BLE) to broadcast
- * SOS packets phone-to-phone without internet.
+ * WHAT'S NEW IN PHASE 12:
+ * - broadcastHazard(packet): sends a HAZARD_PACKET to the server
+ * - onHazardReceived(callback): called when server relays a hazard to us
+ * - handleMessage() now handles HAZARD_RECEIVED messages
  *
- * In EXPO GO (development/demo): BLE native modules aren't available.
- * This SimulationBridge connects all phones to a WebSocket server on
- * your laptop (over WiFi). The SERVER rebroadcasts to all other phones,
- * perfectly simulating what BLE would do.
- *
- * DEMO FLOW:
- * Phone A crashes → sends SOS to server → server broadcasts to B and C
- * B receives it → shows "Accident nearby" → relays to server
- * Server broadcasts relay to C (with hopCount = 2)
- *
- * This is IDENTICAL behavior to real BLE — just using WiFi for the demo.
- *
- * REPLACING IN PRODUCTION: Delete this file. Replace SimulationBridge
- * calls in MeshRelayManager.ts with react-native-ble-plx calls.
+ * The hazard system works exactly like SOS packets but with:
+ * - Different packet type (HazardPacket vs SOSPacket)
+ * - Shorter TTL (30 min) and fewer hops (max 15)
+ * - Alert radius of 3km (vs 500m for bystander SOS alerts)
  */
 
 import { SOSPacket } from './types';
+import { HazardPacket } from '../DriverIntelligence/types';
 import { SIMULATION_SERVER_URL } from '../../utils/constants';
 
 type PacketReceivedCallback = (packet: SOSPacket, relayedBy: string) => void;
 type ConnectionStatusCallback = (connected: boolean, deviceCount: number) => void;
+type HazardReceivedCallback = (packet: HazardPacket) => void;
 
 class SimulationBridge {
   private ws: WebSocket | null = null;
   private deviceId: string = '';
   private packetCallback: PacketReceivedCallback | null = null;
   private statusCallback: ConnectionStatusCallback | null = null;
+  private hazardCallback: HazardReceivedCallback | null = null;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private _isConnected: boolean = false;
   private _connectedDevices: number = 0;
   private shouldReconnect: boolean = true;
 
-  /**
-   * Connect to the simulation server.
-   *
-   * @param deviceId - Anonymous device identifier
-   * @returns true if connected, false if server not reachable
-   */
   async connect(deviceId: string): Promise<boolean> {
     this.deviceId = deviceId;
     this.shouldReconnect = true;
@@ -50,13 +40,11 @@ class SimulationBridge {
 
   private _connect(): Promise<boolean> {
     return new Promise((resolve) => {
-      // Clear any pending reconnect timer
       if (this.reconnectTimer) {
         clearTimeout(this.reconnectTimer);
         this.reconnectTimer = null;
       }
 
-      // Clean up existing connection
       if (this.ws) {
         this.ws.onopen = null;
         this.ws.onmessage = null;
@@ -70,7 +58,6 @@ class SimulationBridge {
         console.log(`[SimBridge] Connecting to ${SIMULATION_SERVER_URL}...`);
         this.ws = new WebSocket(SIMULATION_SERVER_URL);
 
-        // Set a 5-second connection timeout
         const connectTimeout = setTimeout(() => {
           if (!this._isConnected) {
             console.warn('[SimBridge] Connection timeout — server not reachable');
@@ -84,7 +71,6 @@ class SimulationBridge {
           console.log('[SimBridge] ✅ Connected to simulation server');
           this._isConnected = true;
 
-          // Register this device with the server
           this.ws!.send(JSON.stringify({
             type: 'REGISTER',
             deviceId: this.deviceId,
@@ -117,7 +103,6 @@ class SimulationBridge {
             this.statusCallback?.(false, 0);
           }
 
-          // Auto-reconnect after 5 seconds (if we should)
           if (this.shouldReconnect) {
             this.reconnectTimer = setTimeout(() => {
               console.log('[SimBridge] Attempting reconnect...');
@@ -134,16 +119,13 @@ class SimulationBridge {
     });
   }
 
-  /**
-   * Process messages received from the simulation server.
-   */
   private handleMessage(data: string): void {
     try {
       const message = JSON.parse(data) as {
         type: string;
         deviceId?: string;
         connectedDevices?: number;
-        packet?: SOSPacket;
+        packet?: SOSPacket | HazardPacket;
         relayedBy?: string;
       };
 
@@ -159,12 +141,25 @@ class SimulationBridge {
         case 'SOS_RECEIVED':
           if (message.packet && message.relayedBy) {
             console.log(
-              `[SimBridge] 🚨 SOS received! Incident: ${message.packet.incidentId}, ` +
+              `[SimBridge] 🚨 SOS received! Incident: ${(message.packet as SOSPacket).incidentId}, ` +
               `Hop: ${message.packet.hopCount}, From: ${message.relayedBy.substring(0, 8)}...`
             );
-            this.packetCallback?.(message.packet, message.relayedBy);
+            this.packetCallback?.(message.packet as SOSPacket, message.relayedBy);
           }
           break;
+
+        // ── PHASE 12 ADDITION ──────────────────────────────────────────────
+        case 'HAZARD_RECEIVED':
+          if (message.packet) {
+            const hazard = message.packet as HazardPacket;
+            console.log(
+              `[SimBridge] ⚠️  Hazard received! Type: ${hazard.hazardType}, ` +
+              `Hop: ${hazard.hopCount}`
+            );
+            this.hazardCallback?.(hazard);
+          }
+          break;
+        // ──────────────────────────────────────────────────────────────────
 
         default:
           // Unknown message type — ignore
@@ -176,10 +171,7 @@ class SimulationBridge {
   }
 
   /**
-   * Broadcast an SOS packet to all other phones (via server).
-   * In real BLE, this would be a Bluetooth advertisement.
-   *
-   * @returns true if sent successfully
+   * Broadcast an SOS packet (Phase 2 — unchanged).
    */
   broadcast(packet: SOSPacket): boolean {
     if (!this._isConnected || !this.ws || this.ws.readyState !== WebSocket.OPEN) {
@@ -196,6 +188,27 @@ class SimulationBridge {
     return true;
   }
 
+  /**
+   * Broadcast a HAZARD packet (Phase 12 — new).
+   * Called by HazardBroadcaster when a hazard is reported or relayed.
+   */
+  broadcastHazard(packet: HazardPacket): boolean {
+    if (!this._isConnected || !this.ws || this.ws.readyState !== WebSocket.OPEN) {
+      return false;
+    }
+
+    this.ws.send(JSON.stringify({
+      type: 'HAZARD_PACKET',
+      packet,
+    }));
+
+    console.log(
+      `[SimBridge] ⚠️  Broadcasted hazard hop=${packet.hopCount} ` +
+      `type=${packet.hazardType} id=${packet.hazardId}`
+    );
+    return true;
+  }
+
   /** Register callback for received SOS packets */
   onPacketReceived(callback: PacketReceivedCallback): void {
     this.packetCallback = callback;
@@ -206,17 +219,22 @@ class SimulationBridge {
     this.statusCallback = callback;
   }
 
-  /** Is the bridge currently connected to the simulation server? */
+  /**
+   * Register callback for received HAZARD packets (Phase 12 — new).
+   * Called by HazardBroadcaster.initialize().
+   */
+  onHazardReceived(callback: HazardReceivedCallback): void {
+    this.hazardCallback = callback;
+  }
+
   get isConnected(): boolean {
     return this._isConnected;
   }
 
-  /** How many phones are currently connected (including this one)? */
   get connectedDevices(): number {
     return this._connectedDevices;
   }
 
-  /** Permanently disconnect (don't reconnect) */
   disconnect(): void {
     this.shouldReconnect = false;
     if (this.reconnectTimer) {
@@ -230,5 +248,4 @@ class SimulationBridge {
   }
 }
 
-// One singleton shared by the entire app
 export const simulationBridge = new SimulationBridge();
