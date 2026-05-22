@@ -16,6 +16,10 @@ import { rakshakService } from '../services/Rakshak/RakshakService';
 import { notificationService } from '../services/Rakshak/NotificationService';
 import { pdfGenerator } from '../services/Rakshak/PDFGenerator';
 import { RakshakProfile, RewardClaimData } from '../services/Rakshak/types';
+import { BadgeGallery } from '../components/Rakshak/BadgeGallery';
+import { badgeService } from '../services/Trust/BadgeService';
+import { trustScoreService } from '../services/Trust/TrustScoreService';
+import { BADGE_DEFINITIONS } from '../services/Trust/BadgeTypes';
 
 export default function RakshakDashboardScreen() {
   const [profile, setProfile] = useState<RakshakProfile | null>(null);
@@ -76,9 +80,16 @@ export default function RakshakDashboardScreen() {
     }
   };
 
+  const handleTrackClaims = () => {
+    router.push('/claim-tracker');
+  };
+
   const handleGenerateDemoPDF = async () => {
     setGeneratingPDF(true);
     try {
+      // Fetch earned badges for the PDF
+      const earnedBadgesForPDF = await badgeService.getEarnedBadges();
+
       const demoData: RewardClaimData = {
         rakshakName: profile?.name || 'Demo Rakshak',
         rakshakPhone: profile?.phone || '+91 99999 99999',
@@ -91,6 +102,7 @@ export default function RakshakDashboardScreen() {
         handoverTime: new Date().toLocaleTimeString('en-IN'),
         interventions: ['CPR performed', 'Bleeding controlled', 'Called ambulance'],
         ambulanceDetails: 'GVK-EMRI Ambulance KA-01-AB-1234',
+        earnedBadges: earnedBadgesForPDF,  // Phase 13: include badges in PDF
       };
 
       const pdfUri = await pdfGenerator.generateRewardClaim(demoData);
@@ -238,6 +250,25 @@ export default function RakshakDashboardScreen() {
           ? <ActivityIndicator size="small" color={Colors.brand.gold} />
           : <Ionicons name="chevron-forward" size={16} color={Colors.label.tertiary} />
         }
+      </TouchableOpacity>
+
+      {/* ── Phase 13: Badge Gallery ──────────────────────────────────── */}
+      <Text style={styles.sectionHeader}>BADGES & TRUST</Text>
+      <BadgeGallery />
+
+      {/* ── Phase 13: Track My Claim ────────────────────────────────── */}
+      <TouchableOpacity
+        style={styles.actionCard}
+        onPress={handleTrackClaims}
+      >
+        <View style={[styles.actionIcon, { backgroundColor: `${Colors.status.success}15` }]}>
+          <Ionicons name="analytics" size={22} color={Colors.status.success} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.actionTitle}>Track My Claim</Text>
+          <Text style={styles.actionSub}>Monitor your ₹25,000 reward claim status</Text>
+        </View>
+        <Ionicons name="chevron-forward" size={16} color={Colors.label.tertiary} />
       </TouchableOpacity>
 
       {/* How it works info */}

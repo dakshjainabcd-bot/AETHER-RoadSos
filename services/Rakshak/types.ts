@@ -44,6 +44,12 @@ export interface RakshakResponse {
 
 // ── Good Samaritan PDF Data ─────────────────────────────────────────────────
 
+// Badge reference (inline to avoid circular dependencies)
+export interface EarnedBadgeRef {
+  badgeId: string;
+  earnedAt: number;
+}
+
 export interface RewardClaimData {
   rakshakName: string;
   rakshakPhone: string;
@@ -56,6 +62,7 @@ export interface RewardClaimData {
   handoverTime: string;
   interventions: string[];
   ambulanceDetails: string;
+  earnedBadges?: EarnedBadgeRef[]; // NEW — optional badge list for PDF
 }
 
 // ── Storage Keys ────────────────────────────────────────────────────────────

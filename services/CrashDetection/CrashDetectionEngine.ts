@@ -83,6 +83,7 @@ import {
   FUSION_WEIGHTS_NO_ACOUSTIC,
 } from './types';
 import { meshRelayManager } from '../MeshRelay/MeshRelayManager';
+import { trustScoreService } from '../Trust/TrustScoreService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { STORAGE_KEYS } from '../../utils/constants';
 
@@ -311,6 +312,9 @@ class CrashDetectionEngine {
     if (this.state !== 'countdown') return;
     console.log('[CrashDetection] ❌ User cancelled SOS — logging false positive');
 
+    // ── Phase 13: Deduct trust score for false positive ──────────────
+    trustScoreService.onFalsePositive().catch(() => {});
+
     // ── Log false positive for future improvement ───────────────────
     try {
       const raw = await AsyncStorage.getItem(STORAGE_KEYS.FALSE_POSITIVE_COUNT);
@@ -377,6 +381,10 @@ class CrashDetectionEngine {
 
     // Transition to active SOS state
     this.setState('active_sos');
+
+    // ── Phase 13: Award trust for lifesaver event (if hospital READY later) ──
+    // The HospitalPreAlert service calls trustScoreService.onLifesaverEvent()
+    // when it receives the READY reply — no action needed here.
 
     // Emit SOS_DISPATCHED event with crash details
     // NOTE: lat/lng are 0 here because meshRelayManager handles GPS internally.

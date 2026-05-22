@@ -46,6 +46,15 @@ class PDFGenerator {
       const permanentUri = `${FileSystem.documentDirectory}${fileName}`;
       await FileSystem.copyAsync({ from: uri, to: permanentUri });
 
+      // Record the claim in the tracker (NEW)
+      try {
+        const { badgeService } = require('../Trust/BadgeService');
+        await badgeService.recordClaimSubmission(data.incidentId, permanentUri);
+      } catch (e) {
+        // Non-critical if this fails
+        console.warn('[PDF] Could not record claim submission:', e);
+      }
+
       return permanentUri;
     } catch (error) {
       console.error('[PDF] Failed to generate PDF:', error);
@@ -250,6 +259,30 @@ class PDFGenerator {
       <span class="field-value">${data.ambulanceDetails}</span>
     </div>` : ''}
   </div>
+
+  ${data.earnedBadges && data.earnedBadges.length > 0 ? `
+  <!-- Earned Badges -->
+  <div class="section">
+    <div class="section-title">Section 4: AETHER Badges Earned</div>
+    <div style="display: flex; flex-wrap: wrap; gap: 10px; margin-top: 4px;">
+      ${data.earnedBadges.map((b) => `
+        <div style="
+          background: #FFF8E1;
+          border: 1px solid #FFD700;
+          border-radius: 8px;
+          padding: 6px 14px;
+          font-size: 12px;
+          font-weight: bold;
+          color: #8B6914;
+        ">
+          ⭐ ${b.badgeId.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())}
+        </div>
+      `).join('')}
+    </div>
+    <p style="font-size: 11px; color: #888; margin-top: 8px;">
+      These badges are cryptographically verified by the AETHER system.
+    </p>
+  </div>` : ''}
 
   <!-- Legal Declaration -->
   <div class="legal-box">

@@ -47,6 +47,7 @@ import {
   type InjuryProtocol,
   type DecisionQuestion,
 } from '../services/offlineDecisionTree';
+import { badgeService } from '../services/Trust/BadgeService';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TYPES
@@ -110,6 +111,8 @@ export function BystAIModal({
   const cprAnimRef = useRef<Animated.CompositeAnimation | null>(null);
   const cprIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const clockIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // Phase 13: Track CPR start time to calculate duration for badge
+  const cprStartTimeRef = useRef<number | null>(null);
 
   // ── Golden hour clock ─────────────────────────────────────────────────────
   useEffect(() => {
@@ -154,6 +157,9 @@ export function BystAIModal({
       stopCPR();
       return;
     }
+
+    // Phase 13: Record when CPR started so we can calculate duration on stop
+    cprStartTimeRef.current = Date.now();
 
     const BPM_INTERVAL_MS = 545; // 110 BPM
 
@@ -288,6 +294,20 @@ export function BystAIModal({
   };
 
   const handleStopCPR = () => {
+    // Phase 13: Calculate CPR duration and award badge progress
+    if (cprStartTimeRef.current !== null) {
+      const durationSeconds = Math.floor(
+        (Date.now() - cprStartTimeRef.current) / 1000
+      );
+      cprStartTimeRef.current = null;
+      if (durationSeconds > 0) {
+        badgeService.onCPRSeconds(durationSeconds).then((earned) => {
+          if (earned) {
+            console.log('[BystAI] 🏆 CPR Hero badge earned!');
+          }
+        }).catch(() => {});
+      }
+    }
     Speech.stop();
     setPhase('results');
   };

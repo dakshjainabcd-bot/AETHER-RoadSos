@@ -181,6 +181,18 @@ class HospitalPreAlertService {
       status: 'acknowledged',
       acknowledgedAt: Date.now(),
     });
+
+    // ── Phase 13: Award Lifesaver badge and trust score ───────────────
+    try {
+      const { badgeService } = require('./Trust/BadgeService');
+      const { trustScoreService } = require('./Trust/TrustScoreService');
+      badgeService.onLifesaverEvent(this.state.incidentId).then((earned: any) => {
+        if (earned) console.log('[HPP] 🏆 Lifesaver badge earned!');
+      }).catch(() => {});
+      trustScoreService.onLifesaverEvent().catch(() => {});
+    } catch (e) {
+      // Non-critical
+    }
   }
 
   /**

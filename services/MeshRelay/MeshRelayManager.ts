@@ -34,6 +34,8 @@ import { cloudEgress } from '../CloudEgress';
 import { MESH } from '../../utils/constants';
 import { verifyHMAC } from '../../utils/AESCrypto';
 import { SECURITY } from '../../utils/constants';
+import { trustScoreService } from '../Trust/TrustScoreService';
+import { badgeService } from '../Trust/BadgeService';
 
 type EventCallback = (event: MeshEvent) => void;
 
@@ -250,6 +252,13 @@ class MeshRelayManager {
         if (relayed) {
           console.log(`[MeshRelay] 📡 Relayed packet hop=${relayPacket.hopCount}`);
           this.emit({ type: 'SOS_RELAYED', packet: relayPacket });
+          // ── Phase 13: Trust + Badge tracking ───────────────────────
+          trustScoreService.onSuccessfulRelay().catch(() => {});
+          badgeService.onRelaySuccess().then((earned) => {
+            if (earned) {
+              console.log(`[MeshRelay] 🏆 Relay Node badge earned!`);
+            }
+          }).catch(() => {});
         }
       }, jitter);
     } else {
