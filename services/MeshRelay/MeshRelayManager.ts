@@ -1,5 +1,6 @@
 /**
  * Phase 2 — Mesh Relay Manager (The Brain)
+ * Phase 14 — Integrated with DTN (Delay-Tolerant Networking) for store-and-forward
  *
  * This is the central orchestrator for the mesh relay system.
  * All other mesh relay code feeds into and out of here.
@@ -7,15 +8,17 @@
  * WHAT IT DOES WHEN AN SOS IS TRIGGERED (from THIS phone):
  * 1. Creates packet with GPS coordinates and severity
  * 2. Broadcasts via SimulationBridge (or BLE in production)
- * 3. Queues for cloud upload
- * 4. Fires 'SOS_TRIGGERED' event so UI updates
+ * 3. If no peers available, buffers packet in DTN for later forwarding
+ * 4. Queues for cloud upload
+ * 5. Fires 'SOS_TRIGGERED' event so UI updates
  *
  * WHAT IT DOES WHEN SOS IS RECEIVED (from another phone):
  * 1. Validates the packet structure
  * 2. Checks deduplication buffer (seen before? → ignore)
  * 3. Calculates distance from crash to our GPS
  * 4. Fires 'SOS_RECEIVED' event → UI shows bystander alert
- * 5. After random jitter delay, relays (re-broadcasts) the packet
+ * 5. After random jitter delay, relays (re-broadcasts) the packet.
+ *    If no peers, buffers the relay packet in DTN.
  * 6. Queues for cloud upload
  *
  * EVENT SYSTEM:
@@ -36,6 +39,7 @@ import { verifyHMAC } from '../../utils/AESCrypto';
 import { SECURITY } from '../../utils/constants';
 import { trustScoreService } from '../Trust/TrustScoreService';
 import { badgeService } from '../Trust/BadgeService';
+import { dtnManager } from './DTNManager';  // ← Phase 14: DTN
 
 type EventCallback = (event: MeshEvent) => void;
 
@@ -59,6 +63,17 @@ class MeshRelayManager {
       const deviceHash = await getDeviceHash();
       console.log('[MeshRelay] Initializing. Device:', deviceHash.substring(0, 8) + '...');
 
+      // ── Phase 14: Initialize DTN store-and-forward ────────────────────
+      // This restores any buffered packets from previous sessions and
+      // starts the TTL cleanup timer.
+      await dtnManager.initialize();
+      console.log(
+        `[MeshRelay] DTN initialized` +
+        ` | State: ${dtnManager.currentState}` +
+        ` | Buffered: ${dtnManager.bufferSize} packet(s)`
+      );
+      // ─────────────────────────────────────────────────────────────────
+
       // Register callbacks before connecting
       simulationBridge.onPacketReceived((packet, relayedBy) => {
         this.handleReceivedPacket(packet);
@@ -69,6 +84,26 @@ class MeshRelayManager {
           type: connected ? 'SIMULATION_CONNECTED' : 'SIMULATION_DISCONNECTED',
           data: { deviceCount },
         });
+
+        // ── Phase 14: DTN Forward Trigger ──────────────────────────────
+        // When the peer count increases (new phone connected), try to
+        // forward any buffered DTN packets to the new peer.
+        //
+        // WHY HERE: This callback fires on EVERY peer count change
+        // including new joins. So this is the perfect hook for DTN.
+        //
+        // The check `deviceCount >= 2` ensures we have at least 1 peer
+        // (total connected = us + them, so ≥ 2 means at least 1 peer).
+        if (connected && deviceCount >= 2 && dtnManager.isCarrying) {
+          console.log(
+            `[MeshRelay] New peer detected (${deviceCount} total)` +
+            ` — triggering DTN forward`
+          );
+          dtnManager.tryForward().catch(err =>
+            console.error('[MeshRelay] DTN forward error:', err)
+          );
+        }
+        // ───────────────────────────────────────────────────────────────
       });
 
       // Connect to simulation server
@@ -136,9 +171,29 @@ class MeshRelayManager {
 
       // Broadcast via simulation bridge (or BLE in production)
       const broadcasted = simulationBridge.broadcast(packet);
-      if (!broadcasted) {
-        console.warn('[MeshRelay] Broadcast failed — simulation server not connected');
+
+      // ── Phase 14: DTN Logic ──────────────────────────────────────────────────
+      // Check if there are actually peers to receive this broadcast.
+      //
+      // simulationBridge.connectedDevices counts ALL phones including ours.
+      // If count < 2, we're alone — the packet went to the server but
+      // no other phone received it.
+      //
+      // In this case, buffer the packet in DTN so it can be forwarded
+      // when a peer eventually appears.
+      if (!broadcasted || simulationBridge.connectedDevices < 2) {
+        console.log(
+          `[MeshRelay] No peers available` +
+          ` (${simulationBridge.connectedDevices} device(s))` +
+          ` — buffering SOS in DTN`
+        );
+        await dtnManager.bufferPacket(packet);
+      } else {
+        console.log(
+          `[MeshRelay] SOS broadcast to ${simulationBridge.connectedDevices - 1} peer(s)`
+        );
       }
+      // ─────────────────────────────────────────────────────────────────────────
 
       // Queue for cloud upload (retries automatically when internet available)
       // Phase 10: We keep precise coords for cloud upload, while the 'packet' 
@@ -241,28 +296,51 @@ class MeshRelayManager {
       },
     });
 
-    // ── Step 5: Relay (re-broadcast) ─────────────────────────────
+    // ── Step 5: Relay (re-broadcast) ─────────────────────────────────────────
     if (packet.hopCount < MESH.MAX_HOPS) {
       // Random jitter: 0-200ms. Why? If all phones relay simultaneously,
       // packets collide in the Bluetooth radio. Staggering prevents this.
       const jitter = Math.floor(Math.random() * 200);
-      setTimeout(() => {
+      setTimeout(async () => {
         const relayPacket = createRelayPacket(packet);
-        const relayed = simulationBridge.broadcast(relayPacket);
-        if (relayed) {
-          console.log(`[MeshRelay] 📡 Relayed packet hop=${relayPacket.hopCount}`);
-          this.emit({ type: 'SOS_RELAYED', packet: relayPacket });
-          // ── Phase 13: Trust + Badge tracking ───────────────────────
-          trustScoreService.onSuccessfulRelay().catch(() => {});
-          badgeService.onRelaySuccess().then((earned) => {
-            if (earned) {
-              console.log(`[MeshRelay] 🏆 Relay Node badge earned!`);
-            }
-          }).catch(() => {});
+
+        // ── Phase 14: DTN-aware relay ─────────────────────────────────────
+        // Before relaying, check if there are any peers to relay TO.
+        // If we're alone, buffer the relay packet in DTN instead of
+        // dropping it. This is the "store" part of store-and-forward.
+        if (simulationBridge.connectedDevices < 2) {
+          console.log(
+            `[MeshRelay] No peers for relay (hop=${relayPacket.hopCount})` +
+            ` — buffering in DTN`
+          );
+          await dtnManager.bufferPacket(relayPacket);
+        } else {
+          const relayed = simulationBridge.broadcast(relayPacket);
+          if (relayed) {
+            console.log(
+              `[MeshRelay] 📡 Relayed hop=${relayPacket.hopCount}` +
+              ` to ${simulationBridge.connectedDevices - 1} peer(s)`
+            );
+            this.emit({ type: 'SOS_RELAYED', packet: relayPacket });
+            // ── Phase 13: Trust + Badge tracking ───────────────────────
+            trustScoreService.onSuccessfulRelay().catch(() => {});
+            badgeService.onRelaySuccess().then((earned) => {
+              if (earned) {
+                console.log(`[MeshRelay] 🏆 Relay Node badge earned!`);
+              }
+            }).catch(() => {});
+          } else {
+            // Broadcast returned false (disconnected) — buffer it
+            console.log(
+              `[MeshRelay] Broadcast failed — buffering relay packet in DTN`
+            );
+            await dtnManager.bufferPacket(relayPacket);
+          }
         }
+        // ─────────────────────────────────────────────────────────────────
       }, jitter);
     } else {
-      console.log(`[MeshRelay] Max hops reached — not relaying`);
+      console.log(`[MeshRelay] Max hops (${MESH.MAX_HOPS}) reached — not relaying`);
     }
 
     // ── Step 6: Queue for cloud upload ───────────────────────────

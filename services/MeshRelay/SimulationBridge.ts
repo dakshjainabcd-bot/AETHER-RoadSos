@@ -1,11 +1,15 @@
 /**
  * Phase 2 — Simulation Bridge (Expo Go Mode)
  * Phase 12 — Extended with HAZARD packet support
+ * Phase 14 — Extended with PEER_COUNT_UPDATE for DTN
  *
  * WHAT'S NEW IN PHASE 12:
  * - broadcastHazard(packet): sends a HAZARD_PACKET to the server
  * - onHazardReceived(callback): called when server relays a hazard to us
  * - handleMessage() now handles HAZARD_RECEIVED messages
+ *
+ * WHAT'S NEW IN PHASE 14:
+ * - Handles PEER_COUNT_UPDATE messages from server so DTN knows when new peers join
  *
  * The hazard system works exactly like SOS packets but with:
  * - Different packet type (HazardPacket vs SOSPacket)
@@ -146,6 +150,30 @@ class SimulationBridge {
             );
             this.packetCallback?.(message.packet as SOSPacket, message.relayedBy);
           }
+          break;
+
+        // ── NEW CASE: Phase 14 DTN ────────────────────────────────────────────
+        // The server now sends this message to ALL phones whenever the total
+        // number of connected phones changes (new join OR disconnect).
+        //
+        // WHY WE NEED THIS:
+        // Without this message, a phone that joined FIRST would never know
+        // when a second phone joins. It would keep its connectedDevices count
+        // at 1 forever and never try to forward DTN packets.
+        //
+        // WITH this message, when Phone B joins:
+        //   - Server sends PEER_COUNT_UPDATE to Phone A
+        //   - Phone A's connectedDevices updates to 2
+        //   - DTNManager.tryForward() is triggered
+        //   - Buffered packets are forwarded to Phone B
+        case 'PEER_COUNT_UPDATE':
+          this._connectedDevices = message.connectedDevices ?? 0;
+          console.log(
+            `[SimBridge] 📱 Peer count updated: ${this._connectedDevices} phone(s) online`
+          );
+          // Fire the status callback — MeshRelayManager listens to this
+          // and will trigger DTN.tryForward() if count increased
+          this.statusCallback?.(this._isConnected, this._connectedDevices);
           break;
 
         // ── PHASE 12 ADDITION ──────────────────────────────────────────────

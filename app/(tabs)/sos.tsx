@@ -27,6 +27,7 @@ import type { CrashDetectionState, FusionScore } from '../../services/CrashDetec
 // Phase 6 components
 import { HospitalMatchCard } from '../../components/HospitalMatchCard';
 import type { InjuryType } from '../../services/TraumaMatch';
+import { DTNStatusBadge } from '../../components/DTNStatusBadge';
 
 const INJURY_TYPES: {
   type: InjuryType; label: string; sub: string;
@@ -232,6 +233,9 @@ export default function SOSScreen() {
           <Text style={styles.monitoringText}>MONITORING</Text>
         </View>
       </View>
+
+      {/* Phase 14: DTN Status Badge — shows "DTN: 2 queued" when carrying */}
+      <DTNStatusBadge />
 
       {/* Central hold button */}
       <View style={styles.buttonArea}>

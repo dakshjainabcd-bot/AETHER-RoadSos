@@ -52,3 +52,47 @@ export interface MeshEvent {
   packet?: SOSPacket;       // The SOS packet (if relevant)
   data?: Record<string, unknown>; // Extra info (like distance, isNearby)
 }
+
+// ── DTN (Delay-Tolerant Networking) Types ─────────────────────────────────────
+//
+// The DTN state machine has two states:
+//   IDLE          → No buffered packets. Normal operation.
+//   CARRYING_SOS  → We are carrying at least one buffered SOS packet
+//                   waiting for a relay opportunity.
+//
+// State transitions:
+//   IDLE → CARRYING_SOS  when an SOS packet cannot be immediately relayed
+//   CARRYING_SOS → IDLE  when all buffered packets are forwarded or expired
+
+export type DTNState = 'IDLE' | 'CARRYING_SOS';
+
+/**
+ * A single entry in the DTN buffer.
+ * Wraps an SOSPacket with metadata about when it was buffered.
+ */
+export interface DTNPacketEntry {
+    /** The actual SOS packet waiting for a relay */
+    packet: SOSPacket;
+    /** Unix milliseconds when this packet was stored */
+    bufferedAt: number;
+    /** How many times we have tried (and failed) to forward this packet */
+    forwardAttempts: number;
+}
+
+/**
+ * Event types fired by the DTN state machine.
+ * Components subscribe to these to update the UI.
+ */
+export type DTNEventType =
+    | 'DTN_PACKET_BUFFERED'    // New packet stored in DTN buffer
+    | 'DTN_PACKET_FORWARDED'   // Packet successfully sent to a relay peer
+    | 'DTN_PACKET_EXPIRED'     // Packet TTL reached 30min — dropped silently
+    | 'DTN_STATE_CHANGED'      // State machine changed state (IDLE ↔ CARRYING)
+    | 'DTN_BUFFER_FULL';       // Buffer was full, oldest packet was dropped
+
+export interface DTNEvent {
+    type: DTNEventType;
+    packet?: SOSPacket;
+    bufferSize?: number;
+    state?: DTNState;
+}

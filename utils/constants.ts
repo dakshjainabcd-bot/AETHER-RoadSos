@@ -148,3 +148,26 @@ export const SECURITY = {
   /** Max hops before a packet is dropped (prevents infinite relay loops) */
   MAX_RELAY_HOPS: 30,
 } as const;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Phase 14: DTN (Delay-Tolerant Networking) Constants
+// ─────────────────────────────────────────────────────────────────────────────
+//
+// DTN turns AETHER into a "store-and-forward" network. When no relay is
+// available, packets are held in a local buffer and forwarded when
+// a new peer is discovered.
+//
+// BUFFER RULES:
+//   - MAX_BUFFER_SIZE: 5 packets max. If buffer is full, oldest is dropped.
+//   - TTL_MS: 30 minutes. Packets older than this are silently discarded.
+//   - MIN_BATTERY_PCT: We won't relay if battery is critically low.
+//
+// FORWARD_SCAN_INTERVAL_MS: How often to check for new peers when carrying
+//   packets. At 30s intervals, we won't miss a new neighbor for long.
+
+export const DTN = {
+    MAX_BUFFER_SIZE: 5,
+    TTL_MS: 30 * 60 * 1000,          // 30 minutes in milliseconds
+    FORWARD_SCAN_INTERVAL_MS: 30000,  // 30 seconds
+    MIN_BATTERY_PCT: 20,              // Don't relay below 20% battery
+} as const;

@@ -28,6 +28,7 @@ import { LANGUAGES, STORAGE_KEYS, type LanguageCode } from '../../utils/constant
 import { Colors, BorderRadius, Shadows, Layout } from '../../theme';
 import { crashDetectionEngine } from '../../services/CrashDetection/CrashDetectionEngine';
 import { onlinePOIService } from '../../services/OnlinePOIService';
+import { dtnManager } from '../../services/MeshRelay/DTNManager';
 
 // ── PHASE 9 ──────────────────────────────────────────────────────────────────
 import { RoadDNASettingsSection } from '../../components/RoadDNASettingsSection';
@@ -111,6 +112,11 @@ export default function SettingsScreen() {
       `  Confidence: ${(crashScore.confidence * 100).toFixed(1)}%`,
       `  G-Force: ${crashScore.gForce.toFixed(2)}g`,
       `  False Positives: ${fpRaw ?? '0'}`,
+      ``,
+      `DTN (Delay-Tolerant Network):`,
+      `  State: ${dtnManager.currentState}`,
+      `  Buffer: ${dtnManager.bufferSize} packet(s) queued`,
+      `  Carrying: ${dtnManager.isCarrying ? 'YES — waiting for relay peer' : 'NO'}`,
       ``,
       `DB Counts:`,
       ...Object.entries(db).map(([t, c]) => `  ${t}: ${c}`),

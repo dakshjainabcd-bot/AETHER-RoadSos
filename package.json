@@ -21,6 +21,7 @@
     "expo": "^54.0.34",
     "expo-audio": "~1.1.1",
     "expo-av": "~16.0.8",
+    "expo-battery": "~10.0.8",
     "expo-cellular": "~8.0.8",
     "expo-constants": "~18.0.13",
     "expo-crypto": "~15.0.9",
