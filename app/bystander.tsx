@@ -1,19 +1,13 @@
 /**
  * Bystander Empathy Coach — Main Screen
  *
- * This screen is triggered when a bystander receives an SOS and wants to help.
- * It coordinates three phases:
+ * Phase 11 additions:
+ * 1. 'chat' phase → PocketRAGChat embedded in bystander flow
+ * 2. PsychAidPanel shown in 'treat' phase below first aid steps
+ * 3. "Ask AI" button in 'treat' phase to open the chatbot
  *
- * 1. ASSESS: Yes/no decision tree to identify injury type
- * 2. TREAT: Step-by-step first aid for that injury
- * 3. CPR: Real-time CPR coaching (if cardiac arrest)
- *
- * The Golden Hour clock and Good Samaritan legal banner are persistent.
- * They are always visible regardless of which phase the user is in.
- *
- * NAVIGATION:
- * Opened from BystanderAlert via:
- *   router.push({ pathname: '/bystander', params: { incidentTimestamp: '...' } })
+ * Original phases preserved unchanged: assess → treat → cpr
+ * New phase added: chat (AI chatbot)
  */
 
 import React, { useState, useRef, useEffect } from 'react';
@@ -46,25 +40,28 @@ import { CPRCoach } from '../components/BystAI/CPRCoach';
 import { GoldenHourClock } from '../components/BystAI/GoldenHourClock';
 import { LegalBanner } from '../components/BystAI/LegalBanner';
 
-type Phase = 'assess' | 'treat' | 'cpr';
+// ── PHASE 11 IMPORTS ──────────────────────────────────────────────────────────
+import { PocketRAGChat } from '../components/PocketRAGChat';
+import { PsychAidPanel } from '../components/PsychAidPanel';
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Phase 11 adds 'chat' to the phase type
+type Phase = 'assess' | 'treat' | 'cpr' | 'chat';
 
 export default function BystanderScreen() {
-  // Get the incident timestamp from navigation params
   const params = useLocalSearchParams<{ incidentTimestamp?: string }>();
-  const { language, emergencyNumbers } = useAppContext();
+  const { language, emergencyNumbers, preAlertState } = useAppContext();
 
-  // Parse the timestamp — fall back to now if not provided
   const incidentTimestamp = params.incidentTimestamp
     ? parseInt(params.incidentTimestamp, 10)
     : Date.now();
 
-  // Screen state
   const [phase, setPhase] = useState<Phase>('assess');
   const [injuryType, setInjuryType] = useState<InjuryType | null>(null);
   const [protocol, setProtocol] = useState<FirstAidProtocol | null>(null);
   const [showLegalBanner, setShowLegalBanner] = useState(true);
 
-  // Re-show legal banner every 2 minutes (as per master document spec)
+  // Re-show legal banner every 2 minutes
   const legalBannerTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   useEffect(() => {
     legalBannerTimerRef.current = setInterval(() => {
@@ -75,14 +72,13 @@ export default function BystanderScreen() {
     };
   }, []);
 
-  // ── PHASE TRANSITIONS ────────────────────────────────────────────────────
+  // ── PHASE TRANSITIONS ────────────────────────────────────────────────────────
 
   function handleDecisionComplete(answers: DecisionTreeAnswers) {
     const injury = determineInjuryType(answers);
     const p = getProtocol(injury);
     setInjuryType(injury);
     setProtocol(p);
-    // Go straight to CPR phase for cardiac arrest
     setPhase(injury === 'cardiac_arrest' ? 'cpr' : 'treat');
   }
 
@@ -98,15 +94,33 @@ export default function BystanderScreen() {
     setProtocol(null);
   }
 
-  // ── HEADER TITLE ─────────────────────────────────────────────────────────
+  // ── PHASE 11: Navigation ─────────────────────────────────────────────────────
+
+  function handleOpenChat() {
+    setPhase('chat');
+  }
+
+  function handleBackFromChat() {
+    // Return to treat phase if we had a protocol, otherwise back to assess
+    setPhase(protocol ? 'treat' : 'assess');
+  }
+
+  // ── HEADER TITLE ─────────────────────────────────────────────────────────────
 
   function getHeaderTitle(): string {
     if (phase === 'assess') return 'Assess the Situation';
     if (phase === 'cpr') return 'CPR Coach';
+    if (phase === 'chat') return 'AI First-Aid Assistant';  // Phase 11
     return protocol?.name ?? 'First Aid';
   }
 
-  // ── RENDER ───────────────────────────────────────────────────────────────
+  // Get ETA from hospital pre-alert state
+  const etaMinutes =
+    preAlertState.status === 'acknowledged' || preAlertState.status === 'sent'
+      ? preAlertState.etaMinutes
+      : null;
+
+  // ── RENDER ───────────────────────────────────────────────────────────────────
 
   return (
     <View style={styles.root}>
@@ -115,13 +129,23 @@ export default function BystanderScreen() {
       {/* Top safe area — header */}
       <SafeAreaView style={styles.headerSafeArea}>
         <View style={styles.header}>
-          {/* Close button */}
+          {/* Back / Close button */}
           <TouchableOpacity
             style={styles.closeBtn}
-            onPress={() => router.back()}
+            onPress={() => {
+              if (phase === 'chat') {
+                handleBackFromChat();
+              } else {
+                router.back();
+              }
+            }}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
-            <Ionicons name="close" size={20} color={Colors.label.primary} />
+            <Ionicons
+              name={phase === 'chat' ? 'arrow-back' : 'close'}
+              size={20}
+              color={Colors.label.primary}
+            />
           </TouchableOpacity>
 
           {/* Title */}
@@ -129,48 +153,96 @@ export default function BystanderScreen() {
             {getHeaderTitle()}
           </Text>
 
-          {/* Golden Hour clock — compact version in header */}
-          <GoldenHourClock incidentTimestamp={incidentTimestamp} compact />
+          {/* Golden Hour clock — compact version in header (not shown in chat phase) */}
+          {phase !== 'chat' && (
+            <GoldenHourClock incidentTimestamp={incidentTimestamp} compact />
+          )}
+
+          {/* Phase 11: "Ask AI" button shown in treat phase header */}
+          {phase === 'treat' && (
+            <TouchableOpacity
+              style={styles.askAIBtn}
+              onPress={handleOpenChat}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="chatbubble-ellipses" size={12} color={Colors.brand.accent} />
+              <Text style={styles.askAIBtnText}>Ask AI</Text>
+            </TouchableOpacity>
+          )}
         </View>
       </SafeAreaView>
 
-      {/* Scrollable content */}
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-      >
-        {/* Full-size Golden Hour clock — only on assess phase */}
-        {phase === 'assess' && (
-          <GoldenHourClock incidentTimestamp={incidentTimestamp} compact={false} />
-        )}
+      {/* ── PHASE 11: Chat phase — full screen PocketRAG ─────────────────── */}
+      {phase === 'chat' && (
+        <View style={styles.chatContainer}>
+          <PocketRAGChat contextInjuryType={injuryType ?? undefined} />
+        </View>
+      )}
 
-        {/* PHASE: Assess — Decision Tree */}
-        {phase === 'assess' && (
-          <DecisionTree onComplete={handleDecisionComplete} />
-        )}
+      {/* ── Original phases ─────────────────────────────────────────────── */}
+      {phase !== 'chat' && (
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          {/* Full-size Golden Hour clock — only on assess phase */}
+          {phase === 'assess' && (
+            <GoldenHourClock incidentTimestamp={incidentTimestamp} compact={false} />
+          )}
 
-        {/* PHASE: Treat — First Aid Steps */}
-        {phase === 'treat' && protocol && (
-          <FirstAidDisplay
-            protocol={protocol}
-            onStartCPR={handleStartCPR}
-            onBack={handleBackToAssess}
-          />
-        )}
+          {/* PHASE: Assess — Decision Tree */}
+          {phase === 'assess' && (
+            <DecisionTree onComplete={handleDecisionComplete} />
+          )}
 
-        {/* PHASE: CPR — CPR Coach */}
-        {phase === 'cpr' && (
-          <CPRCoach language={language} onExit={handleBackToAssess} />
-        )}
+          {/* PHASE: Treat — First Aid Steps + PsychAid */}
+          {phase === 'treat' && protocol && (
+            <>
+              <FirstAidDisplay
+                protocol={protocol}
+                onStartCPR={handleStartCPR}
+                onBack={handleBackToAssess}
+              />
 
-        {/* Bottom padding so content isn't hidden behind the legal banner */}
-        <View style={{ height: 120 }} />
-      </ScrollView>
+              {/* ── PHASE 11: PsychAid panel ─────────────────────────────── */}
+              <PsychAidPanel
+                injuryType={injuryType ?? 'unknown'}
+                language={language}
+                etaMinutes={etaMinutes}
+              />
 
-      {/* Legal Banner — always at the bottom */}
-      {showLegalBanner && (
+              {/* ── PHASE 11: Ask AI button at bottom ───────────────────── */}
+              <TouchableOpacity
+                style={styles.openChatBtn}
+                onPress={handleOpenChat}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="chatbubble-ellipses-outline" size={18} color={Colors.brand.accent} />
+                <View style={styles.openChatBtnText}>
+                  <Text style={styles.openChatBtnTitle}>Ask the AI Assistant</Text>
+                  <Text style={styles.openChatBtnSub}>
+                    Get answers to specific first-aid questions
+                  </Text>
+                </View>
+                <Ionicons name="chevron-forward" size={16} color={Colors.brand.accent} />
+              </TouchableOpacity>
+            </>
+          )}
+
+          {/* PHASE: CPR — CPR Coach */}
+          {phase === 'cpr' && (
+            <CPRCoach language={language} onExit={handleBackToAssess} />
+          )}
+
+          {/* Bottom padding so content isn't hidden behind the legal banner */}
+          <View style={{ height: 120 }} />
+        </ScrollView>
+      )}
+
+      {/* Legal Banner — always at the bottom (except in chat phase) */}
+      {showLegalBanner && phase !== 'chat' && (
         <LegalBanner onDismiss={() => setShowLegalBanner(false)} />
       )}
     </View>
@@ -215,6 +287,30 @@ const styles = StyleSheet.create({
     letterSpacing: -0.3,
   },
 
+  // Phase 11: Ask AI button in header
+  askAIBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: `${Colors.brand.accent}12`,
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderWidth: 1,
+    borderColor: `${Colors.brand.accent}30`,
+  },
+  askAIBtnText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: Colors.brand.accent,
+    letterSpacing: 0.3,
+  },
+
+  // Phase 11: Chat container
+  chatContainer: {
+    flex: 1,
+  },
+
   // Content
   scrollView: {
     flex: 1,
@@ -222,5 +318,33 @@ const styles = StyleSheet.create({
   scrollContent: {
     padding: 16,
     gap: 0,
+  },
+
+  // Phase 11: Open chat button at bottom of treat phase
+  openChatBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: Colors.background.elevated,
+    borderRadius: BorderRadius.xl,
+    borderWidth: 1,
+    borderColor: `${Colors.brand.accent}30`,
+    padding: 14,
+    marginTop: 12,
+    ...Shadows.xs,
+  },
+  openChatBtnText: {
+    flex: 1,
+  },
+  openChatBtnTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: Colors.brand.accent,
+    letterSpacing: -0.2,
+  },
+  openChatBtnSub: {
+    fontSize: 12,
+    color: Colors.label.secondary,
+    marginTop: 2,
   },
 });

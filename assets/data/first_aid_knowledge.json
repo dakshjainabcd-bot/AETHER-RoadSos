@@ -1,0 +1,205 @@
+[
+  {
+    "id": "cpr_001",
+    "category": "cardiac_arrest",
+    "keywords": ["cpr", "compressions", "chest", "cardiac", "heart", "no breathing", "no pulse", "resuscitation", "not breathing", "unconscious", "stopped breathing", "dead"],
+    "question": "How do I perform CPR?",
+    "answer": "Lay victim flat on a hard surface. Place heel of one hand on the CENTRE of the chest between the nipples. Place other hand on top and interlace fingers. Arms straight. Push down HARD at least 5cm deep. Release fully. Rate: 100-120 per minute (think Stayin Alive song). After 30 compressions: tilt head back, lift chin, pinch nose, blow for 1 second twice. Continue 30:2 until ambulance arrives. If untrained: do compression-only CPR non-stop. Any CPR is better than none."
+  },
+  {
+    "id": "cpr_002",
+    "category": "cardiac_arrest",
+    "keywords": ["cpr rate", "how fast", "how deep", "compressions per minute", "bpm", "110", "100", "120", "speed", "pace", "rhythm"],
+    "question": "How fast and deep should I push during CPR?",
+    "answer": "Push at 100-120 compressions per minute. That is roughly 2 per second. Think of the song Stayin Alive by Bee Gees — that tempo is exactly right. Push down at least 5 centimetres deep on an adult. Let the chest fully rise between each push — this is called full recoil and it is essential. Do not lean on the chest between compressions. If you are tiring, ask someone to swap every 2 minutes."
+  },
+  {
+    "id": "spinal_001",
+    "category": "spinal",
+    "keywords": ["spine", "spinal", "neck", "back", "move", "moving", "paralysis", "paralysed", "cannot move", "neck injury", "back injury", "rolled over", "high speed", "rollover"],
+    "question": "Can I move someone who may have a spine or neck injury?",
+    "answer": "NO. Do NOT move them under any circumstances unless they are in immediate danger such as fire or rising water. Moving a spinal injury victim can cause permanent paralysis. Kneel behind their head and hold it still with both hands. Do not try to straighten their neck. Tell them clearly: Do not move. Stay exactly as you are. Help is coming. If you must move them to safety, use a log roll with 3 or more people keeping head neck and spine in one straight line at all times."
+  },
+  {
+    "id": "spinal_002",
+    "category": "spinal",
+    "keywords": ["helmet", "remove helmet", "motorcycle", "bike", "crash helmet", "take off helmet"],
+    "question": "Should I remove a helmet from a crash victim?",
+    "answer": "NO. Do NOT remove a crash helmet unless the victim is not breathing and you need to perform CPR. Removing a helmet incorrectly can cause fatal spinal injury. Leave it on. Keep the head still. Only remove the helmet if: the victim is not breathing AND you cannot access their airway with it on AND you have been trained to do so. If you need to open the airway: tilt the head carefully by lifting the chin WITHOUT moving the neck."
+  },
+  {
+    "id": "bleeding_001",
+    "category": "fracture",
+    "keywords": ["bleeding", "blood", "wound", "cut", "gash", "haemorrhage", "heavy bleeding", "blood loss", "losing blood", "soaking"],
+    "question": "How do I stop heavy bleeding?",
+    "answer": "Apply firm direct pressure immediately with the cleanest material available — a cloth, shirt, anything. Press HARD and continuously. Do NOT lift the cloth to check — this breaks the clot. If it soaks through, add MORE material on top and press harder. Elevate the injured limb above heart level if possible. If bleeding from a limb is life-threatening and cannot be controlled: tie a tourniquet tightly above the wound using cloth or a belt. Note the time. Do not remove it once applied. Call 108 immediately."
+  },
+  {
+    "id": "bleeding_002",
+    "category": "fracture",
+    "keywords": ["tourniquet", "tie", "tight", "limb", "arm", "leg", "amputated", "amputation", "cut off"],
+    "question": "How do I use a tourniquet?",
+    "answer": "Use a tourniquet ONLY when direct pressure fails to stop life-threatening limb bleeding. Use a wide material — belt, folded cloth, torn clothing. Tie it 5 to 8cm ABOVE the wound, not over a joint. Tighten until the bleeding stops. Note the exact time. Do NOT remove it — removal can cause fatal blood pressure drop. Keep it visible and tell the paramedics exactly when you applied it. Tourniquet pain is normal and is better than death from blood loss."
+  },
+  {
+    "id": "burns_001",
+    "category": "burns",
+    "keywords": ["burn", "burns", "fire", "heat", "scald", "hot", "chemical", "acid", "electrical burn", "charred", "blisters"],
+    "question": "What do I do for burns?",
+    "answer": "COOL the burn immediately under cool running water for a FULL 20 minutes. Not ice, not cold water, not butter — only cool running water. Remove jewellery and clothing near the burn but NOT if stuck to the skin. After 20 minutes, cover loosely with cling film laid flat or a clean plastic bag — do not wrap tightly. Keep the rest of the body warm to prevent shock — cooling causes heat loss. Do NOT apply cream butter oil toothpaste or ice. Do NOT burst blisters. Call 108 if burns are large, on the face, or caused by chemicals or electricity."
+  },
+  {
+    "id": "burns_002",
+    "category": "burns",
+    "keywords": ["chemical burn", "acid", "alkali", "eye burn", "eyes", "splash", "chemical"],
+    "question": "How do I treat a chemical burn?",
+    "answer": "For chemical burns flush with large amounts of cool water for at least 20 minutes continuously. Remove contaminated clothing while flushing, avoiding touching the chemical yourself. For eye chemical burns: hold eyelids open and flush with clean water for at least 20 minutes. Do not rub the eyes. Try to identify the chemical and show the container to paramedics. Chemical burns can continue burning even after the source is removed, so flush longer than you think is necessary. Call 108 immediately."
+  },
+  {
+    "id": "fracture_001",
+    "category": "fracture",
+    "keywords": ["broken", "fracture", "bone", "break", "leg", "arm", "deformed", "bent", "swollen", "cannot move limb", "fractured"],
+    "question": "What do I do for a broken bone or fracture?",
+    "answer": "Do NOT try to straighten a broken bone. Support the limb in the exact position you find it using your hands or padded clothing. Immobilise it — do not allow it to move. Apply padding around it for comfort. If the bone is through the skin: cover with a clean dry cloth, do not push the bone back. Watch for signs of shock: pale skin, rapid breathing, confusion, cold sweat. Keep them warm, calm, and still. Call 108 if the victim cannot bear weight, has obvious deformity, or severe pain. Do not give food or water."
+  },
+  {
+    "id": "head_001",
+    "category": "head_trauma",
+    "keywords": ["head", "head injury", "brain", "skull", "unconscious", "concussion", "head trauma", "hit head", "knocked out", "unresponsive", "confused"],
+    "question": "What do I do for a head injury?",
+    "answer": "Do NOT move them — assume there may also be a spinal injury. If conscious, keep them still and calm. Control any bleeding by gentle pressure with a clean cloth — do NOT press if the skull feels soft or uneven. Monitor their breathing every 30 seconds. Watch for: worsening confusion, repeated vomiting, unequal pupils, or loss of consciousness — these indicate serious brain injury needing immediate surgery. If unconscious but breathing: place in recovery position ONLY if no spinal risk is suspected. Remove a helmet ONLY if necessary for CPR. Call 108 immediately."
+  },
+  {
+    "id": "unconscious_001",
+    "category": "head_trauma",
+    "keywords": ["unconscious", "unresponsive", "not responding", "breathing", "recovery position", "coma", "passed out", "fainted"],
+    "question": "What do I do for someone who is unconscious but breathing?",
+    "answer": "If they are breathing and you are confident there is no spinal injury: place them in the RECOVERY POSITION. Roll them onto their side gently. Bend the upper knee forward to prevent rolling back. Tilt head slightly back to keep airway open. This prevents choking on vomit. If spinal injury is possible: do NOT move them — instead keep them as still as possible and monitor breathing every 30 seconds. Check breathing every minute. If breathing stops, begin CPR immediately. Call 108 and stay with them until help arrives."
+  },
+  {
+    "id": "shock_001",
+    "category": "fracture",
+    "keywords": ["shock", "pale", "cold", "shaking", "shivering", "weak pulse", "fast breathing", "confused", "signs of shock", "hypovolemic"],
+    "question": "How do I recognize and treat shock?",
+    "answer": "Signs of shock: pale or grey skin, cold and clammy skin, rapid shallow breathing, weak rapid pulse, confusion, anxiety, thirst, loss of consciousness. Shock happens when the body is not getting enough blood — from blood loss, burns, spinal injury, or cardiac events. Treatment: lay the victim flat and raise their legs 30cm if no spinal injury or leg fractures. Keep them warm with a blanket. Do NOT give food or drink. Loosen tight clothing. Reassure them calmly. Call 108 immediately. Shock is life-threatening and worsens rapidly without medical treatment."
+  },
+  {
+    "id": "airway_001",
+    "category": "cardiac_arrest",
+    "keywords": ["airway", "choking", "blocked", "obstruction", "not breathing", "cannot breathe", "gasping", "stuck", "food stuck", "heimlich"],
+    "question": "What do I do if someone is choking?",
+    "answer": "If they can cough forcefully: encourage them to keep coughing. Do not slap their back yet. If they cannot speak, cough, or breathe: give up to 5 back blows between the shoulder blades with the heel of your hand. Then give up to 5 abdominal thrusts: stand behind them, place one fist just above the navel, grasp with other hand, thrust sharply inward and upward. Alternate 5 back blows and 5 abdominal thrusts until the obstruction clears. If they become unconscious: lower carefully to the floor and begin CPR. Call 108."
+  },
+  {
+    "id": "breathing_001",
+    "category": "cardiac_arrest",
+    "keywords": ["rescue breaths", "mouth to mouth", "artificial respiration", "breathe for them", "breath", "breathing not normal", "agonal"],
+    "question": "How do I give rescue breaths?",
+    "answer": "Tilt the head back by placing one hand on the forehead. Lift the chin with two fingers of the other hand. This opens the airway. Pinch the nose closed. Take a normal breath. Seal your mouth over their mouth completely. Blow steadily for 1 second — you should see the chest rise. Remove your mouth. Let the chest fall. Repeat once. Give 2 rescue breaths then return to 30 chest compressions. If you cannot or will not give rescue breaths: do compression-only CPR without stopping. This is still highly effective."
+  },
+  {
+    "id": "move_001",
+    "category": "spinal",
+    "keywords": ["when to move", "can I move", "should I move", "moving victim", "dangerous to move", "log roll", "drag"],
+    "question": "When is it safe to move an accident victim?",
+    "answer": "Only move a victim if they are in immediate life-threatening danger from the scene itself such as fire, explosion, rapidly rising water, or collapsing structure. In all other cases: do NOT move them. Moving incorrectly can turn a survivable injury into death or permanent paralysis. If you MUST move them: drag them backwards by the armpits keeping head neck and spine aligned. If multiple people are available: use a log roll — one person holds and stabilises the head while others roll the body in one movement. Always move as little as possible."
+  },
+  {
+    "id": "call_001",
+    "category": "general",
+    "keywords": ["call", "ambulance", "108", "112", "emergency", "phone", "how to call", "who to call", "help", "dispatch"],
+    "question": "How do I call for help and what do I say?",
+    "answer": "Call 108 for ambulance in India (or 112 universal). When connected say: 1. Location — be as specific as possible: road name, landmark, GPS coordinates from your phone Maps. 2. What happened — vehicle accident, number of victims, types of injuries visible. 3. Whether anyone is unconscious or not breathing. 4. Your phone number so they can call back. Stay on the line. Do not hang up — the dispatcher may guide you through first aid. Point a specific person in the crowd: You in the blue shirt — call 108 now — this prevents bystander effect."
+  },
+  {
+    "id": "drowning_001",
+    "category": "general",
+    "keywords": ["drowning", "water", "flood", "submerged", "river", "lake", "pulled out", "near drowning"],
+    "question": "What do I do for a drowning victim?",
+    "answer": "Get them out of the water safely — do not put yourself at risk of drowning. If they are unconscious and not breathing: begin CPR immediately. Do NOT waste time trying to remove water from their lungs — this is a myth. Tilt head, give 5 initial rescue breaths, then do 30:2 CPR. If they are conscious: keep them warm as they lose heat rapidly. Lay them down. Watch for delayed deterioration — drowning victims can worsen 24 hours later. All drowning victims need hospital evaluation even if they seem fine. Call 108."
+  },
+  {
+    "id": "child_001",
+    "category": "paediatric",
+    "keywords": ["child", "baby", "infant", "toddler", "kid", "paediatric", "young", "small", "child cpr", "baby cpr"],
+    "question": "Is CPR different for a child or baby?",
+    "answer": "Yes. For a child over 1 year: use one or two hands depending on their size. Push down one third of chest depth. Give 30 compressions then 2 gentle breaths. For a baby under 1 year: use only 2 fingertips on the breastbone just below the nipple line. Push down one third of chest depth. Give 30 compressions then 2 very gentle puffs — just enough to see chest rise. For both: start with 5 initial rescue breaths before compressions if trained. Compression rate is the same: 100-120 per minute."
+  },
+  {
+    "id": "aed_001",
+    "category": "cardiac_arrest",
+    "keywords": ["aed", "defibrillator", "shock", "electric shock", "automated", "pads", "machine"],
+    "question": "How do I use an AED defibrillator?",
+    "answer": "Turn it on — press the green button or open the lid. It will talk you through everything. Attach the pads: one on the upper right chest below the collarbone, one on the lower left chest below the armpit. Plug in the cables. Let the AED analyse — stand clear and do not touch the victim. If it advises a shock: make sure no one is touching the victim, then press the orange shock button. Resume CPR immediately after the shock — do not wait to check pulse. The AED will tell you when to stop for analysis. Follow its voice instructions exactly."
+  },
+  {
+    "id": "eye_001",
+    "category": "general",
+    "keywords": ["eye", "eyes", "eye injury", "eye wound", "foreign object in eye", "something in eye", "cut eye"],
+    "question": "What do I do for an eye injury in an accident?",
+    "answer": "Do NOT rub the eye. Do NOT try to remove any embedded object. If there is a loose particle: ask them to blink naturally or gently rinse with clean water. If an object is embedded: leave it in place, cover both eyes loosely with a clean cloth to prevent the injured eye from moving, and get medical attention immediately. For chemical splash to the eye: flush with clean water continuously for 20 minutes holding eyelids open. For a cut or penetrating eye injury: do not press on it — cover gently with a clean cup or eye pad and get to hospital immediately."
+  },
+  {
+    "id": "multiple_001",
+    "category": "general",
+    "keywords": ["multiple victims", "many people", "triage", "who to help first", "priority", "several injured"],
+    "question": "There are multiple injured people. Who do I help first?",
+    "answer": "Quickly scan all victims. Help in this priority order: 1. Anyone not breathing — start CPR immediately on the first one found. 2. Anyone with life-threatening bleeding — apply pressure. 3. Unconscious but breathing — recovery position. 4. Conscious with injuries — reassure and keep still. Shout loudly to get other bystanders to help — assign each person to one victim. Do not spend all your time on one person while others die. If someone is clearly dead — no breathing, no pulse, injuries incompatible with life — move to the next victim. Call 108 first and let the dispatcher coordinate."
+  },
+  {
+    "id": "recovery_pos_001",
+    "category": "head_trauma",
+    "keywords": ["recovery position", "side", "roll onto side", "vomit", "choking on vomit", "on their side"],
+    "question": "How do I put someone in the recovery position?",
+    "answer": "Kneel beside them. Place the arm nearest to you at a right angle to the body, elbow bent, palm facing up. Bring the far arm across and hold the back of their hand against their nearest cheek. With your other hand pull the far knee up until the foot is flat on the floor. Keeping the hand against their cheek, pull on the bent knee to roll them towards you onto their side. Adjust the upper leg so the hip and knee are at right angles. Tilt the head back slightly to keep airway open. Monitor breathing every minute."
+  },
+  {
+    "id": "do_not_001",
+    "category": "general",
+    "keywords": ["do not", "avoid", "wrong", "mistake", "common mistake", "should not"],
+    "question": "What are the most important things NOT to do at an accident scene?",
+    "answer": "Do NOT move a victim unless in immediate danger. Do NOT remove a helmet unless necessary for CPR. Do NOT give food or water — victim may need surgery. Do NOT remove embedded objects from wounds. Do NOT use ice on burns. Do NOT apply butter or cream on burns. Do NOT press on a skull if it feels sunken. Do NOT stop CPR once started until ambulance takes over. Do NOT leave the victim alone even for a moment — send someone else for help. Do NOT block emergency vehicles — move your car immediately."
+  },
+  {
+    "id": "wait_001",
+    "category": "general",
+    "keywords": ["waiting", "ambulance coming", "what to do while waiting", "while waiting", "keep doing", "until ambulance"],
+    "question": "What should I do while waiting for the ambulance?",
+    "answer": "Keep doing what you are already doing. Maintain pressure on wounds without lifting cloth. Continue CPR if started. Monitor breathing every 30 seconds. Keep the victim warm with any available jacket or blanket. Reassure them calmly — talk to them even if unconscious. Do NOT give food or water. Send someone to the road to wave down the ambulance. Clear the area around the victim of crowd. Keep note of any changes in condition to report to paramedics. Stay on the phone with the dispatcher if possible. When ambulance arrives: give a clear handover — what happened, when, what you did."
+  },
+  {
+    "id": "electrical_001",
+    "category": "general",
+    "keywords": ["electrical", "electrocution", "electric shock", "power line", "live wire", "electricity"],
+    "question": "What do I do if someone has been electrocuted?",
+    "answer": "Do NOT touch them while they are still in contact with the electrical source — you will also be electrocuted. Switch off the power at the mains if possible. If you cannot switch off the power: use a wooden or plastic object to push the person away from the source — never use anything metal or wet. Only touch the victim once you are certain the power is off. Check for breathing and pulse. Electrical shock can stop the heart — begin CPR if needed. All electrical injury victims need hospital evaluation even if they seem fine — internal burns may not be visible."
+  },
+  {
+    "id": "legal_001",
+    "category": "general",
+    "keywords": ["legal", "police", "arrested", "trouble", "law", "good samaritan", "safe to help", "protected", "detained"],
+    "question": "Am I legally protected if I help an accident victim in India?",
+    "answer": "YES. You are fully protected by the Good Samaritan Law under the Indian Motor Vehicles Act Section 134A. Key protections: you cannot be detained by police, you are not required to give a statement, you cannot be held liable for the victim's condition if you helped in good faith, your identity is kept confidential if you wish. You are also ELIGIBLE for a government reward of Rs 25,000 for helping a road accident victim. Help without fear. Saving a life is both a moral duty and legally protected in India. Bystander inaction causes more deaths than mistaken first aid."
+  },
+  {
+    "id": "breathing_check_001",
+    "category": "cardiac_arrest",
+    "keywords": ["check breathing", "is breathing", "how to check", "look listen feel", "agonal", "gasping", "is alive"],
+    "question": "How do I check if someone is breathing?",
+    "answer": "Look listen and feel for no more than 10 seconds. Look: watch the chest — is it rising and falling? Listen: put your ear near their mouth — can you hear breath? Feel: put your cheek near their mouth — can you feel air? If you are uncertain or breathing is irregular gasping or very slow: assume they are NOT breathing normally and begin CPR immediately. Agonal breathing — occasional gasping sounds — looks like breathing but is not effective breathing and is a sign of cardiac arrest. When in doubt: start CPR. It will not harm someone who is breathing."
+  },
+  {
+    "id": "position_001",
+    "category": "general",
+    "keywords": ["position", "sit", "lie down", "standing", "how to position", "keep sitting", "lay flat"],
+    "question": "Should I lay the victim down or keep them sitting?",
+    "answer": "Lay them flat if: they are unconscious, in shock, have heavy bleeding, or you need to do CPR. Keep them sitting upright if: they are conscious and have chest pain or difficulty breathing as this makes breathing easier. Keep them in the position you find them if: spinal injury is possible — do not move them to a different position. For heavy bleeding: elevate the injured part above heart level if possible. For shock: lay flat and raise legs 30cm unless there is a head or spinal injury. Always ask if they are comfortable — a conscious victim knows their best position."
+  },
+  {
+    "id": "bystander_001",
+    "category": "general",
+    "keywords": ["bystander effect", "no one helping", "crowd", "everyone watching", "get others to help", "bystanders"],
+    "question": "Nobody is helping. How do I get bystanders to assist?",
+    "answer": "The bystander effect is real: people freeze in groups because they assume someone else will help. Break it by being specific. Do NOT say Can someone call an ambulance. Instead point directly: You in the red shirt — call 108 right now. You in glasses — go to the main road and wave down the ambulance. You wearing blue — help me hold this cloth on the wound. Giving people specific tasks overrides the freeze response. Ask loudly and confidently. Once one person helps, others will follow. Assign one person to manage crowd control to keep space around the victim."
+  }
+]

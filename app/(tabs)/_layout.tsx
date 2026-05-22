@@ -189,6 +189,8 @@ export default function TabsLayout() {
       <Tabs.Screen name="multilingual" options={{ href: null }} />
       <Tabs.Screen name="blackbox" options={{ href: null }} />
       <Tabs.Screen name="settings" options={{ href: null }} />
+      {/* ── PHASE 11: AI Chatbot (hidden tab, opened via router.push('/chatbot')) ── */}
+      <Tabs.Screen name="chatbot" options={{ href: null }} />
     </Tabs>
   );
 }
@@ -225,7 +227,6 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.brand.primary,
     alignItems: 'center',
     justifyContent: 'center',
-    // White ring + border ring from prototype
     borderWidth: 0,
     ...Shadows.emergency,
   },

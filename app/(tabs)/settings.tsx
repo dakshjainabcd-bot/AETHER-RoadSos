@@ -17,6 +17,7 @@ import {
   FlatList,
   Alert,
 } from 'react-native';
+import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAppContext } from '../_layout';
@@ -227,6 +228,16 @@ export default function SettingsScreen() {
           iconColor="#F0A500"
           label="Show Debug Info"
           onPress={loadDebug}
+          showChevron
+        />
+        <View style={styles.separator} />
+        <SettingsRow
+          icon="chatbubble-ellipses"
+          iconBg="#EBF0FC"
+          iconColor={Colors.brand.accent}
+          label="AI First-Aid Assistant"
+          value="Pocket RAG chatbot · Phase 11"
+          onPress={() => router.push('/chatbot' as any)}
           showChevron
         />
         <View style={styles.separator} />
