@@ -4,12 +4,12 @@
  * Shows: profile status, active incident (if any), alert toggle, generate PDF
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity,
-  ScrollView, Switch, Alert, ActivityIndicator,
+  ScrollView, Switch, Alert, ActivityIndicator, BackHandler,
 } from 'react-native';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, BorderRadius, Layout, Shadows } from '../theme';
 import { rakshakService } from '../services/Rakshak/RakshakService';
@@ -24,7 +24,7 @@ import { BADGE_DEFINITIONS } from '../services/Trust/BadgeTypes';
 export default function RakshakDashboardScreen() {
   const [profile, setProfile] = useState<RakshakProfile | null>(null);
   const [loading, setLoading] = useState(true);
-  const [generatingPDF, setGeneratingPDF] = useState(false);
+
   const [testingAlert, setTestingAlert] = useState(false);
 
   useEffect(() => {
@@ -35,6 +35,19 @@ export default function RakshakDashboardScreen() {
     });
     return () => unsubReceived();
   }, []);
+
+  // Prevent Android hardware-back from returning to the (now-correct) rakshak tab hub
+  // This is a safety net — the hub renders proper content, but this avoids accidental exits
+  useFocusEffect(
+    useCallback(() => {
+      const onBackPress = () => {
+        router.replace('/(tabs)');
+        return true; // prevent default back behaviour
+      };
+      const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+      return () => sub.remove();
+    }, [])
+  );
 
   const loadProfile = async () => {
     setLoading(true);
@@ -84,39 +97,6 @@ export default function RakshakDashboardScreen() {
     router.push('/claim-tracker');
   };
 
-  const handleGenerateDemoPDF = async () => {
-    setGeneratingPDF(true);
-    try {
-      // Fetch earned badges for the PDF
-      const earnedBadgesForPDF = await badgeService.getEarnedBadges();
-
-      const demoData: RewardClaimData = {
-        rakshakName: profile?.name || 'Demo Rakshak',
-        rakshakPhone: profile?.phone || '+91 99999 99999',
-        certificateType: profile?.certificateType?.replace(/_/g, ' ').toUpperCase() || 'FIRST AID CERTIFICATE',
-        certificateNumber: 'CERT-2024-DEMO-001',
-        incidentId: 'AETHER-1704067200000-abc123',
-        incidentGPS: '12.9716°N, 77.5946°E',
-        incidentDate: new Date().toLocaleDateString('en-IN'),
-        arrivalTime: new Date(Date.now() - 15 * 60000).toLocaleTimeString('en-IN'),
-        handoverTime: new Date().toLocaleTimeString('en-IN'),
-        interventions: ['CPR performed', 'Bleeding controlled', 'Called ambulance'],
-        ambulanceDetails: 'GVK-EMRI Ambulance KA-01-AB-1234',
-        earnedBadges: earnedBadgesForPDF,  // Phase 13: include badges in PDF
-      };
-
-      const pdfUri = await pdfGenerator.generateRewardClaim(demoData);
-      if (pdfUri) {
-        await pdfGenerator.sharePDF(pdfUri);
-      } else {
-        Alert.alert('Error', 'Could not generate PDF. Please try again.');
-      }
-    } catch (error) {
-      Alert.alert('Error', 'PDF generation failed: ' + String(error));
-    } finally {
-      setGeneratingPDF(false);
-    }
-  };
 
   const handleLogout = async () => {
     Alert.alert('Logout', 'Are you sure you want to logout?', [
@@ -235,21 +215,18 @@ export default function RakshakDashboardScreen() {
 
       {/* Generate PDF */}
       <TouchableOpacity
-        style={styles.actionCard}
-        onPress={handleGenerateDemoPDF}
-        disabled={generatingPDF}
+          style={styles.actionCard}
+          onPress={() => router.push('/rakshak-claim')}
+          activeOpacity={0.85}
       >
-        <View style={[styles.actionIcon, { backgroundColor: `${Colors.brand.gold}15` }]}>
-          <Ionicons name="document-text" size={22} color={Colors.brand.gold} />
-        </View>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.actionTitle}>Generate Reward Claim PDF</Text>
-          <Text style={styles.actionSub}>₹25,000 Good Samaritan claim document</Text>
-        </View>
-        {generatingPDF
-          ? <ActivityIndicator size="small" color={Colors.brand.gold} />
-          : <Ionicons name="chevron-forward" size={16} color={Colors.label.tertiary} />
-        }
+          <View style={[styles.actionIcon, { backgroundColor: `${Colors.brand.gold}15` }]}>
+              <Ionicons name="document-text" size={22} color={Colors.brand.gold} />
+          </View>
+          <View style={{ flex: 1 }}>
+              <Text style={styles.actionTitle}>File Reward Claim (₹25,000)</Text>
+              <Text style={styles.actionSub}>Upload proof · Generate official Form MV-134A</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={16} color={Colors.label.tertiary} />
       </TouchableOpacity>
 
       {/* ── Phase 13: Badge Gallery ──────────────────────────────────── */}

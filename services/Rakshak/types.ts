@@ -63,6 +63,10 @@ export interface RewardClaimData {
   interventions: string[];
   ambulanceDetails: string;
   earnedBadges?: EarnedBadgeRef[]; // NEW — optional badge list for PDF
+  // ── NEW FIELDS ────────────────────────────────────────
+  proofImageBase64?: string[];   // Base64-encoded proof photos
+  proofImageLabels?: string[];   // Label for each photo (e.g. "Accident Scene")
+  additionalNotes?: string;      // Free-text notes from the Rakshak
 }
 
 // ── Storage Keys ────────────────────────────────────────────────────────────
