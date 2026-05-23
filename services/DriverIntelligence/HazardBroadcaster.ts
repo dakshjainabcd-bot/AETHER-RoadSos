@@ -23,6 +23,7 @@ import { simulationBridge } from '../MeshRelay/SimulationBridge';
 import { getLastKnownLocation } from '../GPSService';
 import { haversineDistance } from '../../utils/haversine';
 import { getDeviceHash } from '../MeshRelay/PacketProtocol';
+import { hazardReportStore } from './HazardReportStore';
 
 function generateHazardId(): string {
   return (
@@ -90,6 +91,9 @@ class HazardBroadcaster {
     // Mark as seen so we don't alert ourselves for our own report
     this.seenHazardIds.add(packet.hazardId);
 
+    // Store our own report so the cluster count starts at 1
+    await hazardReportStore.addReport(packet);
+
     const sent = simulationBridge.broadcastHazard(packet);
     if (sent) {
       console.log(
@@ -136,14 +140,24 @@ class HazardBroadcaster {
       `${distM}m away (hop ${packet.hopCount})`
     );
 
-    // ── 4. Alert the driver if hazard is within 3km ───────────────────────
+    // ── 4. Store report and build credibility ─────────────────────────────
+    const { count, credibilityLevel } = await hazardReportStore.addReport(packet);
+
+    // ── 5. Alert the driver if hazard is within 3km ───────────────────────
     if (distM <= DRIVER_INTEL_CONFIG.HAZARD_ALERT_RADIUS_M) {
       this.listeners.forEach(cb => {
-        try { cb({ packet, distanceM: distM }); } catch {}
+        try {
+          cb({
+            packet,
+            distanceM: distM,
+            reportCount: count,
+            credibilityLevel,
+          });
+        } catch {}
       });
     }
 
-    // ── 5. Relay to other nearby phones if we haven't hit max hops ────────
+    // ── 6. Relay to other nearby phones if we haven't hit max hops ────────
     if (packet.hopCount < DRIVER_INTEL_CONFIG.HAZARD_MAX_HOPS) {
       const relayPacket: HazardPacket = {
         ...packet,
