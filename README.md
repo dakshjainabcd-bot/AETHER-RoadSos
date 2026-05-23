@@ -1,6 +1,6 @@
 <div align="center">
 
-<img width="1200" height="140" alt="AETHER Banner" src="https://capsule-render.vercel.app/api?type=waving&color=DC2626&height=140&section=header&text=AETHER&fontSize=64&fontColor=ffffff&fontAlignY=65&animation=fadeIn&desc=Accident%20Emergency%20%26%20Trauma%20Hyper-Response&descSize=20&descAlignY=85"/>
+<img width="1200" height="140" alt="AETHER Banner" src="https://capsule-render.vercel.app/api?type=waving&amp;color=DC2626&amp;height=140&amp;section=header&amp;text=AETHER&amp;fontSize=64&amp;fontColor=ffffff&amp;fontAlignY=65&amp;animation=fadeIn&amp;desc=Accident%20Emergency%20and%20Trauma%20Hyper-Response&amp;descSize=20&amp;descAlignY=85"/>
 
 # AETHER — Every Second of the Golden Hour, Saved
 
@@ -1017,6 +1017,6 @@ aether/
 
 ---
 
-<img width="1200" height="60" alt="AETHER Footer" src="https://capsule-render.vercel.app/api?type=waving&color=DC2626&height=60&section=footer"/>
+<img width="1200" height="60" alt="AETHER Footer" src="https://capsule-render.vercel.app/api?type=waving&amp;color=DC2626&amp;height=60&amp;section=footer"/>
 
 </div>

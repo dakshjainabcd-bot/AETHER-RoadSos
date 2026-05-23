@@ -317,34 +317,6 @@ export default function MapScreen() {
   const badge = getBadgeConfig(isConnected ? dataSource : 'offline', onlineLoading);
   const activeCrash = activeBystanderAlert?.packet ?? null;
 
-  // Styles for hazard button (Phase 12)
-  const hazardBtnStyle = {
-    position: 'absolute' as const,
-    top: 16,
-    right: 16,
-    backgroundColor: '#1C1C1E',
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    gap: 6,
-    zIndex: 100,
-    borderWidth: 1,
-    borderColor: 'rgba(255,200,0,0.3)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
-    elevation: 5,
-  };
-
-  const hazardBtnTextStyle = {
-    color: '#FFD60A',
-    fontSize: 13,
-    fontWeight: '700' as const,
-  };
-
   return (
     <View style={styles.container}>
 
@@ -414,16 +386,6 @@ export default function MapScreen() {
           </Text>
         </View>
       )}
-
-      {/* ── PHASE 12: Report Hazard button ───────────────────────────────── */}
-      <TouchableOpacity
-        style={hazardBtnStyle}
-        onPress={handleReportHazard}
-        activeOpacity={0.85}
-      >
-        <Text style={{ fontSize: 16 }}>⚠️</Text>
-        <Text style={hazardBtnTextStyle}>Report Hazard</Text>
-      </TouchableOpacity>
 
       {/* Map */}
       <MapView
@@ -507,6 +469,16 @@ export default function MapScreen() {
           </>
         )}
       </MapView>
+
+      {/* ── PHASE 12: Report Hazard button — bottom right ─────────────── */}
+      <TouchableOpacity
+        style={styles.hazardBtn}
+        onPress={handleReportHazard}
+        activeOpacity={0.85}
+      >
+        <Text style={{ fontSize: 15 }}>⚠️</Text>
+        <Text style={styles.hazardBtnText}>Report Hazard</Text>
+      </TouchableOpacity>
 
       {/* Legend (unchanged) */}
       {isConnected && onlinePOIs.length > 0 && !selectedPOI && (
@@ -817,5 +789,30 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
     ...Shadows.md,
     zIndex: 10,
+  },
+  hazardBtn: {
+    position: 'absolute',
+    bottom: Layout.CONTENT_BOTTOM_PADDING + 60, // sits above the "my location" button
+    right: Layout.HORIZONTAL_PADDING,
+    backgroundColor: '#1C1C1E',
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    zIndex: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255,200,0,0.3)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 5,
+  },
+  hazardBtnText: {
+    color: '#FFD60A',
+    fontSize: 13,
+    fontWeight: '700' as const,
   },
 });
