@@ -125,12 +125,12 @@ export const CRASH_DETECTION = {
 //   - This is fine for hackathon / demo use
 //   - For production: move to a backend proxy so the key isn't in the app bundle
 //
-export const OPENAI_API_KEY = 'YOUR_OPENAI_API_KEY_HERE'; // ← PASTE YOUR KEY HERE
+export const OPENAI_API_KEY = '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'; // ← PASTE YOUR KEY HERE
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Gemini (kept for BystAI vision analysis only — NOT used for STT anymore)
 // ─────────────────────────────────────────────────────────────────────────────
-export const GEMINI_API_KEY = 'YOUR_GEMINI_API_KEY_HERE';
+export const GEMINI_API_KEY = 'AIzaSyDCmK_KnQNPg4Zg4Rx6KPB7eslUG6PKDWM';
 export const GEMINI_STT_MODEL = 'gemini-1.5-flash'; // kept for vision in BystAI only
 
 
@@ -166,8 +166,8 @@ export const SECURITY = {
 //   packets. At 30s intervals, we won't miss a new neighbor for long.
 
 export const DTN = {
-    MAX_BUFFER_SIZE: 5,
-    TTL_MS: 30 * 60 * 1000,          // 30 minutes in milliseconds
-    FORWARD_SCAN_INTERVAL_MS: 30000,  // 30 seconds
-    MIN_BATTERY_PCT: 20,              // Don't relay below 20% battery
+  MAX_BUFFER_SIZE: 5,
+  TTL_MS: 30 * 60 * 1000,          // 30 minutes in milliseconds
+  FORWARD_SCAN_INTERVAL_MS: 30000,  // 30 seconds
+  MIN_BATTERY_PCT: 20,              // Don't relay below 20% battery
 } as const;

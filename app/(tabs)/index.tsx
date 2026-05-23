@@ -2,8 +2,12 @@
  * Home Screen — Prototype UI
  *
  * Preserves all data logic (POI search, GPS, mesh, crash detection).
- * Shows real POIs from DB + a rich static showcase grid to ensure
- * the page is always scrollable with meaningful content.
+ * Shows real POIs from DB + a rich static showcase grid.
+ *
+ * FEATURE LAUNCHER: A fixed floating "+" button sits above the tab bar
+ * (bottom-right). It does NOT scroll with the page. Tapping it slides
+ * up a panel of all hidden/advanced features (Multilingual, Black Box,
+ * AI Chat, etc.) and placeholder cards for upcoming phases.
  */
 
 import { useState, useCallback, useRef } from 'react';
@@ -17,6 +21,9 @@ import {
   RefreshControl,
   Linking,
   Animated,
+  Modal,
+  Pressable,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, router } from 'expo-router';
@@ -32,7 +39,7 @@ import { POI_TYPES } from '../../utils/constants';
 import { Colors, BorderRadius, Shadows, Layout } from '../../theme';
 import type { CrashDetectionState } from '../../services/CrashDetection/types';
 
-// ── Static showcase hospitals (always shown, make page scrollable) ─────────────
+// ── Static showcase hospitals ─────────────────────────────────────────────────
 
 const SHOWCASE_SERVICES = [
   {
@@ -149,7 +156,151 @@ const SHOWCASE_SERVICES = [
   },
 ];
 
+// ── Feature Launcher Items ────────────────────────────────────────────────────
+
+type FeatureItem = {
+  id: string;
+  label: string;
+  sublabel: string;
+  icon: string;
+  color: string;
+  bg: string;
+  border: string;
+  route?: string;
+  badge?: string;
+  comingSoon?: boolean;
+};
+
+const FEATURE_ITEMS: FeatureItem[] = [
+  // ── Available Now ────────────────────────────────────────────────────────
+  {
+    id: 'multilingual',
+    label: 'Multilingual Bridge',
+    sublabel: 'Whisper STT · 99 languages',
+    icon: 'language',
+    color: Colors.brand.accent,
+    bg: Colors.soft.blue,
+    border: Colors.soft.blueBorder,
+    route: '/(tabs)/multilingual',
+  },
+  {
+    id: 'blackbox',
+    label: 'Black Box',
+    sublabel: 'Sensor evidence · RSA signed',
+    icon: 'cube',
+    color: Colors.label.secondary,
+    bg: Colors.background.secondary,
+    border: Colors.border.medium,
+    route: '/(tabs)/blackbox',
+  },
+  {
+    id: 'chatbot',
+    label: 'AI First-Aid Chat',
+    sublabel: 'Pocket RAG · Works offline',
+    icon: 'chatbubble-ellipses',
+    color: Colors.brand.accent,
+    bg: Colors.soft.blue,
+    border: Colors.soft.blueBorder,
+    route: '/(tabs)/chatbot',
+    badge: 'Phase 11',
+  },
+  {
+    id: 'bystander',
+    label: 'BystAI Coach',
+    sublabel: 'CPR · First aid · PsychAid',
+    icon: 'medical',
+    color: Colors.brand.primary,
+    bg: Colors.soft.red,
+    border: Colors.soft.redBorder,
+    route: '/bystander',
+  },
+  // ── Coming Soon ──────────────────────────────────────────────────────────
+  {
+    id: 'dtn_mesh',
+    label: 'DTN Mesh Enhancer',
+    sublabel: 'Store-and-forward · Phase 14',
+    icon: 'git-network',
+    color: Colors.brand.purple,
+    bg: Colors.soft.purple,
+    border: Colors.soft.purpleBorder,
+    comingSoon: true,
+  },
+  {
+    id: 'driver_intel',
+    label: 'Driver Intelligence',
+    sublabel: 'Behaviour coach · Phase 12',
+    icon: 'car-sport',
+    color: Colors.status.warning,
+    bg: Colors.soft.amber,
+    border: Colors.soft.amberBorder,
+    comingSoon: true,
+  },
+  {
+    id: 'trust_badges',
+    label: 'Trust & Gamification',
+    sublabel: 'Reputation · Rewards · Phase 13',
+    icon: 'star',
+    color: '#C07A00',
+    bg: Colors.soft.amber,
+    border: Colors.soft.amberBorder,
+    comingSoon: true,
+  },
+  {
+    id: 'security',
+    label: 'Security Hardening',
+    sublabel: 'AES mesh · DPDP · Phase 10',
+    icon: 'lock-closed',
+    color: Colors.label.secondary,
+    bg: Colors.background.secondary,
+    border: Colors.border.medium,
+    comingSoon: true,
+  },
+  {
+    id: 'psych_aid',
+    label: 'Psychological First Aid',
+    sublabel: 'WHO scripts · Phase 11',
+    icon: 'heart',
+    color: Colors.brand.gold,
+    bg: Colors.soft.amber,
+    border: Colors.soft.amberBorder,
+    comingSoon: true,
+  },
+  {
+    id: 'road_repair',
+    label: 'Road Repair (ART)',
+    sublabel: 'Legal notices · Phase 8',
+    icon: 'construct',
+    color: Colors.status.warning,
+    bg: Colors.soft.amber,
+    border: Colors.soft.amberBorder,
+    comingSoon: true,
+  },
+  {
+    id: 'road_dna',
+    label: 'Road DNA Blackspots',
+    sublabel: 'Danger zone map · Phase 9',
+    icon: 'warning',
+    color: '#CC0000',
+    bg: Colors.soft.red,
+    border: Colors.soft.redBorder,
+    comingSoon: true,
+  },
+  {
+    id: 'rakshak_ems',
+    label: 'EMS Dashboard',
+    sublabel: 'Rakshak network · Phase 7',
+    icon: 'shield',
+    color: Colors.status.success,
+    bg: Colors.soft.green,
+    border: Colors.soft.greenBorder,
+    comingSoon: true,
+  },
+];
+
 // ─────────────────────────────────────────────────────────────────────────────
+
+// Tab bar height — must match app/(tabs)/_layout.tsx tabBarStyle height
+const TAB_BAR_HEIGHT = 82;
 
 export default function HomeScreen() {
   const {
@@ -160,10 +311,16 @@ export default function HomeScreen() {
     crashState,
   } = useAppContext();
 
-  const [location, setLocation]              = useState<StoredLocation | null>(null);
-  const [nearestHospital, setNearestHospital] = useState<POI | null>(null);
-  const [nearestPolice, setNearestPolice]     = useState<POI | null>(null);
-  const [isRefreshing, setIsRefreshing]       = useState(false);
+  const [location, setLocation]               = useState<StoredLocation | null>(null);
+  const [nearestHospital, setNearestHospital]  = useState<POI | null>(null);
+  const [nearestPolice, setNearestPolice]      = useState<POI | null>(null);
+  const [isRefreshing, setIsRefreshing]        = useState(false);
+
+  // ── Feature panel ─────────────────────────────────────────────────────────
+  const [panelVisible, setPanelVisible]   = useState(false);
+  const panelSlide                        = useRef(new Animated.Value(600)).current;
+  const backdropOpacity                   = useRef(new Animated.Value(0)).current;
+  const fabRotate                         = useRef(new Animated.Value(0)).current;
 
   useFocusEffect(
     useCallback(() => { loadData(); }, [gpsPermissionGranted])
@@ -192,135 +349,330 @@ export default function HomeScreen() {
     setIsRefreshing(false);
   }
 
+  // ── Panel animations ──────────────────────────────────────────────────────
+
+  function openPanel() {
+    setPanelVisible(true);
+    Animated.parallel([
+      Animated.spring(panelSlide, {
+        toValue: 0,
+        useNativeDriver: true,
+        tension: 68,
+        friction: 11,
+      }),
+      Animated.timing(backdropOpacity, {
+        toValue: 1,
+        duration: 250,
+        useNativeDriver: true,
+      }),
+      Animated.timing(fabRotate, {
+        toValue: 1,
+        duration: 220,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }
+
+  function closePanel() {
+    Animated.parallel([
+      Animated.timing(panelSlide, {
+        toValue: 600,
+        duration: 260,
+        useNativeDriver: true,
+      }),
+      Animated.timing(backdropOpacity, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: true,
+      }),
+      Animated.timing(fabRotate, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: true,
+      }),
+    ]).start(() => setPanelVisible(false));
+  }
+
+  function togglePanel() {
+    panelVisible ? closePanel() : openPanel();
+  }
+
+  function handleFeaturePress(item: FeatureItem) {
+    if (item.comingSoon) return;
+    closePanel();
+    setTimeout(() => {
+      if (item.route) router.push(item.route as any);
+    }, 280);
+  }
+
+  // FAB icon rotates 45° when panel is open (+ → ×)
+  const fabIconStyle = {
+    transform: [
+      {
+        rotate: fabRotate.interpolate({
+          inputRange: [0, 1],
+          outputRange: ['0deg', '45deg'],
+        }),
+      },
+    ],
+  };
+
   return (
-    <ScrollView
-      style={styles.scroll}
-      contentContainerStyle={styles.content}
-      showsVerticalScrollIndicator={false}
-      refreshControl={
-        <RefreshControl
-          refreshing={isRefreshing}
-          onRefresh={onRefresh}
-          tintColor={Colors.brand.primary}
-        />
-      }
-    >
-      {/* ── Header ──────────────────────────────────────────── */}
-      <View style={styles.header}>
-        <View style={styles.titleBlock}>
-          <Text style={styles.brandName}>AETHER</Text>
-          <View style={styles.statusRow}>
-            <BlinkingDot color={Colors.status.success} />
-            <Text style={styles.statusText}>
-              {emergencyNumbers.country}  ·  Detection active  ·  ±{location ? '11' : '--'}m
-            </Text>
-          </View>
-        </View>
-        <TouchableOpacity
-          onPress={() => router.push('/(tabs)/settings')}
-          style={styles.settingsBtn}
-        >
-          <Ionicons name="settings-outline" size={18} color={Colors.label.secondary} />
-        </TouchableOpacity>
-      </View>
+    // Outer View is NOT a scroll — FAB lives here as absolute overlay
+    <View style={{ flex: 1, backgroundColor: Colors.background.primary }}>
 
-      {/* ── 108 Hero Card ──────────────────────────────────── */}
-      <TouchableOpacity
-        style={styles.heroCard}
-        activeOpacity={0.9}
-        onPress={() => Linking.openURL(`tel:${emergencyNumbers.ambulance}`)}
+      {/* ── Scrollable content ────────────────────────────────── */}
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={onRefresh}
+            tintColor={Colors.brand.primary}
+          />
+        }
       >
-        <View style={styles.heroRing1} />
-        <View style={styles.heroRing2} />
-        <View style={styles.heroLeft}>
-          <Text style={styles.heroLabel}>AMBULANCE</Text>
-          <Text style={styles.heroNumber}>{emergencyNumbers.ambulance}</Text>
-          <View style={styles.heroCallBtn}>
-            <Ionicons name="call" size={14} color="#fff" />
-            <Text style={styles.heroCallText}>Call Now</Text>
+        {/* ── Header ─────────────────────────────────────────── */}
+        <View style={styles.header}>
+          <View style={styles.titleBlock}>
+            <Text style={styles.brandName}>AETHER</Text>
+            <View style={styles.statusRow}>
+              <BlinkingDot color={Colors.status.success} />
+              <Text style={styles.statusText}>
+                {emergencyNumbers.country}  ·  Detection active  ·  ±{location ? '11' : '--'}m
+              </Text>
+            </View>
           </View>
+          <TouchableOpacity
+            onPress={() => router.push('/(tabs)/settings')}
+            style={styles.settingsBtn}
+          >
+            <Ionicons name="settings-outline" size={18} color={Colors.label.secondary} />
+          </TouchableOpacity>
         </View>
-        <View style={styles.heroRight}>
-          <View style={styles.meshBadge}>
-            <Text style={styles.meshBadgeText}>
-              {meshConnected ? `MESH · ${meshPeerCount}` : 'MESH OFFLINE'}
-            </Text>
+
+        {/* ── 108 Hero Card ─────────────────────────────────── */}
+        <TouchableOpacity
+          style={styles.heroCard}
+          activeOpacity={0.9}
+          onPress={() => Linking.openURL(`tel:${emergencyNumbers.ambulance}`)}
+        >
+          <View style={styles.heroRing1} />
+          <View style={styles.heroRing2} />
+          <View style={styles.heroLeft}>
+            <Text style={styles.heroLabel}>AMBULANCE</Text>
+            <Text style={styles.heroNumber}>{emergencyNumbers.ambulance}</Text>
+            <View style={styles.heroCallBtn}>
+              <Ionicons name="call" size={14} color="#fff" />
+              <Text style={styles.heroCallText}>Call Now</Text>
+            </View>
           </View>
+          <View style={styles.heroRight}>
+            <View style={styles.meshBadge}>
+              <Text style={styles.meshBadgeText}>
+                {meshConnected ? `MESH · ${meshPeerCount}` : 'MESH OFFLINE'}
+              </Text>
+            </View>
+          </View>
+        </TouchableOpacity>
+
+        {/* Phase 12: Weekly driver score */}
+        <WeeklySafetyCard />
+
+        {/* ── Secondary Numbers ─────────────────────────────── */}
+        <View style={styles.numbersGrid}>
+          <NumberCard number={emergencyNumbers.police} label="Police"    color={Colors.service.police}  bg={Colors.soft.blue}           border={Colors.soft.blueBorder}  />
+          <NumberCard number={emergencyNumbers.fire}   label="Fire"      color={Colors.service.fire}    bg={Colors.soft.amber}          border={Colors.soft.amberBorder} />
+          <NumberCard number="112"                     label="Universal" color={Colors.label.secondary} bg={Colors.background.elevated} border={Colors.border.medium}    />
         </View>
-      </TouchableOpacity>
 
-      {/* Phase 12: Weekly driver score */}
-      <WeeklySafetyCard />
+        {/* ── Crash Detection Pill ──────────────────────────── */}
+        <CrashDetectionPill state={crashState} />
 
-      {/* ── Secondary Numbers ──────────────────────────────── */}
-      <View style={styles.numbersGrid}>
-        <NumberCard number={emergencyNumbers.police} label="Police"    color={Colors.service.police} bg={Colors.soft.blue}  border={Colors.soft.blueBorder}  />
-        <NumberCard number={emergencyNumbers.fire}   label="Fire"      color={Colors.service.fire}   bg={Colors.soft.amber} border={Colors.soft.amberBorder} />
-        <NumberCard number="112"                     label="Universal" color={Colors.label.secondary} bg={Colors.background.elevated} border={Colors.border.medium} />
-      </View>
+        {/* ── LIVE: nearest from GPS ────────────────────────── */}
+        {(nearestHospital || nearestPolice) && (
+          <>
+            <View style={styles.sectionHeaderRow}>
+              <View style={styles.liveDot} />
+              <Text style={styles.sectionLabel}>LIVE · NEAREST TO YOU</Text>
+              <View style={styles.sectionLine} />
+            </View>
 
-      {/* ── Crash Detection Pill ───────────────────────────── */}
-      <CrashDetectionPill state={crashState} />
+            {!gpsPermissionGranted && <LocationWarning />}
 
-      {/* ── LIVE: nearest from GPS ──────────────────────────── */}
-      {(nearestHospital || nearestPolice) && (
-        <>
-          <View style={styles.sectionHeaderRow}>
-            <View style={styles.liveDot} />
-            <Text style={styles.sectionLabel}>LIVE · NEAREST TO YOU</Text>
-            <View style={styles.sectionLine} />
+            {nearestHospital && (
+              <ServiceRow
+                poi={nearestHospital}
+                dotColor={Colors.brand.primary}
+                dotBg={Colors.soft.red}
+                dotBorder={Colors.soft.redBorder}
+              />
+            )}
+            {nearestHospital && nearestPolice && <View style={styles.rowDivider} />}
+            {nearestPolice && (
+              <ServiceRow
+                poi={nearestPolice}
+                dotColor={Colors.service.police}
+                dotBg={Colors.soft.blue}
+                dotBorder={Colors.soft.blueBorder}
+              />
+            )}
+          </>
+        )}
+
+        {/* ── NEARBY SERVICES ───────────────────────────────── */}
+        <View style={styles.sectionHeaderRow}>
+          <Text style={styles.sectionLabel}>NEARBY SERVICES</Text>
+          <View style={styles.sectionLine} />
+          <TouchableOpacity onPress={() => router.push('/(tabs)/services')}>
+            <Text style={styles.seeAllText}>See all →</Text>
+          </TouchableOpacity>
+        </View>
+
+        {!gpsPermissionGranted && !nearestHospital && <LocationWarning />}
+
+        {SHOWCASE_SERVICES.map((item, idx) => (
+          <View key={item.id}>
+            <ShowcaseRow item={item} />
+            {idx < SHOWCASE_SERVICES.length - 1 && <View style={styles.rowDivider} />}
           </View>
+        ))}
 
-          {!gpsPermissionGranted && <LocationWarning />}
+        {/* ── Offline footer ────────────────────────────────── */}
+        <View style={styles.offlineBadge}>
+          <View style={styles.offlineDot} />
+          <Text style={styles.offlineBadgeText}>
+            WORKS FULLY OFFLINE · NO INTERNET REQUIRED
+          </Text>
+        </View>
 
-          {nearestHospital && (
-            <ServiceRow
-              poi={nearestHospital}
-              dotColor={Colors.brand.primary}
-              dotBg={Colors.soft.red}
-              dotBorder={Colors.soft.redBorder}
-            />
-          )}
-          {nearestHospital && nearestPolice && <View style={styles.rowDivider} />}
-          {nearestPolice && (
-            <ServiceRow
-              poi={nearestPolice}
-              dotColor={Colors.service.police}
-              dotBg={Colors.soft.blue}
-              dotBorder={Colors.soft.blueBorder}
-            />
-          )}
-        </>
-      )}
+        {/* Extra padding so FAB never covers content */}
+        <View style={{ height: 32 }} />
+      </ScrollView>
 
-      {/* ── SHOWCASE: all area services ─────────────────────── */}
-      <View style={styles.sectionHeaderRow}>
-        <Text style={styles.sectionLabel}>NEARBY SERVICES</Text>
-        <View style={styles.sectionLine} />
-        <TouchableOpacity onPress={() => router.push('/(tabs)/services')}>
-          <Text style={styles.seeAllText}>See all →</Text>
+      {/* ════════════════════════════════════════════════════════
+          FLOATING ACTION BUTTON — fixed above tab bar, bottom-right
+          Does NOT scroll with the page.
+      ════════════════════════════════════════════════════════ */}
+      <View
+        style={styles.fabContainer}
+        pointerEvents="box-none"
+      >
+        <TouchableOpacity
+          style={styles.fab}
+          onPress={togglePanel}
+          activeOpacity={0.85}
+        >
+          <Animated.View style={fabIconStyle}>
+            <Ionicons name="add" size={24} color="#FFFFFF" />
+          </Animated.View>
         </TouchableOpacity>
       </View>
 
-      {!gpsPermissionGranted && !nearestHospital && <LocationWarning />}
+      {/* ════════════════════════════════════════════════════════
+          FEATURE LAUNCHER PANEL — slides up from bottom
+      ════════════════════════════════════════════════════════ */}
+      {panelVisible && (
+        <Modal
+          transparent
+          animationType="none"
+          visible={panelVisible}
+          onRequestClose={closePanel}
+          statusBarTranslucent
+        >
+          {/* Backdrop */}
+          <Animated.View
+            style={[panelStyles.backdrop, { opacity: backdropOpacity }]}
+            pointerEvents="auto"
+          >
+            <Pressable style={{ flex: 1 }} onPress={closePanel} />
+          </Animated.View>
 
-      {SHOWCASE_SERVICES.map((item, idx) => (
-        <View key={item.id}>
-          <ShowcaseRow item={item} />
-          {idx < SHOWCASE_SERVICES.length - 1 && <View style={styles.rowDivider} />}
-        </View>
-      ))}
+          {/* Sheet */}
+          <Animated.ScrollView
+            style={[panelStyles.sheet, { transform: [{ translateY: panelSlide }] }]}
+            contentContainerStyle={panelStyles.sheetContent}
+            showsVerticalScrollIndicator={false}
+            bounces={false}
+          >
+            {/* Handle */}
+            <View style={panelStyles.handle} />
 
-      {/* ── Offline footer ─────────────────────────────────── */}
-      <View style={styles.offlineBadge}>
-        <View style={styles.offlineDot} />
-        <Text style={styles.offlineBadgeText}>
-          WORKS FULLY OFFLINE · NO INTERNET REQUIRED
-        </Text>
-      </View>
+            {/* Header */}
+            <View style={panelStyles.panelHeader}>
+              <View>
+                <Text style={panelStyles.panelTitle}>All Features</Text>
+                <Text style={panelStyles.panelSub}>AETHER · Phase 1–15</Text>
+              </View>
+              <TouchableOpacity onPress={closePanel} style={panelStyles.closeBtn}>
+                <Ionicons name="close" size={18} color={Colors.label.secondary} />
+              </TouchableOpacity>
+            </View>
 
-      <View style={{ height: 20 }} />
-    </ScrollView>
+            {/* ── Active features ── */}
+            <Text style={panelStyles.groupLabel}>AVAILABLE NOW</Text>
+            <View style={panelStyles.grid}>
+              {FEATURE_ITEMS.filter(f => !f.comingSoon).map(item => (
+                <TouchableOpacity
+                  key={item.id}
+                  style={[
+                    panelStyles.featureCard,
+                    { backgroundColor: item.bg, borderColor: item.border },
+                  ]}
+                  onPress={() => handleFeaturePress(item)}
+                  activeOpacity={0.72}
+                >
+                  <View style={[panelStyles.iconWrap, { backgroundColor: `${item.color}22` }]}>
+                    <Ionicons name={item.icon as any} size={22} color={item.color} />
+                  </View>
+                  <Text style={[panelStyles.featureLabel, { color: item.color }]} numberOfLines={1}>
+                    {item.label}
+                  </Text>
+                  <Text style={panelStyles.featureSub} numberOfLines={2}>
+                    {item.sublabel}
+                  </Text>
+                  {item.badge && (
+                    <View style={[panelStyles.phaseBadge, { backgroundColor: `${item.color}18` }]}>
+                      <Text style={[panelStyles.phaseBadgeText, { color: item.color }]}>
+                        {item.badge}
+                      </Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {/* ── Coming soon ── */}
+            <Text style={[panelStyles.groupLabel, { marginTop: 20 }]}>COMING SOON</Text>
+            <View style={panelStyles.grid}>
+              {FEATURE_ITEMS.filter(f => f.comingSoon).map(item => (
+                <View
+                  key={item.id}
+                  style={[panelStyles.featureCard, panelStyles.featureCardLocked]}
+                >
+                  <View style={[panelStyles.iconWrap, { backgroundColor: Colors.fill.tertiary }]}>
+                    <Ionicons name={item.icon as any} size={22} color={Colors.label.tertiary} />
+                  </View>
+                  <Text style={[panelStyles.featureLabel, { color: Colors.label.tertiary }]} numberOfLines={1}>
+                    {item.label}
+                  </Text>
+                  <Text style={panelStyles.featureSub} numberOfLines={2}>
+                    {item.sublabel}
+                  </Text>
+                  <View style={panelStyles.soonBadge}>
+                    <Text style={panelStyles.soonText}>SOON</Text>
+                  </View>
+                </View>
+              ))}
+            </View>
+
+            <View style={{ height: Platform.OS === 'ios' ? 40 : 24 }} />
+          </Animated.ScrollView>
+        </Modal>
+      )}
+    </View>
   );
 }
 
@@ -328,20 +680,11 @@ export default function HomeScreen() {
 
 function BlinkingDot({ color }: { color: string }) {
   const opacity = useRef(new Animated.Value(1)).current;
-  useRef(() => {
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(opacity, { toValue: 0.18, duration: 900, useNativeDriver: true }),
-        Animated.timing(opacity, { toValue: 1, duration: 900, useNativeDriver: true }),
-      ])
-    ).start();
-  });
-  // Trigger on mount
   useState(() => {
     Animated.loop(
       Animated.sequence([
         Animated.timing(opacity, { toValue: 0.18, duration: 900, useNativeDriver: true }),
-        Animated.timing(opacity, { toValue: 1, duration: 900, useNativeDriver: true }),
+        Animated.timing(opacity, { toValue: 1,    duration: 900, useNativeDriver: true }),
       ])
     ).start();
   });
@@ -376,7 +719,6 @@ function CrashDetectionPill({ state }: { state: CrashDetectionState }) {
   );
 }
 
-// Real GPS-sourced service row
 function ServiceRow({ poi, dotColor, dotBg, dotBorder }: {
   poi: POI; dotColor: string; dotBg: string; dotBorder: string;
 }) {
@@ -395,17 +737,12 @@ function ServiceRow({ poi, dotColor, dotBg, dotBorder }: {
         {caps.length > 0 && (
           <View style={styles.serviceTags}>
             {caps.map((c: string) => (
-              <View key={c} style={styles.tag}>
-                <Text style={styles.tagText}>{c}</Text>
-              </View>
+              <View key={c} style={styles.tag}><Text style={styles.tagText}>{c}</Text></View>
             ))}
           </View>
         )}
         <View style={styles.serviceButtons}>
-          <TouchableOpacity
-            style={styles.callBtn}
-            onPress={() => poi.phone && Linking.openURL(`tel:${poi.phone}`)}
-          >
+          <TouchableOpacity style={styles.callBtn} onPress={() => poi.phone && Linking.openURL(`tel:${poi.phone}`)}>
             <Ionicons name="call" size={13} color={Colors.status.success} />
             <Text style={styles.callBtnText}>Call</Text>
           </TouchableOpacity>
@@ -419,7 +756,6 @@ function ServiceRow({ poi, dotColor, dotBg, dotBorder }: {
   );
 }
 
-// Static showcase row with richer detail
 function ShowcaseRow({ item }: { item: typeof SHOWCASE_SERVICES[0] }) {
   return (
     <View style={styles.serviceRow}>
@@ -427,13 +763,10 @@ function ShowcaseRow({ item }: { item: typeof SHOWCASE_SERVICES[0] }) {
         <View style={[styles.serviceAccentDot, { backgroundColor: item.dotColor }]} />
       </View>
       <View style={styles.serviceInfo}>
-        {/* Name + distance */}
         <View style={styles.serviceTop}>
           <Text style={styles.serviceName} numberOfLines={2}>{item.name}</Text>
           <Text style={styles.serviceDist}>{item.dist}</Text>
         </View>
-
-        {/* Status + beds row */}
         <View style={styles.statusBedsRow}>
           <View style={[styles.statusPill, { backgroundColor: item.statusColor + '14', borderColor: item.statusColor + '30' }]}>
             <View style={[styles.statusPillDot, { backgroundColor: item.statusColor }]} />
@@ -445,26 +778,15 @@ function ShowcaseRow({ item }: { item: typeof SHOWCASE_SERVICES[0] }) {
               <Text style={styles.bedsText}>{item.beds}</Text>
             </View>
           )}
-          {item.phone && (
-            <Text style={styles.phonePreview}>{item.phone}</Text>
-          )}
+          {item.phone && <Text style={styles.phonePreview}>{item.phone}</Text>}
         </View>
-
-        {/* Tags */}
         <View style={styles.serviceTags}>
-          {item.tags.map((t) => (
-            <View key={t} style={styles.tag}>
-              <Text style={styles.tagText}>{t}</Text>
-            </View>
+          {item.tags.map(t => (
+            <View key={t} style={styles.tag}><Text style={styles.tagText}>{t}</Text></View>
           ))}
         </View>
-
-        {/* Buttons */}
         <View style={styles.serviceButtons}>
-          <TouchableOpacity
-            style={styles.callBtn}
-            onPress={() => item.phone && Linking.openURL(`tel:${item.phone}`)}
-          >
+          <TouchableOpacity style={styles.callBtn} onPress={() => item.phone && Linking.openURL(`tel:${item.phone}`)}>
             <Ionicons name="call" size={13} color={Colors.status.success} />
             <Text style={styles.callBtnText}>Call</Text>
           </TouchableOpacity>
@@ -487,7 +809,140 @@ function LocationWarning() {
   );
 }
 
-// ── Styles ────────────────────────────────────────────────────────────────────
+// ── Panel Styles ──────────────────────────────────────────────────────────────
+
+const panelStyles = StyleSheet.create({
+  backdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(20, 18, 16, 0.48)',
+    zIndex: 200,
+  },
+  sheet: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    zIndex: 201,
+    backgroundColor: Colors.background.elevated,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    maxHeight: '86%',
+    shadowColor: '#141210',
+    shadowOffset: { width: 0, height: -10 },
+    shadowOpacity: 0.20,
+    shadowRadius: 30,
+    elevation: 28,
+  },
+  sheetContent: {
+    paddingHorizontal: 20,
+    paddingTop: 12,
+  },
+  handle: {
+    width: 38,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: Colors.separator.opaque,
+    alignSelf: 'center',
+    marginBottom: 18,
+  },
+  panelHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    marginBottom: 20,
+  },
+  panelTitle: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: Colors.label.primary,
+    letterSpacing: -0.5,
+  },
+  panelSub: {
+    fontSize: 11,
+    color: Colors.label.tertiary,
+    marginTop: 2,
+    letterSpacing: 0.3,
+  },
+  closeBtn: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: Colors.fill.secondary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  groupLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: Colors.label.tertiary,
+    letterSpacing: 1.8,
+    marginBottom: 12,
+  },
+  grid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 11,
+  },
+  featureCard: {
+    width: '47%',
+    borderRadius: 20,
+    borderWidth: 1.5,
+    padding: 14,
+    gap: 5,
+  },
+  featureCardLocked: {
+    backgroundColor: Colors.background.secondary,
+    borderColor: Colors.border.subtle,
+    opacity: 0.6,
+  },
+  iconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 4,
+  },
+  featureLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    letterSpacing: -0.2,
+    lineHeight: 17,
+  },
+  featureSub: {
+    fontSize: 10,
+    color: Colors.label.tertiary,
+    lineHeight: 14,
+  },
+  phaseBadge: {
+    alignSelf: 'flex-start',
+    borderRadius: 5,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    marginTop: 4,
+  },
+  phaseBadgeText: {
+    fontSize: 9,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+  },
+  soonBadge: {
+    alignSelf: 'flex-start',
+    borderRadius: 5,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    backgroundColor: Colors.fill.tertiary,
+    marginTop: 4,
+  },
+  soonText: {
+    fontSize: 8,
+    fontWeight: '700',
+    color: Colors.label.tertiary,
+    letterSpacing: 1.2,
+  },
+});
+
+// ── Main Styles ───────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
   scroll: { flex: 1, backgroundColor: Colors.background.primary },
@@ -495,6 +950,28 @@ const styles = StyleSheet.create({
     paddingTop: Layout.STATUS_BAR_HEIGHT,
     paddingHorizontal: Layout.HORIZONTAL_PADDING,
     paddingBottom: Layout.CONTENT_BOTTOM_PADDING,
+  },
+
+  // ── FAB ── Fixed above tab bar, bottom-right, does NOT scroll
+  fabContainer: {
+    position: 'absolute',
+    // Sit just above the 82px tab bar with a comfortable gap
+    bottom: TAB_BAR_HEIGHT + 14,
+    right: 20,
+    zIndex: 99,
+  },
+  fab: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: Colors.brand.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: Colors.brand.primary,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.38,
+    shadowRadius: 14,
+    elevation: 10,
   },
 
   // Header
@@ -508,14 +985,17 @@ const styles = StyleSheet.create({
     width: 40, height: 40, borderRadius: 13,
     backgroundColor: Colors.background.elevated,
     borderWidth: 1, borderColor: Colors.border.medium,
-    alignItems: 'center', justifyContent: 'center', ...Shadows.xs,
+    alignItems: 'center', justifyContent: 'center',
+    shadowColor: '#141210', shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06, shadowRadius: 3, elevation: 1,
   },
 
   // Hero card
   heroCard: {
     backgroundColor: Colors.brand.primary, borderRadius: 26, paddingLeft: 24,
     marginBottom: 10, overflow: 'hidden', flexDirection: 'row', alignItems: 'stretch',
-    ...Shadows.emergencyDepth,
+    shadowColor: '#C82F1C', shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 1, shadowRadius: 0, elevation: 4,
   },
   heroRing1: {
     position: 'absolute', right: -48, top: '50%', marginTop: -110,
@@ -553,14 +1033,14 @@ const styles = StyleSheet.create({
   crashDot: { width: 6, height: 6, borderRadius: 3 },
   crashText: { fontSize: 10, fontWeight: '700', letterSpacing: 1.5 },
 
-  // Section header
+  // Section headers
   sectionHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 14 },
   liveDot: { width: 7, height: 7, borderRadius: 3.5, backgroundColor: Colors.brand.primary },
   sectionLabel: { fontSize: 10, fontWeight: '700', letterSpacing: 2, color: Colors.label.tertiary },
   sectionLine: { flex: 1, height: 1, backgroundColor: Colors.border.medium },
   seeAllText: { fontSize: 12, fontWeight: '600', color: Colors.brand.primary },
 
-  // Service row
+  // Service rows
   serviceRow: { flexDirection: 'row', gap: 14, alignItems: 'flex-start', paddingVertical: 14 },
   serviceAccent: {
     width: 42, height: 42, borderRadius: 14, borderWidth: 1,
@@ -574,8 +1054,6 @@ const styles = StyleSheet.create({
     lineHeight: 18, flex: 1, paddingRight: 8, letterSpacing: -0.2,
   },
   serviceDist: { fontSize: 14, fontWeight: '900', color: Colors.label.secondary, letterSpacing: -0.2 },
-
-  // Status + beds row
   statusBedsRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 7, flexWrap: 'wrap' },
   statusPill: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
@@ -586,16 +1064,12 @@ const styles = StyleSheet.create({
   bedsBadge: { flexDirection: 'row', alignItems: 'center', gap: 3 },
   bedsText: { fontSize: 10, color: Colors.label.tertiary, fontWeight: '500' },
   phonePreview: { fontSize: 10, color: Colors.label.muted, fontFamily: 'monospace' },
-
-  // Tags
   serviceTags: { flexDirection: 'row', gap: 5, flexWrap: 'wrap', marginBottom: 11 },
   tag: {
     backgroundColor: Colors.background.secondary, borderWidth: 1, borderColor: Colors.border.medium,
     borderRadius: 6, paddingHorizontal: 9, paddingVertical: 3,
   },
   tagText: { fontSize: 9, fontWeight: '600', color: Colors.label.secondary, letterSpacing: 0.5 },
-
-  // Buttons
   serviceButtons: { flexDirection: 'row', gap: 8 },
   callBtn: {
     flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5,
@@ -611,9 +1085,7 @@ const styles = StyleSheet.create({
   navBtnText: { fontSize: 12, fontWeight: '600', color: Colors.status.info },
   rowDivider: { height: 1, backgroundColor: Colors.separator.nonOpaque },
 
-  // Empty & warning
-  emptyPOI: { backgroundColor: Colors.background.elevated, borderRadius: BorderRadius.xl, padding: 20, alignItems: 'center', ...Shadows.xs },
-  emptyPOIText: { fontSize: 14, color: Colors.label.secondary },
+  // Warning
   locationWarn: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
     backgroundColor: Colors.soft.amber, borderRadius: BorderRadius.md, padding: 12, marginBottom: 10,

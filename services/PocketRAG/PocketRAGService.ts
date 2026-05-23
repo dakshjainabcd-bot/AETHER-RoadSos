@@ -1,9 +1,25 @@
 /**
  * PocketRAGService — Online + Offline First-Aid AI
  *
+ * FIXES IN THIS VERSION:
+ *
+ * Fix 1 — isInternetReachable null bug:
+ *   NetInfo.isInternetReachable returns null (not false) while the OS
+ *   is still checking. Treating null as "offline" means Gemini was NEVER
+ *   called even on WiFi. Fix: treat null as "possibly online" by checking
+ *   isInternetReachable !== false instead of !!isInternetReachable.
+ *
+ * Fix 2 — Timeout too short:
+ *   4 seconds is not enough for Gemini on mobile networks. Increased to
+ *   15 seconds — still fast enough for emergencies, reliable on 3G+.
+ *
+ * Fix 3 — Fallback connectivity check:
+ *   If NetInfo still returns null, we do a lightweight HEAD request to
+ *   Google's generate endpoint to confirm reachability before giving up.
+ *
  * FLOW:
  * 1. User asks a question
- * 2. OfflineRAG finds top 3 relevant knowledge entries
+ * 2. OfflineRAG finds top 3 relevant knowledge entries (always fast, offline)
  * 3. If ONLINE: build prompt with those entries as context → call Gemini → return answer
  * 4. If OFFLINE: return the top matching entry's answer directly
  *
@@ -22,8 +38,10 @@ import { GEMINI_API_KEY, GEMINI_STT_MODEL } from '../../utils/constants';
 // Gemini API endpoint — text-only generation (no image)
 const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_STT_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
 
-// Timeout for Gemini API call (4 seconds — fast enough for emergency use)
-const API_TIMEOUT_MS = 4000;
+// FIX 2: Increased from 4000ms to 15000ms.
+// Gemini cold-start on a phone network can take 5–8 seconds.
+// 4s was causing silent timeouts even when internet was perfectly fine.
+const API_TIMEOUT_MS = 15000;
 
 /**
  * Build a RAG prompt for Gemini.
@@ -51,13 +69,65 @@ ANSWER:`;
 }
 
 /**
- * Check if the device has internet connectivity.
+ * FIX 1: Check internet connectivity correctly.
+ *
+ * THE BUG THAT CAUSED ALWAYS-OFFLINE:
+ *   NetInfo.isInternetReachable returns THREE values:
+ *     true  → confirmed internet access
+ *     false → confirmed NO internet access
+ *     null  → OS hasn't finished checking yet (unknown)
+ *
+ *   The old code did:  return !!(state.isConnected && state.isInternetReachable)
+ *   When null:         return !!(true && null) = !!(null) = false  ← WRONG
+ *
+ *   The fix:           return !!(state.isConnected && state.isInternetReachable !== false)
+ *   When null:         return !!(true && true) = true  ← Correct: treat unknown as possibly online
+ *
+ * We also do a real HTTP ping as a secondary check when NetInfo is inconclusive,
+ * because on some Android devices isInternetReachable stays null indefinitely.
  */
 async function isOnline(): Promise<boolean> {
   try {
     const state = await NetInfo.fetch();
-    return !!(state.isConnected && state.isInternetReachable);
-  } catch {
+
+    // Definitely no connection
+    if (!state.isConnected) {
+      console.log('[PocketRAG] isOnline: no connection');
+      return false;
+    }
+
+    // Definitely has internet
+    if (state.isInternetReachable === true) {
+      console.log('[PocketRAG] isOnline: confirmed reachable');
+      return true;
+    }
+
+    // isInternetReachable is null or false
+    // FIX: Do a real lightweight check instead of giving up
+    // We use a HEAD request to the Gemini base URL with a 3s timeout
+    if (state.isConnected && state.isInternetReachable !== false) {
+      console.log('[PocketRAG] isOnline: isInternetReachable=null, doing HTTP ping...');
+      try {
+        const pingController = new AbortController();
+        const pingTimeout = setTimeout(() => pingController.abort(), 3000);
+        const pingResponse = await fetch(
+          'https://generativelanguage.googleapis.com/',
+          { method: 'HEAD', signal: pingController.signal }
+        );
+        clearTimeout(pingTimeout);
+        console.log('[PocketRAG] isOnline: HTTP ping returned', pingResponse.status);
+        // Any HTTP response (even 404) means the network is reachable
+        return true;
+      } catch {
+        console.log('[PocketRAG] isOnline: HTTP ping failed — truly offline');
+        return false;
+      }
+    }
+
+    console.log('[PocketRAG] isOnline: isInternetReachable=false');
+    return false;
+  } catch (err) {
+    console.warn('[PocketRAG] isOnline check error:', err);
     return false;
   }
 }
@@ -68,14 +138,20 @@ async function isOnline(): Promise<boolean> {
  */
 async function callGemini(prompt: string): Promise<string | null> {
   if (!GEMINI_API_KEY || GEMINI_API_KEY.startsWith('YOUR_')) {
-    console.log('[PocketRAG] Gemini API key not configured — using offline mode');
+    console.warn('[PocketRAG] Gemini API key not configured in utils/constants.ts');
     return null;
   }
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), API_TIMEOUT_MS);
+  // FIX 2: Use the increased timeout
+  const timeout = setTimeout(() => {
+    console.warn('[PocketRAG] Gemini request aborted after', API_TIMEOUT_MS / 1000, 's timeout');
+    controller.abort();
+  }, API_TIMEOUT_MS);
 
   try {
+    console.log('[PocketRAG] Calling Gemini API...');
+
     const response = await fetch(GEMINI_API_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -92,19 +168,22 @@ async function callGemini(prompt: string): Promise<string | null> {
     clearTimeout(timeout);
 
     if (!response.ok) {
-      console.warn('[PocketRAG] Gemini API error:', response.status);
+      const errText = await response.text().catch(() => '');
+      console.warn('[PocketRAG] Gemini API HTTP error:', response.status, errText.slice(0, 100));
       return null;
     }
 
     const data = await response.json();
     const text: string = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
+    console.log('[PocketRAG] Gemini responded successfully');
     return text.trim() || null;
   } catch (error) {
     clearTimeout(timeout);
-    if ((error as Error).name === 'AbortError') {
+    const errName = (error as Error).name;
+    if (errName === 'AbortError') {
       console.warn('[PocketRAG] Gemini API timed out — using offline fallback');
     } else {
-      console.warn('[PocketRAG] Gemini API error:', error);
+      console.warn('[PocketRAG] Gemini API network error:', error);
     }
     return null;
   }
@@ -148,27 +227,40 @@ export async function answerQuestion(query: string): Promise<RAGResponse> {
   const maxScore = topMatches[0].score;
   const confidence = Math.min(maxScore / 5, 1.0);
 
-  // Step 3: Try online Gemini if connected
-  const online = await isOnline();
-  if (online && GEMINI_API_KEY && !GEMINI_API_KEY.startsWith('YOUR_')) {
-    const validEntries = topMatches
-      .filter((m) => m.score > 0)
-      .map((m) => m.entry);
+  // Step 3: Check API key before even testing connectivity
+  const hasApiKey = !!(GEMINI_API_KEY && !GEMINI_API_KEY.startsWith('YOUR_'));
 
-    const prompt = buildPrompt(trimmedQuery, validEntries);
-    const geminiAnswer = await callGemini(prompt);
+  if (!hasApiKey) {
+    console.log('[PocketRAG] No Gemini API key — using offline mode');
+  } else {
+    // Step 4: FIX 1 — use the corrected isOnline() that handles null
+    const online = await isOnline();
+    console.log('[PocketRAG] Online status:', online);
 
-    if (geminiAnswer) {
-      return {
-        answer: geminiAnswer,
-        isOffline: false,
-        confidence,
-        matchedCategory: bestMatch.entry.category,
-      };
+    if (online) {
+      const validEntries = topMatches
+        .filter((m) => m.score > 0)
+        .map((m) => m.entry);
+
+      const prompt = buildPrompt(trimmedQuery, validEntries);
+      const geminiAnswer = await callGemini(prompt);
+
+      if (geminiAnswer) {
+        return {
+          answer: geminiAnswer,
+          isOffline: false,
+          confidence,
+          matchedCategory: bestMatch.entry.category,
+        };
+      }
+
+      console.log('[PocketRAG] Gemini returned null — falling back to offline answer');
+    } else {
+      console.log('[PocketRAG] Device is offline — using knowledge base directly');
     }
   }
 
-  // Step 4: Offline fallback — return the best matching entry's answer
+  // Step 5: Offline fallback — return the best matching entry's answer
   return {
     answer: bestMatch.entry.answer + '\n\nWhen in doubt, call 108 immediately.',
     isOffline: true,
