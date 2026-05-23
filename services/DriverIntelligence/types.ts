@@ -37,6 +37,8 @@ export interface HazardPacket {
 export interface HazardAlertState {
   packet: HazardPacket;
   distanceM: number;
+  reportCount: number;
+  credibilityLevel: 'low' | 'medium' | 'high';
 }
 
 // ── Trip Scoring ──────────────────────────────────────────────────────────────
@@ -129,3 +131,29 @@ export const DRIVER_INTEL_CONFIG = {
   HAZARD_ALERT_RADIUS_M: 3000,      // Alert driver if hazard within 3km
   HAZARD_TTL_MS: 30 * 60 * 1000,   // Hazard packets expire after 30 minutes
 } as const;
+
+// ── Hazard Report Store Types ─────────────────────────────────────────────────
+
+/** One stored hazard report from any device */
+export interface HazardReport {
+  hazardId: string;
+  hazardType: HazardType;
+  lat: number;
+  lng: number;
+  severity: 1 | 2 | 3;
+  reportedAt: number;
+}
+
+/** Aggregated cluster of nearby reports — used for map display */
+export interface HazardCluster {
+  clusterKey: string;
+  lat: number;
+  lng: number;
+  hazardType: HazardType;
+  reportCount: number;
+  latestSeverity: 1 | 2 | 3;
+  lastReportedAt: number;
+  credibilityLevel: 'low' | 'medium' | 'high';
+}
+
+export const HAZARD_STORE_KEY = 'aether_hazard_reports_v1';

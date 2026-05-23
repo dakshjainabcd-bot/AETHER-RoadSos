@@ -8,3 +8,4 @@ export * from './TripScoreService';
 export * from './WeeklyScoreService';
 export * from './BadgeService';
 export * from './HazardBroadcaster';
+export * from './HazardReportStore';

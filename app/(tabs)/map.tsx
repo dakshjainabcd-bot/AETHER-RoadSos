@@ -48,6 +48,11 @@ import type { Blackspot } from '../../services/RoadDNA/types';
 // ── PHASE 12 IMPORTS ─────────────────────────────────────────────────────────
 import { hazardBroadcaster } from '../../services/DriverIntelligence';
 
+// ── NEW: Hazard cluster imports ───────────────────────────────────────────
+import { HazardMapLayer } from '../../components/HazardMapLayer';
+import { hazardReportStore } from '../../services/DriverIntelligence/HazardReportStore';
+import type { HazardCluster } from '../../services/DriverIntelligence/types';
+
 // ─── Filter config (unchanged from original) ──────────────────────────────────
 
 const CORE_FILTERS: Array<{ type: POIType; label: string; color: string }> = [
@@ -199,6 +204,10 @@ export default function MapScreen() {
   const [blackspots, setBlackspots] = useState<Blackspot[]>([]);
   const [showBlackspots, setShowBlackspots] = useState(true);
 
+  // ── NEW: Hazard clusters state ────────────────────────────────────────────
+  const [hazardClusters, setHazardClusters] = useState<HazardCluster[]>([]);
+  const [showHazardClusters, setShowHazardClusters] = useState(true);
+
   // ── PHASE 12: Hazard reporting function ───────────────────────────────────
   function handleReportHazard() {
     Alert.alert(
@@ -246,6 +255,14 @@ export default function MapScreen() {
     return unsub;
   }, []);
 
+  // Refresh hazard clusters every 20 seconds while map is visible
+  useEffect(() => {
+    const interval = setInterval(() => {
+      loadHazardClusters();
+    }, 20000);
+    return () => clearInterval(interval);
+  }, []);
+
   // Load blackspots when screen focuses
   useFocusEffect(
     useCallback(() => {
@@ -254,6 +271,8 @@ export default function MapScreen() {
 
       // ── PHASE 9: Load cached blackspots ────────────────────────────────
       loadCachedBlackspots().then(setBlackspots);
+      // ── NEW: Load hazard clusters ─────────────────────────────────────
+      loadHazardClusters();
     }, [filter, isConnected])
   );
 
@@ -282,6 +301,12 @@ export default function MapScreen() {
   async function refreshCachedPOIs(loc: StoredLocation): Promise<void> {
     const pois = await onlinePOIService.getCachedPOIs(loc.lat, loc.lng, 'all', MAP_FETCH_RADIUS_M / 1000);
     if (pois.length > 0) { setOnlinePOIs(pois); setDataSource('cached'); }
+  }
+
+  async function loadHazardClusters(): Promise<void> {
+    await hazardReportStore.initialize();
+    const clusters = hazardReportStore.getClusters();
+    setHazardClusters(clusters);
   }
 
   async function loadOfflineData(type: POIType): Promise<void> {
@@ -354,6 +379,27 @@ export default function MapScreen() {
           >
             <Text style={[styles.filterText, showBlackspots ? { color: '#FFFFFF', fontWeight: '600' } : { color: Colors.label.secondary }]}>
               ⚠ Danger
+            </Text>
+          </TouchableOpacity>
+
+          {/* ── NEW: Hazard Reports toggle chip ──────────────────────── */}
+          <TouchableOpacity
+            style={[
+              styles.filterChip,
+              showHazardClusters
+                ? { backgroundColor: '#FF9500', borderColor: '#FF9500' }
+                : { backgroundColor: 'rgba(255,255,255,0.92)', borderColor: 'rgba(0,0,0,0.08)' },
+            ]}
+            onPress={() => setShowHazardClusters(!showHazardClusters)}
+            activeOpacity={0.8}
+          >
+            <Text style={[
+              styles.filterText,
+              showHazardClusters
+                ? { color: '#FFFFFF', fontWeight: '600' }
+                : { color: Colors.label.secondary }
+            ]}>
+              🕳️ Reports
             </Text>
           </TouchableOpacity>
         </ScrollView>
@@ -441,6 +487,11 @@ export default function MapScreen() {
         {/* ── PHASE 9: Blackspot danger zones ──────────────────────────── */}
         {showBlackspots && <BlackspotMapLayer blackspots={blackspots} />}
 
+        {/* ── NEW: Hazard report clusters ──────────────────────────────── */}
+        {showHazardClusters && (
+          <HazardMapLayer clusters={hazardClusters} />
+        )}
+
         {/* Red incident overlay (unchanged) */}
         {activeCrash && (
           <>
@@ -494,6 +545,12 @@ export default function MapScreen() {
             <View style={styles.legendRow}>
               <View style={[styles.legendDot, { backgroundColor: '#CC0000' }]} />
               <Text style={styles.legendText}>Danger Zone</Text>
+            </View>
+          )}
+          {showHazardClusters && hazardClusters.length > 0 && (
+            <View style={styles.legendRow}>
+              <View style={[styles.legendDot, { backgroundColor: '#FF9500' }]} />
+              <Text style={styles.legendText}>User Reports</Text>
             </View>
           )}
         </View>
