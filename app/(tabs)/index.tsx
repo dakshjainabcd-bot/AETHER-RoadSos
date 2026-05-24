@@ -1,13 +1,8 @@
 /**
- * Home Screen — Prototype UI
+ * Home Screen — All Features Operational
  *
- * Preserves all data logic (POI search, GPS, mesh, crash detection).
- * Shows real POIs from DB + a rich static showcase grid.
- *
- * FEATURE LAUNCHER: A fixed floating "+" button sits above the tab bar
- * (bottom-right). It does NOT scroll with the page. Tapping it slides
- * up a panel of all hidden/advanced features (Multilingual, Black Box,
- * AI Chat, etc.) and placeholder cards for upcoming phases.
+ * All FEATURE_ITEMS now have live routes — no comingSoon flags.
+ * Phases 10, 12, 13, 14 all accessible via the "+" launcher panel.
  */
 
 import { useState, useCallback, useRef } from 'react';
@@ -156,7 +151,7 @@ const SHOWCASE_SERVICES = [
   },
 ];
 
-// ── Feature Launcher Items ────────────────────────────────────────────────────
+// ── Feature Launcher Items — ALL OPERATIONAL ───────────────────────────────────
 
 type FeatureItem = {
   id: string;
@@ -166,33 +161,12 @@ type FeatureItem = {
   color: string;
   bg: string;
   border: string;
-  route?: string;
+  route: string;
   badge?: string;
-  comingSoon?: boolean;
 };
 
 const FEATURE_ITEMS: FeatureItem[] = [
-  // ── Available Now ────────────────────────────────────────────────────────
-  {
-    id: 'multilingual',
-    label: 'Multilingual Bridge',
-    sublabel: 'Whisper STT · 99 languages',
-    icon: 'language',
-    color: Colors.brand.accent,
-    bg: Colors.soft.blue,
-    border: Colors.soft.blueBorder,
-    route: '/(tabs)/multilingual',
-  },
-  {
-    id: 'blackbox',
-    label: 'Black Box',
-    sublabel: 'Sensor evidence · RSA signed',
-    icon: 'cube',
-    color: Colors.label.secondary,
-    bg: Colors.background.secondary,
-    border: Colors.border.medium,
-    route: '/(tabs)/blackbox',
-  },
+  // ── AI & Communication ────────────────────────────────────────────────────
   {
     id: 'chatbot',
     label: 'AI First-Aid Chat',
@@ -206,15 +180,61 @@ const FEATURE_ITEMS: FeatureItem[] = [
   },
   {
     id: 'bystander',
-    label: 'BystAI Coach',
-    sublabel: 'CPR · First aid · PsychAid',
+    label: 'BystAI + PsychAid',
+    sublabel: 'CPR · First aid · WHO scripts',
     icon: 'medical',
     color: Colors.brand.primary,
     bg: Colors.soft.red,
     border: Colors.soft.redBorder,
     route: '/bystander',
+    badge: 'Phase 4+11',
   },
-  // ── Coming Soon ──────────────────────────────────────────────────────────
+  {
+    id: 'multilingual',
+    label: 'Multilingual Bridge',
+    sublabel: 'Whisper STT · 99 languages',
+    icon: 'language',
+    color: Colors.brand.accent,
+    bg: Colors.soft.blue,
+    border: Colors.soft.blueBorder,
+    route: '/(tabs)/multilingual',
+    badge: 'Phase 5',
+  },
+  // ── Safety & Intelligence ─────────────────────────────────────────────────
+  {
+    id: 'driver_intel',
+    label: 'Driver Intelligence',
+    sublabel: 'Safety score · Badges · Phase 12+13',
+    icon: 'car-sport',
+    color: Colors.status.warning,
+    bg: Colors.soft.amber,
+    border: Colors.soft.amberBorder,
+    route: '/(tabs)/driver',
+    badge: 'Phase 12',
+  },
+  {
+    id: 'road_dna',
+    label: 'Road DNA Blackspots',
+    sublabel: 'Danger zone heatmap · Phase 9',
+    icon: 'warning',
+    color: '#CC0000',
+    bg: Colors.soft.red,
+    border: Colors.soft.redBorder,
+    route: '/(tabs)/map',
+    badge: 'Phase 9',
+  },
+  {
+    id: 'rakshak_ems',
+    label: 'Rakshak + EMS',
+    sublabel: 'Responders · Rewards · Phase 7+13',
+    icon: 'shield',
+    color: Colors.status.success,
+    bg: Colors.soft.green,
+    border: Colors.soft.greenBorder,
+    route: '/(tabs)/rakshak',
+    badge: 'Phase 7',
+  },
+  // ── Mesh & Network ────────────────────────────────────────────────────────
   {
     id: 'dtn_mesh',
     label: 'DTN Mesh Enhancer',
@@ -223,84 +243,39 @@ const FEATURE_ITEMS: FeatureItem[] = [
     color: Colors.brand.purple,
     bg: Colors.soft.purple,
     border: Colors.soft.purpleBorder,
-    comingSoon: true,
+    route: '/(tabs)/dtn',
+    badge: 'Phase 14',
   },
+  // ── Evidence & Legal ──────────────────────────────────────────────────────
   {
-    id: 'driver_intel',
-    label: 'Driver Intelligence',
-    sublabel: 'Behaviour coach · Phase 12',
-    icon: 'car-sport',
-    color: Colors.status.warning,
-    bg: Colors.soft.amber,
-    border: Colors.soft.amberBorder,
-    comingSoon: true,
-  },
-  {
-    id: 'trust_badges',
-    label: 'Trust & Gamification',
-    sublabel: 'Reputation · Rewards · Phase 13',
-    icon: 'star',
-    color: '#C07A00',
-    bg: Colors.soft.amber,
-    border: Colors.soft.amberBorder,
-    comingSoon: true,
-  },
-  {
-    id: 'security',
-    label: 'Security Hardening',
-    sublabel: 'AES mesh · DPDP · Phase 10',
-    icon: 'lock-closed',
+    id: 'blackbox',
+    label: 'Black Box + Road Repair',
+    sublabel: 'Evidence · Legal notices · Phase 8',
+    icon: 'cube',
     color: Colors.label.secondary,
     bg: Colors.background.secondary,
     border: Colors.border.medium,
-    comingSoon: true,
+    route: '/(tabs)/blackbox',
+    badge: 'Phase 8',
   },
+  // ── Security & Privacy ────────────────────────────────────────────────────
   {
-    id: 'psych_aid',
-    label: 'Psychological First Aid',
-    sublabel: 'WHO scripts · Phase 11',
-    icon: 'heart',
-    color: Colors.brand.gold,
-    bg: Colors.soft.amber,
-    border: Colors.soft.amberBorder,
-    comingSoon: true,
-  },
-  {
-    id: 'road_repair',
-    label: 'Road Repair (ART)',
-    sublabel: 'Legal notices · Phase 8',
-    icon: 'construct',
-    color: Colors.status.warning,
-    bg: Colors.soft.amber,
-    border: Colors.soft.amberBorder,
-    comingSoon: true,
-  },
-  {
-    id: 'road_dna',
-    label: 'Road DNA Blackspots',
-    sublabel: 'Danger zone map · Phase 9',
-    icon: 'warning',
-    color: '#CC0000',
-    bg: Colors.soft.red,
-    border: Colors.soft.redBorder,
-    comingSoon: true,
-  },
-  {
-    id: 'rakshak_ems',
-    label: 'EMS Dashboard',
-    sublabel: 'Rakshak network · Phase 7',
-    icon: 'shield',
+    id: 'security',
+    label: 'Security & Privacy',
+    sublabel: 'AES mesh · DPDP · Phase 10',
+    icon: 'lock-closed',
     color: Colors.status.success,
     bg: Colors.soft.green,
     border: Colors.soft.greenBorder,
-    comingSoon: true,
+    route: '/(tabs)/security',
+    badge: 'Phase 10',
   },
 ];
 
-// ─────────────────────────────────────────────────────────────────────────────
-
-// Tab bar height — must match app/(tabs)/_layout.tsx tabBarStyle height
+// ── Tab bar height ─────────────────────────────────────────────────────────────
 const TAB_BAR_HEIGHT = 82;
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 export default function HomeScreen() {
   const {
@@ -311,16 +286,16 @@ export default function HomeScreen() {
     crashState,
   } = useAppContext();
 
-  const [location, setLocation]               = useState<StoredLocation | null>(null);
-  const [nearestHospital, setNearestHospital]  = useState<POI | null>(null);
-  const [nearestPolice, setNearestPolice]      = useState<POI | null>(null);
-  const [isRefreshing, setIsRefreshing]        = useState(false);
+  const [location, setLocation] = useState<StoredLocation | null>(null);
+  const [nearestHospital, setNearestHospital] = useState<POI | null>(null);
+  const [nearestPolice, setNearestPolice] = useState<POI | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   // ── Feature panel ─────────────────────────────────────────────────────────
-  const [panelVisible, setPanelVisible]   = useState(false);
-  const panelSlide                        = useRef(new Animated.Value(600)).current;
-  const backdropOpacity                   = useRef(new Animated.Value(0)).current;
-  const fabRotate                         = useRef(new Animated.Value(0)).current;
+  const [panelVisible, setPanelVisible] = useState(false);
+  const panelSlide = useRef(new Animated.Value(600)).current;
+  const backdropOp = useRef(new Animated.Value(0)).current;
+  const fabRotate = useRef(new Animated.Value(0)).current;
 
   useFocusEffect(
     useCallback(() => { loadData(); }, [gpsPermissionGranted])
@@ -354,42 +329,17 @@ export default function HomeScreen() {
   function openPanel() {
     setPanelVisible(true);
     Animated.parallel([
-      Animated.spring(panelSlide, {
-        toValue: 0,
-        useNativeDriver: true,
-        tension: 68,
-        friction: 11,
-      }),
-      Animated.timing(backdropOpacity, {
-        toValue: 1,
-        duration: 250,
-        useNativeDriver: true,
-      }),
-      Animated.timing(fabRotate, {
-        toValue: 1,
-        duration: 220,
-        useNativeDriver: true,
-      }),
+      Animated.spring(panelSlide, { toValue: 0, useNativeDriver: true, tension: 68, friction: 11 }),
+      Animated.timing(backdropOp, { toValue: 1, duration: 250, useNativeDriver: true }),
+      Animated.timing(fabRotate, { toValue: 1, duration: 220, useNativeDriver: true }),
     ]).start();
   }
 
   function closePanel() {
     Animated.parallel([
-      Animated.timing(panelSlide, {
-        toValue: 600,
-        duration: 260,
-        useNativeDriver: true,
-      }),
-      Animated.timing(backdropOpacity, {
-        toValue: 0,
-        duration: 200,
-        useNativeDriver: true,
-      }),
-      Animated.timing(fabRotate, {
-        toValue: 0,
-        duration: 200,
-        useNativeDriver: true,
-      }),
+      Animated.timing(panelSlide, { toValue: 600, duration: 260, useNativeDriver: true }),
+      Animated.timing(backdropOp, { toValue: 0, duration: 200, useNativeDriver: true }),
+      Animated.timing(fabRotate, { toValue: 0, duration: 200, useNativeDriver: true }),
     ]).start(() => setPanelVisible(false));
   }
 
@@ -398,14 +348,12 @@ export default function HomeScreen() {
   }
 
   function handleFeaturePress(item: FeatureItem) {
-    if (item.comingSoon) return;
     closePanel();
     setTimeout(() => {
-      if (item.route) router.push(item.route as any);
+      router.push(item.route as any);
     }, 280);
   }
 
-  // FAB icon rotates 45° when panel is open (+ → ×)
   const fabIconStyle = {
     transform: [
       {
@@ -418,7 +366,6 @@ export default function HomeScreen() {
   };
 
   return (
-    // Outer View is NOT a scroll — FAB lives here as absolute overlay
     <View style={{ flex: 1, backgroundColor: Colors.background.primary }}>
 
       {/* ── Scrollable content ────────────────────────────────── */}
@@ -483,9 +430,9 @@ export default function HomeScreen() {
 
         {/* ── Secondary Numbers ─────────────────────────────── */}
         <View style={styles.numbersGrid}>
-          <NumberCard number={emergencyNumbers.police} label="Police"    color={Colors.service.police}  bg={Colors.soft.blue}           border={Colors.soft.blueBorder}  />
-          <NumberCard number={emergencyNumbers.fire}   label="Fire"      color={Colors.service.fire}    bg={Colors.soft.amber}          border={Colors.soft.amberBorder} />
-          <NumberCard number="112"                     label="Universal" color={Colors.label.secondary} bg={Colors.background.elevated} border={Colors.border.medium}    />
+          <NumberCard number={emergencyNumbers.police} label="Police" color={Colors.service.police} bg={Colors.soft.blue} border={Colors.soft.blueBorder} />
+          <NumberCard number={emergencyNumbers.fire} label="Fire" color={Colors.service.fire} bg={Colors.soft.amber} border={Colors.soft.amberBorder} />
+          <NumberCard number="112" label="Universal" color={Colors.label.secondary} bg={Colors.background.elevated} border={Colors.border.medium} />
         </View>
 
         {/* ── Crash Detection Pill ──────────────────────────── */}
@@ -548,18 +495,11 @@ export default function HomeScreen() {
           </Text>
         </View>
 
-        {/* Extra padding so FAB never covers content */}
         <View style={{ height: 32 }} />
       </ScrollView>
 
-      {/* ════════════════════════════════════════════════════════
-          FLOATING ACTION BUTTON — fixed above tab bar, bottom-right
-          Does NOT scroll with the page.
-      ════════════════════════════════════════════════════════ */}
-      <View
-        style={styles.fabContainer}
-        pointerEvents="box-none"
-      >
+      {/* ── FAB — fixed above tab bar ─────────────────────────────────── */}
+      <View style={styles.fabContainer} pointerEvents="box-none">
         <TouchableOpacity
           style={styles.fab}
           onPress={togglePanel}
@@ -571,9 +511,7 @@ export default function HomeScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* ════════════════════════════════════════════════════════
-          FEATURE LAUNCHER PANEL — slides up from bottom
-      ════════════════════════════════════════════════════════ */}
+      {/* ── Feature Launcher Panel ────────────────────────────────────── */}
       {panelVisible && (
         <Modal
           transparent
@@ -584,7 +522,7 @@ export default function HomeScreen() {
         >
           {/* Backdrop */}
           <Animated.View
-            style={[panelStyles.backdrop, { opacity: backdropOpacity }]}
+            style={[panelStyles.backdrop, { opacity: backdropOp }]}
             pointerEvents="auto"
           >
             <Pressable style={{ flex: 1 }} onPress={closePanel} />
@@ -604,17 +542,16 @@ export default function HomeScreen() {
             <View style={panelStyles.panelHeader}>
               <View>
                 <Text style={panelStyles.panelTitle}>All Features</Text>
-                <Text style={panelStyles.panelSub}>AETHER · Phase 1–15</Text>
+                <Text style={panelStyles.panelSub}>AETHER · Phases 1–15 · All Operational</Text>
               </View>
               <TouchableOpacity onPress={closePanel} style={panelStyles.closeBtn}>
                 <Ionicons name="close" size={18} color={Colors.label.secondary} />
               </TouchableOpacity>
             </View>
 
-            {/* ── Active features ── */}
-            <Text style={panelStyles.groupLabel}>AVAILABLE NOW</Text>
+            {/* Feature grid — ALL ACTIVE, NO COMING SOON */}
             <View style={panelStyles.grid}>
-              {FEATURE_ITEMS.filter(f => !f.comingSoon).map(item => (
+              {FEATURE_ITEMS.map((item) => (
                 <TouchableOpacity
                   key={item.id}
                   style={[
@@ -627,7 +564,7 @@ export default function HomeScreen() {
                   <View style={[panelStyles.iconWrap, { backgroundColor: `${item.color}22` }]}>
                     <Ionicons name={item.icon as any} size={22} color={item.color} />
                   </View>
-                  <Text style={[panelStyles.featureLabel, { color: item.color }]} numberOfLines={1}>
+                  <Text style={[panelStyles.featureLabel, { color: item.color }]} numberOfLines={2}>
                     {item.label}
                   </Text>
                   <Text style={panelStyles.featureSub} numberOfLines={2}>
@@ -641,30 +578,6 @@ export default function HomeScreen() {
                     </View>
                   )}
                 </TouchableOpacity>
-              ))}
-            </View>
-
-            {/* ── Coming soon ── */}
-            <Text style={[panelStyles.groupLabel, { marginTop: 20 }]}>COMING SOON</Text>
-            <View style={panelStyles.grid}>
-              {FEATURE_ITEMS.filter(f => f.comingSoon).map(item => (
-                <View
-                  key={item.id}
-                  style={[panelStyles.featureCard, panelStyles.featureCardLocked]}
-                >
-                  <View style={[panelStyles.iconWrap, { backgroundColor: Colors.fill.tertiary }]}>
-                    <Ionicons name={item.icon as any} size={22} color={Colors.label.tertiary} />
-                  </View>
-                  <Text style={[panelStyles.featureLabel, { color: Colors.label.tertiary }]} numberOfLines={1}>
-                    {item.label}
-                  </Text>
-                  <Text style={panelStyles.featureSub} numberOfLines={2}>
-                    {item.sublabel}
-                  </Text>
-                  <View style={panelStyles.soonBadge}>
-                    <Text style={panelStyles.soonText}>SOON</Text>
-                  </View>
-                </View>
               ))}
             </View>
 
@@ -684,7 +597,7 @@ function BlinkingDot({ color }: { color: string }) {
     Animated.loop(
       Animated.sequence([
         Animated.timing(opacity, { toValue: 0.18, duration: 900, useNativeDriver: true }),
-        Animated.timing(opacity, { toValue: 1,    duration: 900, useNativeDriver: true }),
+        Animated.timing(opacity, { toValue: 1, duration: 900, useNativeDriver: true }),
       ])
     ).start();
   });
@@ -781,7 +694,7 @@ function ShowcaseRow({ item }: { item: typeof SHOWCASE_SERVICES[0] }) {
           {item.phone && <Text style={styles.phonePreview}>{item.phone}</Text>}
         </View>
         <View style={styles.serviceTags}>
-          {item.tags.map(t => (
+          {item.tags.map((t) => (
             <View key={t} style={styles.tag}><Text style={styles.tagText}>{t}</Text></View>
           ))}
         </View>
@@ -871,13 +784,6 @@ const panelStyles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  groupLabel: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: Colors.label.tertiary,
-    letterSpacing: 1.8,
-    marginBottom: 12,
-  },
   grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -889,11 +795,6 @@ const panelStyles = StyleSheet.create({
     borderWidth: 1.5,
     padding: 14,
     gap: 5,
-  },
-  featureCardLocked: {
-    backgroundColor: Colors.background.secondary,
-    borderColor: Colors.border.subtle,
-    opacity: 0.6,
   },
   iconWrap: {
     width: 44,
@@ -926,20 +827,6 @@ const panelStyles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: 0.5,
   },
-  soonBadge: {
-    alignSelf: 'flex-start',
-    borderRadius: 5,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    backgroundColor: Colors.fill.tertiary,
-    marginTop: 4,
-  },
-  soonText: {
-    fontSize: 8,
-    fontWeight: '700',
-    color: Colors.label.tertiary,
-    letterSpacing: 1.2,
-  },
 });
 
 // ── Main Styles ───────────────────────────────────────────────────────────────
@@ -952,10 +839,9 @@ const styles = StyleSheet.create({
     paddingBottom: Layout.CONTENT_BOTTOM_PADDING,
   },
 
-  // ── FAB ── Fixed above tab bar, bottom-right, does NOT scroll
+  // FAB
   fabContainer: {
     position: 'absolute',
-    // Sit just above the 82px tab bar with a comfortable gap
     bottom: TAB_BAR_HEIGHT + 14,
     right: 20,
     zIndex: 99,

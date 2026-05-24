@@ -1,13 +1,8 @@
 /**
  * Multilingual Screen — Phase 5 (Whisper STT Rewrite)
  *
- * Uses OpenAI Whisper API (whisper-1 = large-v2 from the open-source repo)
- * Supports 99 languages — all Indian languages, Arabic, Chinese, Thai, etc.
- *
- * HOW TO USE:
- *   1. Add your OpenAI key to utils/constants.ts → OPENAI_API_KEY
- *   2. Tap the microphone button and speak
- *   3. The app records, sends to Whisper, returns transcript in seconds
+ * Redesigned to match AETHER's warm parchment design system.
+ * All original functionality preserved — only UI upgraded.
  */
 
 import { useState, useEffect, useRef } from 'react';
@@ -22,6 +17,7 @@ import {
   Animated,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
 import { useAppContext } from '../_layout';
 import { whisperSTT, STTState } from '../../services/MultilingualBridge/WhisperSTT';
 import { multilingualBridge } from '../../services/MultilingualBridge/MultilingualBridgeManager';
@@ -48,36 +44,31 @@ export default function MultilingualScreen() {
   const [isTranslating, setIsTranslating] = useState(false);
   const [translationCached, setTranslationCached] = useState(false);
 
-  // ── General status ────────────────────────────────────────────────────────
+  // ── Status ────────────────────────────────────────────────────────────────
   const [statusMsg, setStatusMsg] = useState('Ready — tap mic to record');
 
-  // ── Animation for mic pulse ───────────────────────────────────────────────
+  // ── Mic pulse animation ───────────────────────────────────────────────────
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const pulseLoop = useRef<Animated.CompositeAnimation | null>(null);
 
-  // ── Wire up Whisper callbacks once ───────────────────────────────────────
   useEffect(() => {
-    // Initialize on mount
     multilingualBridge.initialize(language as SupportedLanguageCode).catch(console.error);
 
-    // Listen for state changes from WhisperSTT
     whisperSTT.onStateChange((state) => {
       setSttState(state);
-
       if (state === 'recording') {
-        setStatusMsg('🎤 Recording... speak now');
+        setStatusMsg('🎤 Recording… speak now');
         setTranscript('');
         setSttError('');
         startPulse();
       } else if (state === 'transcribing') {
-        setStatusMsg('⏳ Transcribing with Whisper...');
+        setStatusMsg('⏳ Transcribing with Whisper…');
         stopPulse();
       } else if (state === 'idle') {
         stopPulse();
       }
     });
 
-    // Listen for transcription results
     whisperSTT.onResult((result) => {
       if (result.isOffline) {
         setSttError(result.errorReason ?? 'Transcription failed');
@@ -89,43 +80,26 @@ export default function MultilingualScreen() {
         setConfidence(result.confidence);
         setSttError('');
         setStatusMsg(
-          `✅ Whisper detected: ${result.language.toUpperCase()} (${(result.confidence * 100).toFixed(0)}% confidence)`
+          `✅ Whisper: ${result.language.toUpperCase()} · ${(result.confidence * 100).toFixed(0)}% confidence`
         );
-        // Auto-fill the translation input with the transcript
-        if (result.text) {
-          setInputText(result.text);
-        }
+        if (result.text) setInputText(result.text);
       }
     });
 
-    // Listen for hard errors
     whisperSTT.onError((error) => {
       setSttError(error.message);
       setStatusMsg('❌ ' + error.message);
       stopPulse();
     });
 
-    return () => {
-      // Cancel any ongoing recording when screen unmounts
-      whisperSTT.cancel().catch(() => {});
-    };
+    return () => { whisperSTT.cancel().catch(() => { }); };
   }, []);
-
-  // ── Pulse animation ───────────────────────────────────────────────────────
 
   function startPulse() {
     pulseLoop.current = Animated.loop(
       Animated.sequence([
-        Animated.timing(pulseAnim, {
-          toValue: 1.25,
-          duration: 600,
-          useNativeDriver: true,
-        }),
-        Animated.timing(pulseAnim, {
-          toValue: 1,
-          duration: 600,
-          useNativeDriver: true,
-        }),
+        Animated.timing(pulseAnim, { toValue: 1.25, duration: 600, useNativeDriver: true }),
+        Animated.timing(pulseAnim, { toValue: 1, duration: 600, useNativeDriver: true }),
       ])
     );
     pulseLoop.current.start();
@@ -133,38 +107,24 @@ export default function MultilingualScreen() {
 
   function stopPulse() {
     pulseLoop.current?.stop();
-    Animated.timing(pulseAnim, {
-      toValue: 1,
-      duration: 200,
-      useNativeDriver: true,
-    }).start();
+    Animated.timing(pulseAnim, { toValue: 1, duration: 200, useNativeDriver: true }).start();
   }
-
-  // ── Handlers ──────────────────────────────────────────────────────────────
 
   async function handleMicPress() {
     if (sttState === 'recording') {
-      // User tapped again — stop early
-      await whisperSTT.stopAndTranscribe(
-        language !== 'en' ? language : undefined
-      );
+      await whisperSTT.stopAndTranscribe(language !== 'en' ? language : undefined);
     } else if (sttState === 'idle') {
       const started = await whisperSTT.startRecording(30_000);
       if (!started) {
-        Alert.alert(
-          'Microphone Unavailable',
-          'Please grant microphone permission in Settings to use voice input.',
-          [{ text: 'OK' }]
-        );
+        Alert.alert('Microphone Unavailable', 'Grant microphone permission in Settings.', [{ text: 'OK' }]);
       }
     }
-    // If 'transcribing', do nothing — wait for result
   }
 
   async function handleTranslate() {
     if (!inputText.trim()) return;
     setIsTranslating(true);
-    setStatusMsg('Translating...');
+    setStatusMsg('Translating…');
     try {
       const result = await multilingualBridge.translateText(
         inputText.trim(),
@@ -173,12 +133,8 @@ export default function MultilingualScreen() {
       );
       setTranslatedText(result.translatedText);
       setTranslationCached(result.cached);
-      setStatusMsg(
-        result.cached
-          ? '✅ Translation (from cache)'
-          : '✅ Translation complete'
-      );
-    } catch (error) {
+      setStatusMsg(result.cached ? '✅ Translation (from cache ⚡)' : '✅ Translation complete');
+    } catch {
       setStatusMsg('❌ Translation failed');
     } finally {
       setIsTranslating(false);
@@ -186,22 +142,17 @@ export default function MultilingualScreen() {
   }
 
   async function handleSpeak(text: string, lang: SupportedLanguageCode) {
-    setStatusMsg('🔊 Speaking...');
+    setStatusMsg('🔊 Speaking…');
     await multilingualBridge.speakText(text, lang, 'normal');
     setStatusMsg('✅ Done speaking');
   }
 
   async function handleEmergencyPhrase(phraseKey: keyof typeof EMERGENCY_PHRASES) {
-    const phrase = translationService.getEmergencyPhrase(
-      phraseKey,
-      language as SupportedLanguageCode
-    );
+    const phrase = translationService.getEmergencyPhrase(phraseKey, language as SupportedLanguageCode);
     setStatusMsg('🚨 Announcing: ' + phraseKey.replace(/_/g, ' '));
     await multilingualBridge.speakText(phrase, language as SupportedLanguageCode, 'urgent');
     setStatusMsg('✅ Announced');
   }
-
-  // ── Mic button config ─────────────────────────────────────────────────────
 
   const micConfig = {
     idle: {
@@ -223,45 +174,45 @@ export default function MultilingualScreen() {
       color: Colors.brand.gold,
       bg: `${Colors.brand.gold}15`,
       border: `${Colors.brand.gold}40`,
-      label: 'Transcribing...',
+      label: 'Transcribing…',
     },
   }[sttState];
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // RENDER
-  // ─────────────────────────────────────────────────────────────────────────
-
   return (
     <ScrollView
-      style={styles.container}
+      style={styles.screen}
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
     >
-      {/* ── Header ─────────────────────────────────────────────────────── */}
+      {/* ── Header ───────────────────────────────────────────────────── */}
       <View style={styles.header}>
-        <Text style={styles.title}>Multilingual Bridge</Text>
-        <Text style={styles.subtitle}>
-          Powered by OpenAI Whisper — 99 languages
-        </Text>
+        <TouchableOpacity
+          style={styles.backBtn}
+          onPress={() => router.back()}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+        >
+          <Ionicons name="chevron-back" size={22} color={Colors.brand.accent} />
+        </TouchableOpacity>
+        <View style={styles.headerText}>
+          <Text style={styles.title}>Multilingual Bridge</Text>
+          <Text style={styles.subtitle}>Phase 5 · OpenAI Whisper · 99 languages</Text>
+        </View>
       </View>
 
-      {/* ── Status card ────────────────────────────────────────────────── */}
+      {/* ── Status card ──────────────────────────────────────────────── */}
       <View style={styles.statusCard}>
         <Text style={styles.statusText}>{statusMsg}</Text>
         {detectedLang ? (
           <Text style={styles.statusSub}>
-            Language: {detectedLang.toUpperCase()} · Confidence:{' '}
-            {(confidence * 100).toFixed(0)}%
+            Language: {detectedLang.toUpperCase()} · Confidence: {(confidence * 100).toFixed(0)}%
           </Text>
         ) : null}
       </View>
 
-      {/* ── Section 1: Voice Recording ──────────────────────────────────── */}
-      <Text style={styles.sectionTitle}>Speech-to-Text (Whisper)</Text>
-
+      {/* ── Section 1: Voice Recording ───────────────────────────────── */}
+      <Text style={styles.sectionLabel}>SPEECH-TO-TEXT (WHISPER)</Text>
       <Text style={styles.sectionNote}>
-        OpenAI Whisper (same model as the open-source repo) auto-detects
-        Hindi, Tamil, Telugu, Kannada, Malayalam, Bengali and 93 more languages.
+        Whisper auto-detects Hindi, Tamil, Telugu, Kannada, Malayalam, Bengali and 93 more languages.
       </Text>
 
       {/* Mic button */}
@@ -285,9 +236,7 @@ export default function MultilingualScreen() {
             <Ionicons name={micConfig.icon} size={36} color="#FFF" />
           </TouchableOpacity>
         </Animated.View>
-        <Text style={[styles.micLabel, { color: micConfig.color }]}>
-          {micConfig.label}
-        </Text>
+        <Text style={[styles.micLabel, { color: micConfig.color }]}>{micConfig.label}</Text>
       </View>
 
       {/* STT error */}
@@ -302,11 +251,9 @@ export default function MultilingualScreen() {
       {transcript ? (
         <View style={styles.resultCard}>
           <View style={styles.resultHeader}>
-            <Text style={styles.resultLabel}>Transcript</Text>
+            <Text style={styles.resultLabel}>TRANSCRIPT</Text>
             <TouchableOpacity
-              onPress={() =>
-                handleSpeak(transcript, detectedLang as SupportedLanguageCode || 'en')
-              }
+              onPress={() => handleSpeak(transcript, (detectedLang as SupportedLanguageCode) || 'en')}
             >
               <Ionicons name="volume-high-outline" size={18} color={Colors.brand.accent} />
             </TouchableOpacity>
@@ -315,14 +262,14 @@ export default function MultilingualScreen() {
         </View>
       ) : null}
 
-      {/* ── Section 2: Translation ──────────────────────────────────────── */}
-      <Text style={styles.sectionTitle}>Translation</Text>
+      {/* ── Section 2: Translation ───────────────────────────────────── */}
+      <Text style={styles.sectionLabel}>TRANSLATION</Text>
 
       <TextInput
         style={styles.input}
         value={inputText}
         onChangeText={setInputText}
-        placeholder="Enter English text to translate..."
+        placeholder="Enter English text to translate…"
         placeholderTextColor={Colors.label.tertiary}
         multiline
         numberOfLines={3}
@@ -333,7 +280,7 @@ export default function MultilingualScreen() {
           <Text style={styles.langText}>EN</Text>
         </View>
         <Ionicons name="arrow-forward" size={20} color={Colors.label.secondary} />
-        <View style={[styles.langChip, { backgroundColor: `${Colors.brand.accent}15` }]}>
+        <View style={[styles.langChip, { backgroundColor: `${Colors.brand.accent}12` }]}>
           <Text style={[styles.langText, { color: Colors.brand.accent }]}>
             {language.toUpperCase()}
           </Text>
@@ -341,14 +288,14 @@ export default function MultilingualScreen() {
       </View>
 
       <TouchableOpacity
-        style={[styles.button, isTranslating && styles.buttonDisabled]}
+        style={[styles.translateBtn, (isTranslating || !inputText.trim()) && styles.btnDisabled]}
         onPress={handleTranslate}
         disabled={isTranslating || !inputText.trim()}
         activeOpacity={0.8}
       >
         <Ionicons name="language" size={20} color="#FFF" />
-        <Text style={styles.buttonText}>
-          {isTranslating ? 'Translating...' : 'Translate to ' + language.toUpperCase()}
+        <Text style={styles.translateBtnText}>
+          {isTranslating ? 'Translating…' : `Translate → ${language.toUpperCase()}`}
         </Text>
       </TouchableOpacity>
 
@@ -356,12 +303,10 @@ export default function MultilingualScreen() {
         <View style={styles.resultCard}>
           <View style={styles.resultHeader}>
             <Text style={styles.resultLabel}>
-              Translation {translationCached ? '(cached ⚡)' : ''}
+              TRANSLATION{translationCached ? ' ⚡ CACHED' : ''}
             </Text>
             <TouchableOpacity
-              onPress={() =>
-                handleSpeak(translatedText, language as SupportedLanguageCode)
-              }
+              onPress={() => handleSpeak(translatedText, language as SupportedLanguageCode)}
             >
               <Ionicons name="volume-high-outline" size={18} color={Colors.brand.accent} />
             </TouchableOpacity>
@@ -370,9 +315,9 @@ export default function MultilingualScreen() {
         </View>
       ) : null}
 
-      {/* ── Section 3: Emergency Phrases ───────────────────────────────── */}
-      <Text style={styles.sectionTitle}>
-        Emergency Phrases ({language.toUpperCase()})
+      {/* ── Section 3: Emergency Phrases ─────────────────────────────── */}
+      <Text style={styles.sectionLabel}>
+        EMERGENCY PHRASES · {language.toUpperCase()}
       </Text>
 
       <View style={styles.phraseGrid}>
@@ -392,31 +337,28 @@ export default function MultilingualScreen() {
               >
                 <Ionicons
                   name="volume-medium-outline"
-                  size={14}
+                  size={16}
                   color={Colors.brand.gold}
                 />
                 <View style={{ flex: 1 }}>
                   <Text style={styles.phraseLabel}>{label}</Text>
-                  <Text style={styles.phraseText} numberOfLines={1}>
-                    {phrase}
-                  </Text>
+                  <Text style={styles.phraseText} numberOfLines={1}>{phrase}</Text>
                 </View>
+                <Ionicons name="chevron-forward" size={14} color={Colors.brand.gold} />
               </TouchableOpacity>
             );
           }
         )}
       </View>
 
-      {/* ── Section 4: API Info ─────────────────────────────────────────── */}
+      {/* ── API info ──────────────────────────────────────────────────── */}
       <View style={styles.infoCard}>
         <Ionicons name="information-circle-outline" size={16} color={Colors.brand.accent} />
         <Text style={styles.infoText}>
           Speech-to-Text uses{' '}
-          <Text style={{ fontWeight: '700' }}>OpenAI Whisper (whisper-1)</Text> —
-          the same model as the open-source GitHub repo, running on OpenAI's
-          servers. Add your key to{' '}
-          <Text style={{ fontFamily: 'Courier' }}>utils/constants.ts</Text> →
-          OPENAI_API_KEY
+          <Text style={{ fontWeight: '700' }}>OpenAI Whisper (whisper-1)</Text>
+          {' '}— same model as the open-source GitHub repo. Add your key to{' '}
+          <Text style={{ fontFamily: 'Courier' }}>utils/constants.ts</Text> → OPENAI_API_KEY
         </Text>
       </View>
 
@@ -425,33 +367,47 @@ export default function MultilingualScreen() {
   );
 }
 
-// ── Styles ───────────────────────────────────────────────────────────────────
+// ─── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  container: {
+  screen: {
     flex: 1,
     backgroundColor: Colors.background.grouped,
   },
   content: {
-    paddingTop: Layout.STATUS_BAR_HEIGHT + 4,
+    paddingTop: Layout.STATUS_BAR_HEIGHT,
     paddingHorizontal: Layout.HORIZONTAL_PADDING,
   },
+
+  // Header
   header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
     marginBottom: 16,
   },
+  backBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: Colors.soft.blue,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerText: { flex: 1 },
   title: {
-    fontSize: 34,
-    fontWeight: '700',
+    fontSize: 26,
+    fontWeight: '800',
     color: Colors.label.primary,
-    letterSpacing: -0.8,
+    letterSpacing: -0.6,
   },
   subtitle: {
-    fontSize: 13,
+    fontSize: 12,
     color: Colors.label.secondary,
-    marginTop: 4,
+    marginTop: 1,
   },
 
-  // Status
+  // Status card
   statusCard: {
     backgroundColor: Colors.background.elevated,
     borderRadius: BorderRadius.lg,
@@ -472,15 +428,14 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
 
-  // Sections
-  sectionTitle: {
+  // Section label
+  sectionLabel: {
     fontSize: 11,
     fontWeight: '700',
     color: Colors.label.secondary,
-    letterSpacing: 0.6,
-    textTransform: 'uppercase',
-    marginTop: 8,
+    letterSpacing: 0.5,
     marginBottom: 8,
+    marginLeft: 4,
   },
   sectionNote: {
     fontSize: 12,
@@ -516,7 +471,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 
-  // Error
+  // Error card
   errorCard: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -535,7 +490,7 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
 
-  // Result cards
+  // Result card
   resultCard: {
     backgroundColor: Colors.background.elevated,
     borderRadius: BorderRadius.lg,
@@ -550,11 +505,10 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   resultLabel: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '700',
     color: Colors.label.secondary,
-    letterSpacing: 0.5,
-    textTransform: 'uppercase',
+    letterSpacing: 0.8,
   },
   resultText: {
     fontSize: 15,
@@ -562,7 +516,7 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
 
-  // Translation controls
+  // Translation
   input: {
     backgroundColor: Colors.background.elevated,
     borderRadius: BorderRadius.lg,
@@ -593,7 +547,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: Colors.label.primary,
   },
-  button: {
+  translateBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -604,10 +558,8 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     ...Shadows.sm,
   },
-  buttonDisabled: {
-    opacity: 0.5,
-  },
-  buttonText: {
+  btnDisabled: { opacity: 0.5 },
+  translateBtnText: {
     fontSize: 15,
     fontWeight: '600',
     color: '#FFF',
@@ -621,13 +573,14 @@ const styles = StyleSheet.create({
   phraseButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    backgroundColor: `${Colors.brand.gold}12`,
+    gap: 12,
+    backgroundColor: Colors.background.elevated,
     borderRadius: BorderRadius.lg,
     borderWidth: 1,
     borderColor: `${Colors.brand.gold}28`,
     paddingHorizontal: 14,
     paddingVertical: 12,
+    ...Shadows.xs,
   },
   phraseLabel: {
     fontSize: 12,
@@ -641,15 +594,15 @@ const styles = StyleSheet.create({
     color: Colors.label.secondary,
   },
 
-  // Info
+  // Info card
   infoCard: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 10,
-    backgroundColor: `${Colors.brand.accent}10`,
+    backgroundColor: `${Colors.brand.accent}08`,
     borderRadius: BorderRadius.lg,
     borderWidth: 1,
-    borderColor: `${Colors.brand.accent}25`,
+    borderColor: `${Colors.brand.accent}20`,
     padding: 14,
     marginBottom: 8,
   },

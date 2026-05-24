@@ -49,7 +49,6 @@ function SOSButton({ onPress }: { onPress?: (e: any) => void }) {
           { transform: [{ scale: ringScale }], opacity: ringOpacity },
         ]}
       />
-
       {/* Main SOS button */}
       <View style={styles.sosButtonOuter}>
         <Text style={styles.sosText}>SOS</Text>
@@ -185,12 +184,17 @@ export default function TabsLayout() {
         }}
       />
 
-      {/* ── Hidden Tabs (still accessible via router.push) ── */}
+      {/* ── All hidden screens — accessible via router.push ── */}
       <Tabs.Screen name="multilingual" options={{ href: null }} />
       <Tabs.Screen name="blackbox" options={{ href: null }} />
       <Tabs.Screen name="settings" options={{ href: null }} />
-      {/* ── PHASE 11: AI Chatbot (hidden tab, opened via router.push('/chatbot')) ── */}
       <Tabs.Screen name="chatbot" options={{ href: null }} />
+      {/* Phase 12: Driver Intelligence */}
+      <Tabs.Screen name="driver" options={{ href: null }} />
+      {/* Phase 14: DTN Mesh */}
+      <Tabs.Screen name="dtn" options={{ href: null }} />
+      {/* Phase 10: Security & Privacy */}
+      <Tabs.Screen name="security" options={{ href: null }} />
     </Tabs>
   );
 }
@@ -205,7 +209,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
 
-  // SOS Button — prototype style
   sosTouchable: {
     flex: 1,
     alignItems: 'center',
