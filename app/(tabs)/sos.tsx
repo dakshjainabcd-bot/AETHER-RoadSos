@@ -28,6 +28,7 @@ import type { CrashDetectionState, FusionScore } from '../../services/CrashDetec
 import { HospitalMatchCard } from '../../components/HospitalMatchCard';
 import type { InjuryType } from '../../services/TraumaMatch';
 import { DTNStatusBadge } from '../../components/DTNStatusBadge';
+import { SOSNotificationBanner } from '../../components/SOSNotificationBanner';
 
 const INJURY_TYPES: {
   type: InjuryType; label: string; sub: string;
@@ -51,6 +52,7 @@ export default function SOSScreen() {
     preAlertState,
     clearPreAlert,
     language,
+    activeIncidentId,
   } = useAppContext();
 
   // ── Manual SOS button state ───────────────────────────────────────────────
@@ -152,6 +154,12 @@ export default function SOSScreen() {
           ))}
           <Text style={styles.miniGforce}>{liveScore.gForce.toFixed(1)}g</Text>
         </View>
+
+        {/* Emergency contact notification status */}
+        <SOSNotificationBanner
+          isActive={sosActive}
+          incidentId={activeIncidentId}
+        />
 
         <Text style={styles.injuryTitle}>What type of injury?</Text>
         <Text style={styles.injurySub}>This helps us find the right hospital — tap the best match</Text>

@@ -58,6 +58,8 @@ import {
 } from '../services/DriverIntelligence';
 import { HazardAlert } from '../components/HazardAlert';
 import { TripSummaryModal } from '../components/TripSummaryModal';
+import { emergencyContactsService } from '../services/EmergencyContacts';
+import NetInfo from '@react-native-community/netinfo';
 // ────────────────────────────────────────────────────────────────────────────
 
 // ─── App Context ──────────────────────────────────────────────────────────────
@@ -87,6 +89,7 @@ interface AppContextType {
   clearHazardAlert: () => void;
   latestTripScore: TripScore | null;
   clearLatestTripScore: () => void;
+  activeIncidentId: string;
 }
 
 const DEFAULT_PREALERT_STATE: PreAlertState = {
@@ -120,6 +123,7 @@ const AppContext = createContext<AppContextType>({
   clearHazardAlert: () => { },
   latestTripScore: null,
   clearLatestTripScore: () => { },
+  activeIncidentId: '',
 });
 
 export function useAppContext(): AppContextType {
@@ -177,7 +181,15 @@ export default function RootLayout() {
       setMeshConnected(false);
       setMeshPeerCount(0);
     });
-    return () => { unsubSOS(); unsubOn(); unsubOff(); };
+
+    // When internet arrives, retry any pending contact notifications
+    const unsubNetwork = NetInfo.addEventListener((state) => {
+      if (state.isConnected && state.isInternetReachable !== false) {
+        emergencyContactsService.retryPendingNotifications().catch(() => {});
+      }
+    });
+
+    return () => { unsubSOS(); unsubOn(); unsubOff(); unsubNetwork(); };
   }, []);
 
   // ── Existing: Crash detection subscriptions ────────────────────────────────
@@ -311,6 +323,7 @@ export default function RootLayout() {
 
       await meshRelayManager.initialize();
       crashDetectionEngine.initialize();
+      await emergencyContactsService.initialize();
 
       // ── PHASE 9: Initialize Road DNA ──────────────────────────────────────
       await initDrivingEventsDB();
@@ -410,6 +423,7 @@ export default function RootLayout() {
         clearHazardAlert: () => setHazardAlert(null),
         latestTripScore,
         clearLatestTripScore: () => setLatestTripScore(null),
+        activeIncidentId: activeIncidentIdRef.current,
       }}
     >
       <StatusBar style="dark" />

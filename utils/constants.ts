@@ -25,6 +25,10 @@ export const STORAGE_KEYS = {
   ONBOARDING_DONE: 'aether_onboarded',
   FALSE_POSITIVE_COUNT: 'aether_fp_count',
   CONSENT: 'aether_consent_v1',
+  EMERGENCY_CONTACTS: 'aether_emergency_contacts_v1',
+  USER_PROFILE: 'aether_user_profile_v1',
+  NOTIFICATION_RECORDS: 'aether_notification_records_v1',
+  PENDING_NOTIFICATIONS: 'aether_pending_notifications_v1',
 };
 
 export const POI_TYPES = {
@@ -93,7 +97,7 @@ export const MESH = {
  * Windows: ipconfig → IPv4 Address under Wi-Fi
  * Mac/Linux: ifconfig → inet under en0/wlan0
  */
-export const SIMULATION_SERVER_URL = 'ws://172.17.10.174:3001'; // ← CHANGE IP
+export const SIMULATION_SERVER_URL = 'ws://172.17.13.36:3001'; // ← CHANGE IP
 export const CRASH_THRESHOLDS_CANCEL_WINDOW = 5;
 
 export const CRASH_DETECTION = {

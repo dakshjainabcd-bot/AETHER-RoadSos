@@ -9,6 +9,8 @@
  * then re-broadcasts it further.
  */
 
+import type { ContactNotificationPayload } from '../EmergencyContacts/types';
+
 export interface SOSPacket {
   incidentId: string;
   lat: number;
@@ -21,6 +23,8 @@ export interface SOSPacket {
   // Computed over incidentId + lat + lng + severity + timestamp
   // hopCount is excluded because it changes at each relay hop
   hmac?: string;
+  // NEW: contact notification payload embedded for offline relay delivery
+  contactPayload?: ContactNotificationPayload;
 }
 
 // How the mesh relay behaves

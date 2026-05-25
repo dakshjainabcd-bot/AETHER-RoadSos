@@ -180,6 +180,18 @@ export default function SettingsScreen() {
 
       {/* ── PHASE 9: Road DNA Settings ────────────────────────── */}
       <SectionLabel text="Safety" />
+      <View style={styles.group}>
+        <SettingsRow
+          icon="people"
+          iconBg="#FEF1EE"
+          iconColor="#EF3E28"
+          label="Emergency Contacts"
+          value="Notify family when SOS fires"
+          onPress={() => router.push('/(tabs)/contacts' as any)}
+          showChevron
+        />
+      </View>
+      <View style={{ height: 16 }} />
       <RoadDNASettingsSection />
 
       {/* ── Privacy (Phase 10) ─────────────────────────────────────────── */}
@@ -220,7 +232,7 @@ export default function SettingsScreen() {
           <View>
             <Text style={styles.aboutTitle}>AETHER</Text>
             <Text style={styles.aboutSub}>Accident Emergency & Trauma Hyper-Response</Text>
-            <Text style={styles.aboutSub}>Version 1.0.0 · Phase 3</Text>
+            <Text style={styles.aboutSub}>Version 1.0.0</Text>
           </View>
         </View>
       </View>
@@ -242,7 +254,7 @@ export default function SettingsScreen() {
           iconBg="#EBF0FC"
           iconColor={Colors.brand.accent}
           label="AI First-Aid Assistant"
-          value="Pocket RAG chatbot · Phase 11"
+          value="Pocket RAG chatbot"
           onPress={() => router.push('/chatbot' as any)}
           showChevron
         />
