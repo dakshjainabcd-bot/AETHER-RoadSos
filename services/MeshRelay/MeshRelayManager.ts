@@ -40,6 +40,7 @@ import { SECURITY } from '../../utils/constants';
 import { trustScoreService } from '../Trust/TrustScoreService';
 import { badgeService } from '../Trust/BadgeService';
 import { dtnManager } from './DTNManager';  // ← Phase 14: DTN
+import { emergencyContactsService } from '../EmergencyContacts';
 
 type EventCallback = (event: MeshEvent) => void;
 
@@ -165,6 +166,36 @@ class MeshRelayManager {
       const packet = await createSOSPacket(location.lat, location.lng, severity);
       console.log(`[MeshRelay] 🚨 SOS TRIGGERED! Incident: ${packet.incidentId}`);
 
+      // Embed emergency contact payload for offline relay delivery
+      const activeContacts = await emergencyContactsService.getContacts();
+      const userProfile = await emergencyContactsService.getUserProfile();
+
+      if (activeContacts.length > 0) {
+        packet.contactPayload = {
+          incidentId: packet.incidentId,
+          contacts: activeContacts.map((c) => ({
+            name: c.name,
+            phone: c.phone,
+            shareLocation: c.shareLocation,
+          })),
+          victimName: userProfile.name,
+          lat: location.lat,          // Use precise coords for cloud (not rounded mesh coords)
+          lng: location.lng,
+          severity,
+          timestamp: Date.now(),
+          notifiedByDevices: [await getDeviceHash()],
+        };
+      }
+
+      // Notify contacts immediately (direct SMS + queue for relay)
+      emergencyContactsService.notifyContacts({
+        incidentId: packet.incidentId,
+        lat: location.lat,
+        lng: location.lng,
+        severity,
+        deviceHash: await getDeviceHash(),
+      }).catch((err) => console.error('[MeshRelay] Contact notification error:', err));
+
       // Mark this packet as seen in our dedup buffer
       // (so we don't process our own relay-echo as an incoming SOS)
       deduplicationBuffer.isNew(packet.incidentId); // This marks it as seen
@@ -257,6 +288,24 @@ class MeshRelayManager {
     if (!deduplicationBuffer.isNew(packet.incidentId)) {
       console.log(`[MeshRelay] Duplicate packet ${packet.incidentId} — ignored`);
       return;
+    }
+
+    // ── Relay emergency contact notifications (offline mesh delivery) ──────
+    // If this SOS packet carries a contact payload AND we have internet,
+    // we act as a "messenger" — sending SMS notifications for the victim
+    // whose phone may have zero signal.
+    if (packet.contactPayload && deduplicationBuffer.isNew(`notif_${packet.incidentId}`)) {
+      const deviceHash = await getDeviceHash();
+      emergencyContactsService
+        .handleRelayedNotification(packet.contactPayload, deviceHash)
+        .then((sent) => {
+          if (sent) {
+            console.log(
+              `[MeshRelay] 📬 Relayed emergency contact notifications for ${packet.incidentId}`
+            );
+          }
+        })
+        .catch(() => {});
     }
 
     console.log(

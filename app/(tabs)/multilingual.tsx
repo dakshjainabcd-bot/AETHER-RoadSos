@@ -92,7 +92,7 @@ export default function MultilingualScreen() {
       stopPulse();
     });
 
-    return () => { whisperSTT.cancel().catch(() => { }); };
+    return () => { whisperSTT.cancel().catch(() => {}); };
   }, []);
 
   function startPulse() {

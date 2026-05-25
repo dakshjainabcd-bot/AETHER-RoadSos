@@ -195,6 +195,8 @@ export default function TabsLayout() {
       <Tabs.Screen name="dtn" options={{ href: null }} />
       {/* Phase 10: Security & Privacy */}
       <Tabs.Screen name="security" options={{ href: null }} />
+      {/* Emergency Contacts — required for home screen badge */}
+      <Tabs.Screen name="contacts" options={{ href: null }} />
     </Tabs>
   );
 }
