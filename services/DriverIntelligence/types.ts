@@ -142,6 +142,7 @@ export interface HazardReport {
   lng: number;
   severity: 1 | 2 | 3;
   reportedAt: number;
+  deviceHash?: string;   // for rate limiting
 }
 
 /** Aggregated cluster of nearby reports — used for map display */

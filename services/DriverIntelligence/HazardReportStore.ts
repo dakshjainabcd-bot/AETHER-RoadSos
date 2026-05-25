@@ -1,19 +1,18 @@
 /**
- * HazardReportStore — Groups received hazard reports into location clusters
+ * HazardReportStore — Groups hazard reports into per-type location clusters
  *
- * WHY THIS EXISTS:
- * When multiple drivers report the same pothole/accident, we need to
- * show "3 people reported this" instead of 3 separate alerts.
- * This store groups reports within 50m of each other (same grid cell)
- * and computes a credibility level based on report count.
+ * FIXES:
+ * 1. Clusters are keyed by TYPE + LOCATION (50m grid cell)
+ *    → pothole and accident at same spot = 2 separate clusters, not 1
+ * 2. Cluster marker position = stable grid cell center (not average of GPS readings)
+ *    → marker stops jumping around due to GPS drift
+ * 3. Rate limiting: 10-min cooldown per device+type+location, 30-sec global cooldown
+ *    → same device can't spam reports
  *
- * CREDIBILITY LEVELS:
- *   low    = 1 report (could be false alarm)
- *   medium = 2–4 reports (likely real)
- *   high   = 5+ reports (definitely real — slow down!)
- *
- * TTL: Reports expire after 30 minutes (matching HazardPacket TTL).
- * Grid: 50m cells (same algorithm as BlackspotEngine).
+ * CREDIBILITY:
+ *   low    = 1 report  (grey)  — unverified
+ *   medium = 2–4 reports (amber) — likely real
+ *   high   = 5+ reports (red)  — confirmed, slow down!
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -25,180 +24,271 @@ import {
   HAZARD_STORE_KEY,
 } from './types';
 
-// 30 minutes — same as hazard packet TTL in DRIVER_INTEL_CONFIG
-const HAZARD_TTL_MS = 30 * 60 * 1000;
+// ── Constants ─────────────────────────────────────────────────────────────────
 
-// 50m grid (identical to BlackspotEngine)
+const RATE_LIMIT_KEY        = 'aether_hazard_rate_limit_v1';
+const GLOBAL_COOLDOWN_KEY   = 'aether_hazard_global_cooldown_v1';
+
+const HAZARD_TTL_MS          = 30 * 60 * 1000;  // 30 min — matches packet TTL
+const COOLDOWN_SAME_SPOT_MS  = 10 * 60 * 1000;  // 10 min — same device, same type, same location
+const GLOBAL_COOLDOWN_MS     = 30 * 1000;        // 30 sec — any report from same device
+
+// 50m grid — same as BlackspotEngine
 const DEGREES_PER_METER = 1 / 111000;
-const CELL_DEGREES = 50 * DEGREES_PER_METER;
+const CELL_DEGREES       = 50 * DEGREES_PER_METER;
 
-function snapToGrid(value: number): number {
-  return Math.round(value / CELL_DEGREES) * CELL_DEGREES;
+// ── Grid helpers ──────────────────────────────────────────────────────────────
+
+function snapToGrid(v: number): number {
+  return Math.round(v / CELL_DEGREES) * CELL_DEGREES;
 }
 
-function cellKey(lat: number, lng: number): string {
-  return `${lat.toFixed(6)}_${lng.toFixed(6)}`;
+/**
+ * KEY INCLUDES HAZARD TYPE — this is the root fix for issues 1 and 5.
+ * Pothole and accident at the same 50m cell get DIFFERENT keys and
+ * therefore DIFFERENT clusters with correct counts and correct emojis.
+ */
+function typedCellKey(type: HazardType, lat: number, lng: number): string {
+  return `${type}_${snapToGrid(lat).toFixed(6)}_${snapToGrid(lng).toFixed(6)}`;
 }
 
-function computeCredibility(count: number): 'low' | 'medium' | 'high' {
+/**
+ * Stable display position for the cluster marker.
+ * Uses the fixed grid cell center, NOT the average of report positions.
+ * This prevents the marker from drifting due to GPS variation (fixes issue 2).
+ */
+function stableCenter(lat: number, lng: number): { lat: number; lng: number } {
+  return { lat: snapToGrid(lat), lng: snapToGrid(lng) };
+}
+
+function credibilityLevel(count: number): 'low' | 'medium' | 'high' {
   if (count >= 5) return 'high';
   if (count >= 2) return 'medium';
   return 'low';
 }
 
+// ── Store class ───────────────────────────────────────────────────────────────
+
 class HazardReportStore {
   private reports: HazardReport[] = [];
+  private rateLimits: Record<string, number> = {};  // key → timestamp of last report
   private initialized = false;
 
-  // ── Initialization ──────────────────────────────────────────────────────────
+  // ── Init ──────────────────────────────────────────────────────────────────
 
   async initialize(): Promise<void> {
     if (this.initialized) return;
-    await this.loadFromStorage();
+    await this._load();
     this.initialized = true;
-    console.log(`[HazardStore] Ready — ${this.reports.length} active report(s)`);
+    console.log(`[HazardStore] Ready — ${this.reports.length} stored report(s)`);
   }
 
-  private async loadFromStorage(): Promise<void> {
+  /** Force reload from storage (call after app foreground) */
+  async reload(): Promise<void> {
+    this.initialized = false;
+    await this.initialize();
+  }
+
+  private async _load(): Promise<void> {
     try {
       const raw = await AsyncStorage.getItem(HAZARD_STORE_KEY);
       if (raw) {
-        const all = JSON.parse(raw) as HazardReport[];
-        // Filter expired on load so stale reports never come back
-        this.reports = all.filter(r => !this.isExpired(r));
+        const all: HazardReport[] = JSON.parse(raw);
+        this.reports = all.filter(r => !this._expired(r));
+      } else {
+        this.reports = [];
       }
     } catch {
       this.reports = [];
     }
-  }
 
-  private async persist(): Promise<void> {
     try {
-      await AsyncStorage.setItem(HAZARD_STORE_KEY, JSON.stringify(this.reports));
-    } catch (err) {
-      console.warn('[HazardStore] Persist failed:', err);
+      const limitsRaw = await AsyncStorage.getItem(RATE_LIMIT_KEY);
+      if (limitsRaw) this.rateLimits = JSON.parse(limitsRaw);
+    } catch {
+      this.rateLimits = {};
     }
   }
 
-  // ── Core Operations ─────────────────────────────────────────────────────────
+  private async _persist(): Promise<void> {
+    try {
+      await AsyncStorage.setItem(HAZARD_STORE_KEY, JSON.stringify(this.reports));
+      await AsyncStorage.setItem(RATE_LIMIT_KEY, JSON.stringify(this.rateLimits));
+    } catch (e) {
+      console.warn('[HazardStore] Persist error:', e);
+    }
+  }
+
+  // ── Rate limiting (fixes issue 3) ────────────────────────────────────────
 
   /**
-   * Add a received hazard packet to the store.
-   * Returns { count, credibilityLevel } for the cluster this packet belongs to.
-   * Safe to call for our own reports too (to seed the cluster count at 1).
+   * Check whether this device is allowed to report right now.
+   * Returns { allowed: true } or { allowed: false, reason, waitSeconds }.
+   */
+  async checkRateLimit(
+    deviceHash: string,
+    type: HazardType,
+    lat: number,
+    lng: number,
+  ): Promise<{ allowed: boolean; reason?: string; waitSeconds?: number }> {
+    const now = Date.now();
+
+    // ── Global 30-second cooldown ──────────────────────────────────────────
+    try {
+      const raw = await AsyncStorage.getItem(GLOBAL_COOLDOWN_KEY);
+      if (raw) {
+        const { dh, t } = JSON.parse(raw) as { dh: string; t: number };
+        if (dh === deviceHash) {
+          const elapsed = now - t;
+          if (elapsed < GLOBAL_COOLDOWN_MS) {
+            const waitSeconds = Math.ceil((GLOBAL_COOLDOWN_MS - elapsed) / 1000);
+            return {
+              allowed: false,
+              reason: `Please wait ${waitSeconds} second${waitSeconds !== 1 ? 's' : ''} before reporting again.`,
+              waitSeconds,
+            };
+          }
+        }
+      }
+    } catch {}
+
+    // ── Per-type-location 10-minute cooldown ──────────────────────────────
+    const key = `${deviceHash}_${typedCellKey(type, lat, lng)}`;
+    const last = this.rateLimits[key];
+    if (last) {
+      const elapsed = now - last;
+      if (elapsed < COOLDOWN_SAME_SPOT_MS) {
+        const waitMin = Math.ceil((COOLDOWN_SAME_SPOT_MS - elapsed) / 60000);
+        return {
+          allowed: false,
+          reason: `You already reported a ${type} here. Wait ${waitMin} more minute${waitMin !== 1 ? 's' : ''} to report again.`,
+        };
+      }
+    }
+
+    return { allowed: true };
+  }
+
+  /** Call after a successful report to stamp the rate limit */
+  async stampRateLimit(
+    deviceHash: string,
+    type: HazardType,
+    lat: number,
+    lng: number,
+  ): Promise<void> {
+    const now = Date.now();
+    const key = `${deviceHash}_${typedCellKey(type, lat, lng)}`;
+    this.rateLimits[key] = now;
+
+    try {
+      await AsyncStorage.setItem(
+        GLOBAL_COOLDOWN_KEY,
+        JSON.stringify({ dh: deviceHash, t: now }),
+      );
+    } catch {}
+
+    await this._persist();
+  }
+
+  // ── Core: add report ──────────────────────────────────────────────────────
+
+  /**
+   * Store a received hazard packet.
+   * Returns the updated cluster stats for THIS specific type+location.
    */
   async addReport(packet: HazardPacket): Promise<{
     count: number;
     credibilityLevel: 'low' | 'medium' | 'high';
+    clusterKey: string;
   }> {
     await this.initialize();
 
-    // Purge expired entries first
-    this.reports = this.reports.filter(r => !this.isExpired(r));
+    // Purge stale data first
+    const before = this.reports.length;
+    this.reports = this.reports.filter(r => !this._expired(r));
+    if (this.reports.length !== before) await this._persist();
 
-    // Skip duplicates (same hazardId = same report, maybe relayed multiple hops)
+    const clusterKey = typedCellKey(packet.hazardType, packet.lat, packet.lng);
+
+    // Deduplicate — same hazardId may arrive via multiple relay hops
     if (this.reports.some(r => r.hazardId === packet.hazardId)) {
-      const count = this.getClusterCount(packet.lat, packet.lng);
-      return { count, credibilityLevel: computeCredibility(count) };
+      const count = this._countForKey(clusterKey);
+      return { count, credibilityLevel: credibilityLevel(count), clusterKey };
     }
 
-    // Save the new report
-    const report: HazardReport = {
-      hazardId: packet.hazardId,
-      hazardType: packet.hazardType,
-      lat: packet.lat,
-      lng: packet.lng,
-      severity: packet.severity,
-      reportedAt: packet.reportedAt,
-    };
+    // Store
+    this.reports.push({
+      hazardId:    packet.hazardId,
+      hazardType:  packet.hazardType,
+      lat:         packet.lat,
+      lng:         packet.lng,
+      severity:    packet.severity,
+      reportedAt:  packet.reportedAt,
+      deviceHash:  packet.deviceHash,
+    });
+    await this._persist();
 
-    this.reports.push(report);
-    await this.persist();
-
-    const count = this.getClusterCount(packet.lat, packet.lng);
+    const count = this._countForKey(clusterKey);
     console.log(
-      `[HazardStore] Stored ${packet.hazardType} — cluster count: ${count}` +
-      ` (${computeCredibility(count)} credibility)`
+      `[HazardStore] ${packet.hazardType} @ cluster "${clusterKey}": ` +
+      `${count} report(s) — ${credibilityLevel(count)} credibility`,
     );
-    return { count, credibilityLevel: computeCredibility(count) };
+    return { count, credibilityLevel: credibilityLevel(count), clusterKey };
   }
 
-  /**
-   * Count how many active reports fall in the same 50m grid cell.
-   */
-  getClusterCount(lat: number, lng: number): number {
-    const targetKey = cellKey(snapToGrid(lat), snapToGrid(lng));
-    return this.reports.filter(r => {
-      return cellKey(snapToGrid(r.lat), snapToGrid(r.lng)) === targetKey;
-    }).length;
+  private _countForKey(key: string): number {
+    return this.reports.filter(r =>
+      typedCellKey(r.hazardType, r.lat, r.lng) === key,
+    ).length;
   }
 
+  // ── Queries ───────────────────────────────────────────────────────────────
+
   /**
-   * Build aggregated clusters for map rendering.
-   * Each cluster represents 1+ reports in the same 50m cell.
+   * Build one cluster per (hazardType + 50m cell).
+   * Each cluster has the correct type, count, and stable position.
    */
   getClusters(): HazardCluster[] {
-    // Work only with non-expired reports
-    const active = this.reports.filter(r => !this.isExpired(r));
+    const active = this.reports.filter(r => !this._expired(r));
+    const map = new Map<string, HazardReport[]>();
 
-    // Group by grid cell
-    const cellMap = new Map<string, HazardReport[]>();
-    for (const report of active) {
-      const key = cellKey(snapToGrid(report.lat), snapToGrid(report.lng));
-      if (!cellMap.has(key)) cellMap.set(key, []);
-      cellMap.get(key)!.push(report);
+    for (const r of active) {
+      const key = typedCellKey(r.hazardType, r.lat, r.lng);
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(r);
     }
 
-    const clusters: HazardCluster[] = [];
+    return Array.from(map.entries()).map(([key, reps]) => {
+      const first  = reps[0];
+      const center = stableCenter(first.lat, first.lng); // stable, no GPS drift
+      const latest = [...reps].sort((a, b) => b.reportedAt - a.reportedAt)[0];
 
-    cellMap.forEach((cellReports, key) => {
-      // Centroid: average of all report positions in cell
-      const lat = cellReports.reduce((s, r) => s + r.lat, 0) / cellReports.length;
-      const lng = cellReports.reduce((s, r) => s + r.lng, 0) / cellReports.length;
-
-      // Most recent report
-      const sorted = [...cellReports].sort((a, b) => b.reportedAt - a.reportedAt);
-      const latest = sorted[0];
-
-      // Most common hazard type in this cluster
-      const typeCounts: Partial<Record<HazardType, number>> = {};
-      for (const r of cellReports) {
-        typeCounts[r.hazardType] = (typeCounts[r.hazardType] ?? 0) + 1;
-      }
-      const mostCommonType = (
-        Object.entries(typeCounts).sort((a, b) => (b[1] ?? 0) - (a[1] ?? 0))[0][0]
-      ) as HazardType;
-
-      clusters.push({
-        clusterKey: key,
-        lat,
-        lng,
-        hazardType: mostCommonType,
-        reportCount: cellReports.length,
-        latestSeverity: latest.severity,
-        lastReportedAt: latest.reportedAt,
-        credibilityLevel: computeCredibility(cellReports.length),
-      });
+      return {
+        clusterKey:       key,
+        lat:              center.lat,
+        lng:              center.lng,
+        hazardType:       first.hazardType,  // always correct — key is type-aware
+        reportCount:      reps.length,
+        latestSeverity:   latest.severity,
+        lastReportedAt:   latest.reportedAt,
+        credibilityLevel: credibilityLevel(reps.length),
+      } satisfies HazardCluster;
     });
-
-    return clusters;
   }
 
-  /** Clear all expired reports (housekeeping) */
-  async purgeExpired(): Promise<void> {
-    const before = this.reports.length;
-    this.reports = this.reports.filter(r => !this.isExpired(r));
-    if (this.reports.length < before) await this.persist();
+  /** Count for a specific type+location (used by alert system) */
+  getClusterCount(type: HazardType, lat: number, lng: number): number {
+    return this._countForKey(typedCellKey(type, lat, lng));
   }
 
-  /** Clear everything — for testing */
   async clearAll(): Promise<void> {
-    this.reports = [];
-    await AsyncStorage.removeItem(HAZARD_STORE_KEY);
+    this.reports    = [];
+    this.rateLimits = {};
+    await AsyncStorage.multiRemove([HAZARD_STORE_KEY, RATE_LIMIT_KEY, GLOBAL_COOLDOWN_KEY]);
   }
 
-  private isExpired(report: HazardReport): boolean {
-    return Date.now() - report.reportedAt > HAZARD_TTL_MS;
+  private _expired(r: HazardReport): boolean {
+    return Date.now() - r.reportedAt > HAZARD_TTL_MS;
   }
 
   get reportCount(): number {
@@ -206,5 +296,4 @@ class HazardReportStore {
   }
 }
 
-// One instance for the whole app
 export const hazardReportStore = new HazardReportStore();

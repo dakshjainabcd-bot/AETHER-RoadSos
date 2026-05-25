@@ -1,29 +1,18 @@
 /**
- * Phase 12 — HazardBroadcaster
- *
- * HAZARD PACKET FLOW:
- *
- * Reporter's phone:
- *   reportHazard('pothole') → creates packet → broadcasts to server
- *
- * Server:
- *   receives HAZARD_PACKET → relays to all other connected phones
- *
- * Receiving phones:
- *   handleReceivedHazard(packet)
- *     → check TTL (expired? discard)
- *     → check distance (> 3km? don't alert)
- *     → check deduplicate (seen before? discard)
- *     → fire alert callback → UI shows banner
- *     → relay packet with hopCount+1 (if hops remaining)
+ * Phase 12 — HazardBroadcaster (Updated: rate limiting + type-aware clustering)
  */
 
-import { HazardPacket, HazardType, HazardAlertState, DRIVER_INTEL_CONFIG } from './types';
+import {
+  HazardPacket,
+  HazardType,
+  HazardAlertState,
+  DRIVER_INTEL_CONFIG,
+} from './types';
+import { hazardReportStore } from './HazardReportStore';
 import { simulationBridge } from '../MeshRelay/SimulationBridge';
 import { getLastKnownLocation } from '../GPSService';
 import { haversineDistance } from '../../utils/haversine';
 import { getDeviceHash } from '../MeshRelay/PacketProtocol';
-import { hazardReportStore } from './HazardReportStore';
 
 function generateHazardId(): string {
   return (
@@ -36,142 +25,124 @@ type HazardAlertCallback = (alert: HazardAlertState) => void;
 
 class HazardBroadcaster {
   private listeners: HazardAlertCallback[] = [];
-  // Track hazard IDs we've already seen to avoid duplicate alerts
   private seenHazardIds = new Set<string>();
   private cleanupTimer: ReturnType<typeof setInterval> | null = null;
 
-  /**
-   * Register with SimulationBridge to receive incoming hazard packets.
-   * Call once in _layout.tsx AFTER meshRelayManager.initialize().
-   */
   initialize(): void {
     simulationBridge.onHazardReceived((packet: HazardPacket) => {
       this.handleReceivedHazard(packet);
     });
 
-    // Clear the seen-IDs set every 30 minutes
-    // (Expired hazards won't be re-broadcast anyway due to TTL check)
     this.cleanupTimer = setInterval(() => {
       this.seenHazardIds.clear();
     }, DRIVER_INTEL_CONFIG.HAZARD_TTL_MS);
 
+    hazardReportStore.initialize().catch(console.warn);
     console.log('[HazardBroadcaster] Initialized');
   }
 
   /**
-   * Report a hazard at the current location and broadcast it via mesh.
-   * Called when user taps "Report Hazard" on the map screen.
-   *
-   * @param hazardType  Type of hazard (pothole, accident, etc.)
-   * @param severity    1=minor, 2=moderate, 3=severe (default: 2)
+   * Report a hazard at current GPS location.
+   * Returns success/failure with human-readable reason for UI.
    */
   async reportHazard(
     hazardType: HazardType,
-    severity: 1 | 2 | 3 = 2
-  ): Promise<HazardPacket | null> {
+    severity: 1 | 2 | 3 = 2,
+  ): Promise<{ success: boolean; packet?: HazardPacket; reason?: string }> {
     const loc = await getLastKnownLocation();
     if (!loc) {
-      console.warn('[HazardBroadcaster] Cannot report hazard — no GPS fix');
-      return null;
+      return { success: false, reason: 'Unable to get your location. Please enable GPS and try again.' };
     }
 
     const deviceHash = await getDeviceHash();
 
+    // ── Rate limit check (fixes issue 3) ──────────────────────────────────
+    const limitCheck = await hazardReportStore.checkRateLimit(
+      deviceHash, hazardType, loc.lat, loc.lng,
+    );
+    if (!limitCheck.allowed) {
+      return { success: false, reason: limitCheck.reason };
+    }
+
     const packet: HazardPacket = {
-      hazardId: generateHazardId(),
+      hazardId:    generateHazardId(),
       hazardType,
-      lat: loc.lat,
-      lng: loc.lng,
+      lat:         loc.lat,
+      lng:         loc.lng,
       severity,
-      reportedAt: Date.now(),
-      hopCount: 0, // We are the origin
+      reportedAt:  Date.now(),
+      hopCount:    0,
       deviceHash,
     };
 
     // Mark as seen so we don't alert ourselves for our own report
     this.seenHazardIds.add(packet.hazardId);
 
-    // Store our own report so the cluster count starts at 1
+    // Store as own report (count = 1 from the start)
     await hazardReportStore.addReport(packet);
 
-    const sent = simulationBridge.broadcastHazard(packet);
-    if (sent) {
-      console.log(
-        `[HazardBroadcaster] ✅ Reported ${hazardType} at ` +
-        `(${loc.lat.toFixed(4)}, ${loc.lng.toFixed(4)})`
-      );
-    } else {
-      console.warn('[HazardBroadcaster] Broadcast failed — simulation server not connected');
-    }
+    // Record rate limit timestamp AFTER storing
+    await hazardReportStore.stampRateLimit(deviceHash, hazardType, loc.lat, loc.lng);
 
-    return packet;
+    const sent = simulationBridge.broadcastHazard(packet);
+    console.log(
+      `[HazardBroadcaster] Reported ${hazardType} at (${loc.lat.toFixed(4)}, ${loc.lng.toFixed(4)})` +
+      ` — mesh ${sent ? 'sent' : 'queued (offline)'}`,
+    );
+
+    return { success: true, packet };
   }
 
   /**
-   * Process a hazard packet received from another phone via the mesh.
-   * This runs the TTL check, distance check, and deduplication.
+   * Process a hazard packet received from another phone.
    */
   private async handleReceivedHazard(packet: HazardPacket): Promise<void> {
-    // ── 1. Deduplication: have we seen this hazard before? ────────────────
-    if (this.seenHazardIds.has(packet.hazardId)) {
-      return; // Already processed this one
-    }
+    // Deduplicate
+    if (this.seenHazardIds.has(packet.hazardId)) return;
     this.seenHazardIds.add(packet.hazardId);
 
-    // ── 2. TTL: is this hazard still fresh? ───────────────────────────────
+    // TTL check
     const ageMs = Date.now() - packet.reportedAt;
     if (ageMs > DRIVER_INTEL_CONFIG.HAZARD_TTL_MS) {
-      console.log(
-        `[HazardBroadcaster] Hazard ${packet.hazardId} expired ` +
-        `(${Math.round(ageMs / 60000)}min old)`
-      );
-      return; // Stale — discard silently
+      console.log(`[HazardBroadcaster] Expired hazard ${packet.hazardId} discarded`);
+      return;
     }
 
-    // ── 3. Distance: is the hazard close enough to matter? ────────────────
+    // Distance check
     const loc = await getLastKnownLocation();
-    if (!loc) return; // No GPS — can't check distance
+    if (!loc) return;
 
     const distKm = haversineDistance(loc.lat, loc.lng, packet.lat, packet.lng);
-    const distM = Math.round(distKm * 1000);
+    const distM  = Math.round(distKm * 1000);
 
-    console.log(
-      `[HazardBroadcaster] Received ${packet.hazardType} — ` +
-      `${distM}m away (hop ${packet.hopCount})`
-    );
-
-    // ── 4. Store report and build credibility ─────────────────────────────
+    // Store and get cluster stats for THIS type+location (fixes issue 1)
     const { count, credibilityLevel } = await hazardReportStore.addReport(packet);
 
-    // ── 5. Alert the driver if hazard is within 3km ───────────────────────
+    console.log(
+      `[HazardBroadcaster] ${packet.hazardType} ${distM}m away — ` +
+      `${count} report(s), ${credibilityLevel} credibility`,
+    );
+
+    // Alert if within radius
     if (distM <= DRIVER_INTEL_CONFIG.HAZARD_ALERT_RADIUS_M) {
       this.listeners.forEach(cb => {
         try {
           cb({
             packet,
-            distanceM: distM,
-            reportCount: count,
+            distanceM:        distM,
+            reportCount:      count,
             credibilityLevel,
           });
         } catch {}
       });
     }
 
-    // ── 6. Relay to other nearby phones if we haven't hit max hops ────────
+    // Relay if hops remaining
     if (packet.hopCount < DRIVER_INTEL_CONFIG.HAZARD_MAX_HOPS) {
-      const relayPacket: HazardPacket = {
-        ...packet,
-        hopCount: packet.hopCount + 1,
-      };
-      simulationBridge.broadcastHazard(relayPacket);
+      simulationBridge.broadcastHazard({ ...packet, hopCount: packet.hopCount + 1 });
     }
   }
 
-  /**
-   * Subscribe to nearby hazard alerts.
-   * Fires when a hazard packet arrives and is within 3km.
-   * Returns an unsubscribe function.
-   */
   onHazardAlert(callback: HazardAlertCallback): () => void {
     this.listeners.push(callback);
     return () => {

@@ -18,6 +18,9 @@
       ],
       "@theme/*": [
         "./theme/*"
+      ],
+      "firebase/firestore": [
+        "./node_modules/@firebase/firestore/dist/index.d.ts"
       ]
     }
   },

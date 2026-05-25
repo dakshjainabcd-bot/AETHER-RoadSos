@@ -49,7 +49,11 @@ import type { Blackspot } from '../../services/RoadDNA/types';
 import { hazardBroadcaster } from '../../services/DriverIntelligence';
 
 // ── NEW: Hazard cluster imports ───────────────────────────────────────────
-import { HazardMapLayer } from '../../components/HazardMapLayer';
+import {
+  HazardMapLayer,
+  HAZARD_EMOJI,
+  HAZARD_LABEL,
+} from '../../components/HazardMapLayer';
 import { hazardReportStore } from '../../services/DriverIntelligence/HazardReportStore';
 import type { HazardCluster } from '../../services/DriverIntelligence/types';
 
@@ -208,42 +212,43 @@ export default function MapScreen() {
   const [hazardClusters, setHazardClusters] = useState<HazardCluster[]>([]);
   const [showHazardClusters, setShowHazardClusters] = useState(true);
 
+  // Selected cluster for the overlay card (Android-safe alternative to Callout)
+  const [selectedCluster, setSelectedCluster] = useState<HazardCluster | null>(null);
+
   // ── PHASE 12: Hazard reporting function ───────────────────────────────────
   function handleReportHazard() {
+    // Close any open cluster card first
+    setSelectedCluster(null);
+
+    const reportType = async (type: Parameters<typeof hazardBroadcaster.reportHazard>[0], severity: 1 | 2 | 3) => {
+      const result = await hazardBroadcaster.reportHazard(type, severity);
+
+      if (!result.success) {
+        // Rate limited or no GPS — show friendly message
+        Alert.alert('Cannot Report', result.reason ?? 'Please try again shortly.');
+        return;
+      }
+
+      // Refresh clusters immediately so own report shows on map (fixes issue 2)
+      await loadHazardClusters();
+
+      Alert.alert(
+        '✅ Reported!',
+        `Your ${HAZARD_LABEL[type]} report has been broadcast to nearby AETHER users.\n\nExpires in 30 minutes.`,
+        [{ text: 'OK' }],
+      );
+    };
+
     Alert.alert(
       'Report a Hazard',
-      'What type of hazard did you see? It will be broadcast to AETHER devices nearby.',
+      'Select the type of hazard you are reporting. Your report will be visible to all nearby AETHER users.',
       [
-        {
-          text: '🕳️ Pothole',
-          onPress: () => {
-            hazardBroadcaster.reportHazard('pothole', 2);
-            Alert.alert('Reported!', 'Pothole broadcast to nearby AETHER users.');
-          },
-        },
-        {
-          text: '💥 Accident',
-          onPress: () => {
-            hazardBroadcaster.reportHazard('accident', 3);
-            Alert.alert('Reported!', 'Accident broadcast to nearby AETHER users.');
-          },
-        },
-        {
-          text: '🚧 Road Closed',
-          onPress: () => {
-            hazardBroadcaster.reportHazard('road_closed', 3);
-            Alert.alert('Reported!', 'Road closure broadcast to nearby AETHER users.');
-          },
-        },
-        {
-          text: '🪨 Debris',
-          onPress: () => {
-            hazardBroadcaster.reportHazard('debris', 1);
-            Alert.alert('Reported!', 'Debris broadcast to nearby AETHER users.');
-          },
-        },
+        { text: '🕳️  Pothole',       onPress: () => reportType('pothole', 2) },
+        { text: '💥  Accident',       onPress: () => reportType('accident', 3) },
+        { text: '🚧  Road Closed',    onPress: () => reportType('road_closed', 3) },
+        { text: '🪨  Debris on Road', onPress: () => reportType('debris', 1) },
         { text: 'Cancel', style: 'cancel' },
-      ]
+      ],
     );
   }
 
@@ -266,6 +271,7 @@ export default function MapScreen() {
   // Load blackspots when screen focuses
   useFocusEffect(
     useCallback(() => {
+      setSelectedCluster(null);  // Close any open cluster card on focus
       if (isConnected) loadOnlineData();
       else loadOfflineData(filter);
 
@@ -305,6 +311,7 @@ export default function MapScreen() {
 
   async function loadHazardClusters(): Promise<void> {
     await hazardReportStore.initialize();
+    await hazardReportStore.reload(); // always re-read storage on focus
     const clusters = hazardReportStore.getClusters();
     setHazardClusters(clusters);
   }
@@ -487,9 +494,16 @@ export default function MapScreen() {
         {/* ── PHASE 9: Blackspot danger zones ──────────────────────────── */}
         {showBlackspots && <BlackspotMapLayer blackspots={blackspots} />}
 
-        {/* ── NEW: Hazard report clusters ──────────────────────────────── */}
+        {/* Hazard report clusters — with cluster press handler for Android overlay */}
         {showHazardClusters && (
-          <HazardMapLayer clusters={hazardClusters} />
+          <HazardMapLayer
+            clusters={hazardClusters}
+            onClusterPress={(cluster) => {
+              setSelectedCluster(prev =>
+                prev?.clusterKey === cluster.clusterKey ? null : cluster
+              );
+            }}
+          />
         )}
 
         {/* Red incident overlay (unchanged) */}
@@ -576,6 +590,75 @@ export default function MapScreen() {
 
       {/* Floating POI action card (unchanged) */}
       {selectedPOI && <POIActionCard poi={selectedPOI} onDismiss={() => setSelectedPOI(null)} />}
+
+      {/* ── Hazard cluster info card (Android-safe overlay) ─────────────────── */}
+      {selectedCluster && (() => {
+        const CRED_CONFIG = {
+          low:    { color: '#8E8E93', label: 'Unverified — 1 report',     bg: 'rgba(142,142,147,0.10)' },
+          medium: { color: '#FF9500', label: 'Likely real',               bg: 'rgba(255,149,0,0.10)'   },
+          high:   { color: '#FF3B30', label: 'Confirmed — slow down!',    bg: 'rgba(255,59,48,0.10)'   },
+        };
+        const cred     = CRED_CONFIG[selectedCluster.credibilityLevel];
+        const minsAgo  = Math.round((Date.now() - selectedCluster.lastReportedAt) / 60000);
+        const expiresIn = Math.max(0, 30 - Math.round((Date.now() - selectedCluster.lastReportedAt) / 60000));
+
+        return (
+          <View style={hazardCardStyles.card}>
+            {/* Close button */}
+            <TouchableOpacity
+              style={hazardCardStyles.closeBtn}
+              onPress={() => setSelectedCluster(null)}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Ionicons name="close" size={16} color="#666" />
+            </TouchableOpacity>
+
+            {/* Header row: emoji + type + credibility badge */}
+            <View style={hazardCardStyles.headerRow}>
+              <Text style={hazardCardStyles.emoji}>
+                {HAZARD_EMOJI[selectedCluster.hazardType]}
+              </Text>
+              <View style={hazardCardStyles.headerText}>
+                <Text style={hazardCardStyles.hazardType}>
+                  {HAZARD_LABEL[selectedCluster.hazardType]}
+                </Text>
+                <View style={[hazardCardStyles.credBadge, { backgroundColor: cred.bg }]}>
+                  <Text style={[hazardCardStyles.credLabel, { color: cred.color }]}>
+                    {cred.label}
+                  </Text>
+                </View>
+              </View>
+            </View>
+
+            {/* Report count */}
+            <View style={hazardCardStyles.reportRow}>
+              <Ionicons name="people" size={14} color={
+                selectedCluster.credibilityLevel === 'high' ? '#FF3B30' :
+                selectedCluster.credibilityLevel === 'medium' ? '#FF9500' : '#8E8E93'
+              } />
+              <Text style={[hazardCardStyles.reportCount, { color:
+                selectedCluster.credibilityLevel === 'high' ? '#FF3B30' :
+                selectedCluster.credibilityLevel === 'medium' ? '#FF9500' : '#8E8E93'
+              }]}>
+                {selectedCluster.reportCount === 1
+                  ? '1 person reported this'
+                  : `${selectedCluster.reportCount} people reported this`}
+              </Text>
+            </View>
+
+            {/* Meta: time + expiry */}
+            <View style={hazardCardStyles.metaRow}>
+              <Text style={hazardCardStyles.metaText}>
+                {minsAgo === 0 ? 'Reported just now' : `Reported ${minsAgo}m ago`}
+              </Text>
+              <Text style={hazardCardStyles.dot}>·</Text>
+              <Text style={hazardCardStyles.metaText}>
+                Expires in {expiresIn}m
+              </Text>
+            </View>
+          </View>
+        );
+      })()}
     </View>
   );
 }
@@ -871,5 +954,88 @@ const styles = StyleSheet.create({
     color: '#FFD60A',
     fontSize: 13,
     fontWeight: '700' as const,
+  },
+});
+
+const hazardCardStyles = StyleSheet.create({
+  card: {
+    position: 'absolute',
+    bottom: Layout.CONTENT_BOTTOM_PADDING + 70,
+    left: 14,
+    right: 14,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 14,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.18,
+    shadowRadius: 12,
+    elevation: 10,
+    zIndex: 20,
+    gap: 8,
+  },
+  closeBtn: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#F0F0F0',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 1,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingRight: 28,  // space for close button
+  },
+  emoji: {
+    fontSize: 28,
+  },
+  headerText: {
+    flex: 1,
+    gap: 4,
+  },
+  hazardType: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1A1A1A',
+    letterSpacing: -0.3,
+  },
+  credBadge: {
+    alignSelf: 'flex-start',
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  credLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+  },
+  reportRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  reportCount: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  metaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  metaText: {
+    fontSize: 11,
+    color: '#888',
+  },
+  dot: {
+    fontSize: 11,
+    color: '#CCC',
   },
 });
