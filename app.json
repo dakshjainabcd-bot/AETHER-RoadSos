@@ -1,17 +1,17 @@
 {
   "expo": {
     "name": "AETHER",
-    "slug": "aether-sos",
+    "slug": "aether-road-sos",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "dark",
+    "userInterfaceStyle": "automatic",
     "assetBundlePatterns": [
       "**/*"
     ],
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.aether.sos",
+      "bundleIdentifier": "com.aether.roadsos",
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "AETHER needs your location to find nearby emergency services and detect accidents.",
         "NSLocationAlwaysAndWhenInUseUsageDescription": "AETHER runs in the background to detect accidents and keep your last location updated.",
@@ -32,9 +32,9 @@
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#0A0A0A"
+        "backgroundColor": "#ffffff"
       },
-      "package": "com.aether.sos",
+      "package": "com.aether.roadsos",
       "permissions": [
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION",
@@ -54,7 +54,13 @@
         "WRITE_EXTERNAL_STORAGE",
         "android.permission.ACCESS_COARSE_LOCATION",
         "android.permission.ACCESS_FINE_LOCATION",
-        "android.permission.CAMERA"
+        "android.permission.CAMERA",
+        "android.permission.ACCESS_BACKGROUND_LOCATION",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.VIBRATE",
+        "android.permission.RECEIVE_BOOT_COMPLETED",
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.POST_NOTIFICATIONS"
       ]
     },
     "plugins": [
@@ -62,7 +68,7 @@
       [
         "expo-location",
         {
-          "locationAlwaysAndWhenInUsePermission": "AETHER runs in the background to detect accidents and keep your last location updated.",
+          "locationAlwaysAndWhenInUsePermission": "AETHER needs your location to detect crash location and find the nearest hospital.",
           "locationAlwaysPermission": "AETHER needs background location to detect accidents even when the app is closed.",
           "locationWhenInUsePermission": "AETHER needs your location to find nearby emergency services and detect accidents.",
           "isAndroidBackgroundLocationEnabled": true
@@ -72,11 +78,19 @@
         "expo-notifications",
         {
           "icon": "./assets/icon.png",
-          "color": "#FF3B30",
+          "color": "#ef3e28",
           "sounds": [],
           "mode": "production"
         }
-      ]
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "AETHER needs camera access to photograph injuries for AI assessment."
+        }
+      ],
+      "expo-sqlite",
+      "expo-battery"
     ],
     "experiments": {
       "typedRoutes": true
@@ -87,8 +101,14 @@
         "origin": false
       },
       "eas": {
-        "projectId": "235bc25e-fb94-4f9c-ac64-d3c87c39c86d"
+        "projectId": "PLACEHOLDER_WILL_BE_REPLACED_BY_EAS_INIT"
       }
+    },
+    "newArchEnabled": false,
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
     }
   }
 }
