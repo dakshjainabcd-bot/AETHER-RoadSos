@@ -56,7 +56,8 @@ export type PreAlertListener = (state: PreAlertState) => void;
 
 // Phase 6 demo endpoint — echoes back the POST body (proves the pipeline works)
 // Replace with https://your-api.com/api/v1/hospital_prealert in Phase 10
-const ALERT_ENDPOINT = 'https://httpbin.org/post';
+// Phase 15: Production endpoint on Render
+const ALERT_ENDPOINT = 'https://YOUR-RENDER-URL.onrender.com/api/v1/hospital_prealert';
 
 // How long to wait for hospital READY reply before trying next hospital
 const REPLY_TIMEOUT_MS = 90_000;

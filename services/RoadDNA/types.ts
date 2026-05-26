@@ -153,8 +153,8 @@ export const ROAD_DNA_CONFIG = {
      */
     EVENT_COOLDOWN_MS: 3000,
 
-    /** Cloud endpoint — replace with your FastAPI URL in Phase 10 */
-    UPLOAD_ENDPOINT: 'https://httpbin.org/post',
+    /** Phase 15: Production Render endpoint */
+    UPLOAD_ENDPOINT: 'https://YOUR-RENDER-URL.onrender.com/api/v1/driving_events',
 } as const;
 
 // ─── STORAGE KEYS ─────────────────────────────────────────────────────────────

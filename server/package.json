@@ -1,12 +1,17 @@
 {
   "name": "aether-simulation-server",
-  "version": "1.0.0",
-  "description": "AETHER Mesh Relay Simulation Server for Expo Go demos",
+  "version": "2.0.0",
+  "description": "AETHER Emergency Response System — Production Server",
   "main": "simulation-server.js",
   "scripts": {
-    "start": "node simulation-server.js"
+    "start": "node simulation-server.js",
+    "dev": "node simulation-server.js"
   },
   "dependencies": {
-    "ws": "^8.18.0"
-  }
+    "ws": "^8.14.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "license": "MIT"
 }
