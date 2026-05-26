@@ -100,7 +100,7 @@ export const MESH = {
 
 // Phase 15: Production Render deployment
 // NOTE: wss:// not ws:// — Render uses secure WebSocket automatically
-export const SIMULATION_SERVER_URL = 'wss://YOUR-RENDER-URL.onrender.com';
+export const SIMULATION_SERVER_URL = 'wss://aether-server-10bk.onrender.com';
 export const CRASH_THRESHOLDS_CANCEL_WINDOW = 5;
 
 export const CRASH_DETECTION = {

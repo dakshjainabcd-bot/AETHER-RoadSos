@@ -26,7 +26,7 @@ import { SOSPacket } from './MeshRelay/types';
 // httpbin.org/post is a free test endpoint that accepts any POST and echoes it back
 // Replace this with your FastAPI endpoint in Phase 6
 // Phase 15: Production endpoint on Render
-const CLOUD_ENDPOINT = 'https://YOUR-RENDER-URL.onrender.com/api/v1/sos';
+const CLOUD_ENDPOINT = 'https://aether-server-10bk.onrender.com/api/v1/sos';
 
 const EGRESS_QUEUE_KEY = 'aether_egress_queue_v1';
 

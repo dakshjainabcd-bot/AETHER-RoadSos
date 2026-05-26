@@ -154,7 +154,7 @@ export const ROAD_DNA_CONFIG = {
     EVENT_COOLDOWN_MS: 3000,
 
     /** Phase 15: Production Render endpoint */
-    UPLOAD_ENDPOINT: 'https://YOUR-RENDER-URL.onrender.com/api/v1/driving_events',
+    UPLOAD_ENDPOINT: 'https://aether-server-10bk.onrender.com/api/v1/driving_events',
 } as const;
 
 // ─── STORAGE KEYS ─────────────────────────────────────────────────────────────
