@@ -60,7 +60,8 @@
         "android.permission.VIBRATE",
         "android.permission.RECEIVE_BOOT_COMPLETED",
         "android.permission.FOREGROUND_SERVICE",
-        "android.permission.POST_NOTIFICATIONS"
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.FOREGROUND_SERVICE_LOCATION"
       ]
     },
     "plugins": [
@@ -89,8 +90,7 @@
           "cameraPermission": "AETHER needs camera access to photograph injuries for AI assessment."
         }
       ],
-      "expo-sqlite",
-      "expo-battery"
+      "expo-sqlite"
     ],
     "experiments": {
       "typedRoutes": true
@@ -101,7 +101,7 @@
         "origin": false
       },
       "eas": {
-        "projectId": "PLACEHOLDER_WILL_BE_REPLACED_BY_EAS_INIT"
+        "projectId": "25a7c57c-5824-4dd8-83ff-9c93ec2eca02"
       }
     },
     "newArchEnabled": false,
@@ -109,6 +109,7 @@
       "image": "./assets/splash.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
-    }
+    },
+    "owner": "prabhav2"
   }
 }
