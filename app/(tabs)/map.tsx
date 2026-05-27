@@ -110,20 +110,7 @@ function generateLeafletHTML(
 
   // User location marker (blue pulsing dot)
   var userIcon = L.divIcon({
-    html: \`<div style="
-      width:18px; height:18px;
-      background:#007aff;
-      border:3px solid #fff;
-      border-radius:50%;
-      box-shadow: 0 0 0 4px rgba(0,122,255,0.3);
-      animation: pulse 2s infinite;
-    "></div>
-    <style>
-      @keyframes pulse {
-        0%,100% { box-shadow: 0 0 0 4px rgba(0,122,255,0.3); }
-        50% { box-shadow: 0 0 0 10px rgba(0,122,255,0.05); }
-      }
-    </style>\`,
+    html: '<div style="width:18px;height:18px;background:#007aff;border:3px solid #fff;border-radius:50%;box-shadow:0 0 0 4px rgba(0,122,255,0.3);"></div>',
     iconSize: [18, 18],
     iconAnchor: [9, 9],
     className: ''
@@ -288,7 +275,7 @@ export default function MapScreen() {
 
   const broadcastHazard = (type: HazardMarker['type']) => {
     const hazard: HazardMarker = {
-      id: \`h_\${Date.now()}\`,
+      id: 'h_' + Date.now().toString(),
       lat: userLocation.lat + (Math.random() - 0.5) * 0.001, // slight offset
       lng: userLocation.lng + (Math.random() - 0.5) * 0.001,
       type,
@@ -304,7 +291,7 @@ export default function MapScreen() {
       }));
     }
 
-    Alert.alert('✅ Hazard Reported', \`\${type.replace('_', ' ')} reported and broadcast to nearby AETHER devices.\`);
+    Alert.alert('Hazard Reported', type.replace('_', ' ') + ' reported and broadcast to nearby AETHER devices.');
   };
 
   // ── Center on Me ────────────────────────────────────────────────────────
