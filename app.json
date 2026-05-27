@@ -35,6 +35,11 @@
         "backgroundColor": "#ffffff"
       },
       "package": "com.aether.roadsos",
+      "config": {
+        "googleMaps": {
+          "apiKey": "ANDROID_MAPS_KEY_PLACEHOLDER"
+        }
+      },
       "permissions": [
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION",
@@ -90,7 +95,9 @@
           "cameraPermission": "AETHER needs camera access to photograph injuries for AI assessment."
         }
       ],
-      "expo-sqlite"
+      "expo-sqlite",
+      "expo-font",
+      "expo-asset"
     ],
     "experiments": {
       "typedRoutes": true

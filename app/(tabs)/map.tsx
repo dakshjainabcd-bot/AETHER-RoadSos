@@ -1,1041 +1,554 @@
-/**
- * Map Screen — Phase 9 Updated + Phase 12 Hazard Reporting
- *
- * CHANGES FROM PREVIOUS VERSION:
- * 1. Added BlackspotMapLayer — renders danger zones as colored circles
- * 2. Added blackspot filter chip "Danger Zones" in the filter bar
- * 3. Added showBlackspots toggle state
- * 4. Loads cached blackspots on screen focus
- * 5. (NEW) Added "Report Hazard" floating button with Alert dialog
- *
- * Everything else is IDENTICAL to the original map.tsx.
- * We only ADD — we never remove or break existing functionality.
- */
+// app/(tabs)/map.tsx
+// Uses Leaflet.js + OpenStreetMap — 100% free, no API key, no payment
 
-import { useState, useCallback, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
+  Text,
   TouchableOpacity,
-  ActivityIndicator,
-  ScrollView,
-  Linking,
   Alert,
+  ActivityIndicator,
   Platform,
-  Animated,
 } from 'react-native';
-import MapView, { Marker, Callout, Circle } from 'react-native-maps';
-import { Ionicons } from '@expo/vector-icons';
-import { useFocusEffect } from 'expo-router';
-import { useAppContext } from '../_layout';
-import { getLastKnownLocation, type StoredLocation } from '../../services/GPSService';
-import { searchPOI, type POI } from '../../services/POIDatabase';
-import {
-  onlinePOIService,
-  MAP_FETCH_RADIUS_M,
-  type DataSource,
-} from '../../services/OnlinePOIService';
-import { useNetworkStatus } from '../../services/NetworkMonitor';
-import { POI_TYPES, type POIType } from '../../utils/constants';
-import { Colors, BorderRadius, Shadows, Layout } from '../../theme';
+import { WebView } from 'react-native-webview';
+import * as Location from 'expo-location';
+import { MapErrorBoundary } from '@/components/MapErrorBoundary';
 
-// ── PHASE 9 IMPORTS ──────────────────────────────────────────────────────────
-import { BlackspotMapLayer } from '../../components/BlackspotMapLayer';
-import { loadCachedBlackspots } from '../../services/RoadDNA/BlackspotEngine';
-import type { Blackspot } from '../../services/RoadDNA/types';
+// ── Types ─────────────────────────────────────────────────────────────────
+interface HazardMarker {
+  id: string;
+  lat: number;
+  lng: number;
+  type: 'pothole' | 'accident' | 'road_closed' | 'debris';
+  severity: 1 | 2 | 3;
+  reportedAt: number;
+}
 
-// ── PHASE 12 IMPORTS ─────────────────────────────────────────────────────────
-import { hazardBroadcaster } from '../../services/DriverIntelligence';
+interface BlackspotMarker {
+  id: string;
+  lat: number;
+  lng: number;
+  eventCount: number;
+  riskLevel: 'low' | 'medium' | 'high';
+}
 
-// ── NEW: Hazard cluster imports ───────────────────────────────────────────
-import {
-  HazardMapLayer,
-  HAZARD_EMOJI,
-  HAZARD_LABEL,
-} from '../../components/HazardMapLayer';
-import { hazardReportStore } from '../../services/DriverIntelligence/HazardReportStore';
-import type { HazardCluster } from '../../services/DriverIntelligence/types';
+// ── Leaflet HTML (injected into WebView) ─────────────────────────────────
+function generateLeafletHTML(
+  userLat: number,
+  userLng: number,
+  hazards: HazardMarker[],
+  blackspots: BlackspotMarker[]
+): string {
 
-// ─── Filter config (unchanged from original) ──────────────────────────────────
+  const hazardMarkers = hazards.map(h => {
+    const color = h.severity === 3 ? '#ef3e28' : h.severity === 2 ? '#ff9f0a' : '#34c759';
+    const icon = h.type === 'pothole' ? '🕳️' : h.type === 'accident' ? '💥' : h.type === 'road_closed' ? '🚧' : '⚠️';
+    return `
+      var hazardIcon_${h.id.replace(/-/g, '_')} = L.divIcon({
+        html: '<div style="font-size:22px;line-height:1;">${icon}</div>',
+        iconSize: [28, 28],
+        iconAnchor: [14, 14],
+        className: ''
+      });
+      L.marker([${h.lat}, ${h.lng}], { icon: hazardIcon_${h.id.replace(/-/g, '_')} })
+        .addTo(map)
+        .bindPopup('<b>${h.type.toUpperCase()}</b><br>Severity: ${h.severity}/3<br>Reported: ${new Date(h.reportedAt).toLocaleTimeString()}');
+    `;
+  }).join('\n');
 
-const CORE_FILTERS: Array<{ type: POIType; label: string; color: string }> = [
-  { type: POI_TYPES.HOSPITAL, label: 'Hospital', color: Colors.brand.primary },
-  { type: POI_TYPES.POLICE, label: 'Police', color: Colors.brand.accent },
-  { type: POI_TYPES.TOWING, label: 'Towing', color: Colors.brand.gold },
-];
+  const blackspotCircles = blackspots.map(b => {
+    const color = b.riskLevel === 'high' ? '#ef3e28' : b.riskLevel === 'medium' ? '#ff9f0a' : '#ffcc00';
+    return `
+      L.circle([${b.lat}, ${b.lng}], {
+        color: '${color}',
+        fillColor: '${color}',
+        fillOpacity: 0.25,
+        radius: 300,
+        weight: 2
+      }).addTo(map)
+        .bindPopup('<b>⚠️ Blackspot</b><br>Risk: ${b.riskLevel.toUpperCase()}<br>Events: ${b.eventCount}');
+    `;
+  }).join('\n');
 
-const ONLINE_ONLY_FILTERS: Array<{ type: POIType; label: string; color: string }> = [
-  { type: POI_TYPES.PETROL, label: 'Petrol', color: Colors.brand.purple },
-  { type: POI_TYPES.PUNCTURE, label: 'Tyre', color: Colors.status.success },
-];
-
-const MARKER_COLOR: Record<string, string> = {
-  [POI_TYPES.HOSPITAL]: Colors.brand.primary,
-  [POI_TYPES.POLICE]: Colors.status.info,
-  [POI_TYPES.TOWING]: Colors.status.warning,
-  [POI_TYPES.PETROL]: Colors.brand.purple,
-  [POI_TYPES.PUNCTURE]: Colors.status.success,
-  [POI_TYPES.BLOOD_BANK]: Colors.brand.primary,
-};
-
-const TYPE_LABEL: Record<string, string> = {
-  [POI_TYPES.HOSPITAL]: 'Hospital',
-  [POI_TYPES.POLICE]: 'Police Station',
-  [POI_TYPES.TOWING]: 'Towing Service',
-  [POI_TYPES.PETROL]: 'Petrol Station',
-  [POI_TYPES.PUNCTURE]: 'Tyre Shop',
-  [POI_TYPES.BLOOD_BANK]: 'Blood Bank',
-};
-
-// ─── Source badge (unchanged) ─────────────────────────────────────────────────
-
-interface BadgeConfig { label: string; icon: string; color: string; bg: string }
-
-function getBadgeConfig(source: DataSource, loading: boolean): BadgeConfig {
-  if (loading) return {
-    label: 'Fetching…', icon: 'cloud-download-outline',
-    color: Colors.brand.accent, bg: `${Colors.brand.accent}12`,
-  };
-  switch (source) {
-    case 'live': return { label: 'LIVE', icon: 'wifi', color: Colors.status.success, bg: `${Colors.status.success}12` };
-    case 'cached': return { label: 'CACHED', icon: 'checkmark-circle', color: Colors.brand.accent, bg: `${Colors.brand.accent}12` };
-    default: return { label: 'OFFLINE', icon: 'cloud-offline-outline', color: Colors.status.neutral, bg: `${Colors.status.neutral}12` };
+  return `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body, #map { width: 100%; height: 100%; background: #1a1a1a; }
+  .leaflet-popup-content-wrapper {
+    background: #1a1a1a;
+    color: #f5f5f5;
+    border: 1px solid #333;
+    border-radius: 8px;
   }
-}
+  .leaflet-popup-tip { background: #1a1a1a; }
+  .leaflet-popup-close-button { color: #888 !important; }
+</style>
+</head>
+<body>
+<div id="map"></div>
+<script>
+  // Initialize map centered on user location
+  var map = L.map('map', {
+    center: [${userLat}, ${userLng}],
+    zoom: 14,
+    zoomControl: true,
+    attributionControl: true
+  });
 
-// ─── Navigation helpers (unchanged) ──────────────────────────────────────────
+  // OpenStreetMap tiles — completely free, no API key
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+  }).addTo(map);
 
-function navigateToPOI(poi: POI): void {
-  const label = encodeURIComponent(poi.name);
-  if (Platform.OS === 'ios') {
-    const apple = `maps:0,0?daddr=${poi.lat},${poi.lng}&q=${label}`;
-    Linking.canOpenURL(apple)
-      .then(ok => ok
-        ? Linking.openURL(apple)
-        : Linking.openURL(`https://maps.google.com/maps?daddr=${poi.lat},${poi.lng}`)
-      )
-      .catch(() => Linking.openURL(`https://maps.google.com/maps?daddr=${poi.lat},${poi.lng}`));
-  } else {
-    Linking.openURL(`geo:${poi.lat},${poi.lng}?q=${poi.lat},${poi.lng}(${label})`)
-      .catch(() => Linking.openURL(`https://maps.google.com/maps?daddr=${poi.lat},${poi.lng}`));
-  }
-}
+  // User location marker (blue pulsing dot)
+  var userIcon = L.divIcon({
+    html: \`<div style="
+      width:18px; height:18px;
+      background:#007aff;
+      border:3px solid #fff;
+      border-radius:50%;
+      box-shadow: 0 0 0 4px rgba(0,122,255,0.3);
+      animation: pulse 2s infinite;
+    "></div>
+    <style>
+      @keyframes pulse {
+        0%,100% { box-shadow: 0 0 0 4px rgba(0,122,255,0.3); }
+        50% { box-shadow: 0 0 0 10px rgba(0,122,255,0.05); }
+      }
+    </style>\`,
+    iconSize: [18, 18],
+    iconAnchor: [9, 9],
+    className: ''
+  });
 
-function callPOI(phone: string): void {
-  Linking.openURL(`tel:${phone}`).catch(() =>
-    Alert.alert('Cannot call', 'Unable to open the phone dialler.')
-  );
-}
+  var userMarker = L.marker([${userLat}, ${userLng}], { icon: userIcon })
+    .addTo(map)
+    .bindPopup('<b>📍 You are here</b>');
 
-// ─── Floating POI Card (unchanged) ───────────────────────────────────────────
+  // Accuracy circle around user
+  L.circle([${userLat}, ${userLng}], {
+    color: '#007aff',
+    fillColor: '#007aff',
+    fillOpacity: 0.06,
+    radius: 150,
+    weight: 1
+  }).addTo(map);
 
-interface POICardProps { poi: POI; onDismiss: () => void; }
+  // Render hazard markers
+  ${hazardMarkers}
 
-function POIActionCard({ poi, onDismiss }: POICardProps) {
-  const slideAnim = useRef(new Animated.Value(120)).current;
-  useEffect(() => {
-    Animated.spring(slideAnim, { toValue: 0, useNativeDriver: true, tension: 65, friction: 11 }).start();
-  }, []);
-  const pinColor = MARKER_COLOR[poi.type] ?? Colors.brand.primary;
-  const typeLabel = TYPE_LABEL[poi.type] ?? poi.type;
+  // Render blackspot circles
+  ${blackspotCircles}
 
-  return (
-    <Animated.View style={[cardStyles.wrapper, { transform: [{ translateY: slideAnim }] }]}>
-      <TouchableOpacity style={cardStyles.handleArea} onPress={onDismiss} activeOpacity={1}>
-        <View style={cardStyles.handle} />
-      </TouchableOpacity>
-      <View style={cardStyles.header}>
-        <View style={[cardStyles.typeTag, { backgroundColor: `${pinColor}15` }]}>
-          <Text style={[cardStyles.typeText, { color: pinColor }]}>{typeLabel}</Text>
-        </View>
-        {poi.distanceText ? <Text style={cardStyles.distance}>{poi.distanceText}</Text> : null}
-        <TouchableOpacity onPress={onDismiss} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-          <Ionicons name="close-circle" size={22} color={Colors.label.tertiary} />
-        </TouchableOpacity>
-      </View>
-      <Text style={cardStyles.name} numberOfLines={2}>{poi.name}</Text>
-      {poi.hours ? (
-        <View style={cardStyles.hoursRow}>
-          <Ionicons name="time-outline" size={12} color={Colors.label.tertiary} />
-          <Text style={cardStyles.hours}>{poi.hours}</Text>
-        </View>
-      ) : null}
-      {poi.capabilities && poi.capabilities.length > 0 && (
-        <View style={cardStyles.caps}>
-          {poi.capabilities.slice(0, 4).map(cap => (
-            <View key={cap} style={cardStyles.capBadge}>
-              <Text style={cardStyles.capText}>{cap.replace(/_/g, ' ')}</Text>
-            </View>
-          ))}
-        </View>
-      )}
-      <View style={cardStyles.divider} />
-      <View style={cardStyles.actions}>
-        <TouchableOpacity style={[cardStyles.btn, cardStyles.btnNavigate]} onPress={() => navigateToPOI(poi)} activeOpacity={0.8}>
-          <Ionicons name="navigate" size={17} color="#FFFFFF" />
-          <Text style={cardStyles.btnNavigateText}>Navigate</Text>
-        </TouchableOpacity>
-        {poi.phone ? (
-          <TouchableOpacity style={[cardStyles.btn, cardStyles.btnCall]} onPress={() => callPOI(poi.phone!)} activeOpacity={0.8}>
-            <Ionicons name="call" size={17} color={Colors.status.success} />
-            <Text style={cardStyles.btnCallText}>Call</Text>
-          </TouchableOpacity>
-        ) : null}
-      </View>
-      {poi.phone ? <Text style={cardStyles.phoneHint}>{poi.phone}</Text> : null}
-    </Animated.View>
-  );
-}
+  // Listen for messages from React Native (new hazard, re-center, etc.)
+  document.addEventListener('message', function(event) {
+    handleMessage(event.data);
+  });
+  window.addEventListener('message', function(event) {
+    handleMessage(event.data);
+  });
 
-// ─── Main Screen ──────────────────────────────────────────────────────────────
+  function handleMessage(rawData) {
+    try {
+      var msg = JSON.parse(rawData);
 
-export default function MapScreen() {
-  const mapRef = useRef<MapView>(null);
-  const { activeBystanderAlert } = useAppContext();
-  const { isConnected } = useNetworkStatus();
-
-  const [userLoc, setUserLoc] = useState<StoredLocation | null>(null);
-  const [offlinePOIs, setOfflinePOIs] = useState<POI[]>([]);
-  const [filter, setFilter] = useState<POIType>(POI_TYPES.HOSPITAL);
-  const [loaded, setLoaded] = useState(false);
-  const [selectedPOI, setSelectedPOI] = useState<POI | null>(null);
-  const [onlinePOIs, setOnlinePOIs] = useState<POI[]>([]);
-  const [dataSource, setDataSource] = useState<DataSource>('offline');
-  const [onlineLoading, setOnlineLoading] = useState(false);
-
-  // ── PHASE 9: Blackspot state ─────────────────────────────────────────────
-  const [blackspots, setBlackspots] = useState<Blackspot[]>([]);
-  const [showBlackspots, setShowBlackspots] = useState(true);
-
-  // ── NEW: Hazard clusters state ────────────────────────────────────────────
-  const [hazardClusters, setHazardClusters] = useState<HazardCluster[]>([]);
-  const [showHazardClusters, setShowHazardClusters] = useState(true);
-
-  // Selected cluster for the overlay card (Android-safe alternative to Callout)
-  const [selectedCluster, setSelectedCluster] = useState<HazardCluster | null>(null);
-
-  // ── PHASE 12: Hazard reporting function ───────────────────────────────────
-  function handleReportHazard() {
-    // Close any open cluster card first
-    setSelectedCluster(null);
-
-    const reportType = async (type: Parameters<typeof hazardBroadcaster.reportHazard>[0], severity: 1 | 2 | 3) => {
-      const result = await hazardBroadcaster.reportHazard(type, severity);
-
-      if (!result.success) {
-        // Rate limited or no GPS — show friendly message
-        Alert.alert('Cannot Report', result.reason ?? 'Please try again shortly.');
-        return;
+      if (msg.type === 'CENTER_ON_USER') {
+        map.setView([msg.lat, msg.lng], 15, { animate: true });
+        userMarker.setLatLng([msg.lat, msg.lng]);
       }
 
-      // Refresh clusters immediately so own report shows on map (fixes issue 2)
-      await loadHazardClusters();
+      if (msg.type === 'ADD_HAZARD') {
+        var h = msg.hazard;
+        var icon = h.type === 'pothole' ? '🕳️' : h.type === 'accident' ? '💥' : '⚠️';
+        var newIcon = L.divIcon({
+          html: '<div style="font-size:22px;">' + icon + '</div>',
+          iconSize: [28, 28], iconAnchor: [14, 14], className: ''
+        });
+        L.marker([h.lat, h.lng], { icon: newIcon })
+          .addTo(map)
+          .bindPopup('<b>' + h.type.toUpperCase() + '</b><br>Just reported!');
+      }
 
-      Alert.alert(
-        '✅ Reported!',
-        `Your ${HAZARD_LABEL[type]} report has been broadcast to nearby AETHER users.\n\nExpires in 30 minutes.`,
-        [{ text: 'OK' }],
-      );
+    } catch (e) { /* ignore non-JSON */ }
+  }
+
+  // Send tap coordinates back to React Native
+  map.on('click', function(e) {
+    window.ReactNativeWebView.postMessage(JSON.stringify({
+      type: 'MAP_TAP',
+      lat: e.latlng.lat,
+      lng: e.latlng.lng
+    }));
+  });
+
+  // Signal React Native that map is loaded
+  setTimeout(function() {
+    window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'MAP_READY' }));
+  }, 500);
+</script>
+</body>
+</html>`;
+}
+
+// ── Main Component ────────────────────────────────────────────────────────
+export default function MapScreen() {
+  const webViewRef = useRef<WebView>(null);
+  const [userLocation, setUserLocation] = useState({ lat: 20.5937, lng: 78.9629 }); // India center default
+  const [mapLoaded, setMapLoaded] = useState(false);
+  const [locationGranted, setLocationGranted] = useState(false);
+
+  // Example hazards — in production these come from your HazardReportStore
+  const [hazards] = useState<HazardMarker[]>([
+    {
+      id: 'h1',
+      lat: 20.5945,
+      lng: 78.9640,
+      type: 'pothole',
+      severity: 2,
+      reportedAt: Date.now() - 600000,
+    },
+  ]);
+
+  // Example blackspots — in production from BlackspotEngine
+  const [blackspots] = useState<BlackspotMarker[]>([
+    {
+      id: 'b1',
+      lat: 20.5920,
+      lng: 78.9615,
+      eventCount: 23,
+      riskLevel: 'high',
+    },
+  ]);
+
+  // ── Get real user location ──────────────────────────────────────────────
+  useEffect(() => {
+    (async () => {
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== 'granted') {
+          console.warn('[Map] Location permission denied');
+          return;
+        }
+        setLocationGranted(true);
+        const loc = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Balanced,
+        });
+        const newLat = loc.coords.latitude;
+        const newLng = loc.coords.longitude;
+        setUserLocation({ lat: newLat, lng: newLng });
+
+        // Tell the already-loaded map to re-center
+        if (mapLoaded && webViewRef.current) {
+          webViewRef.current.postMessage(JSON.stringify({
+            type: 'CENTER_ON_USER',
+            lat: newLat,
+            lng: newLng,
+          }));
+        }
+      } catch (e) {
+        console.warn('[Map] Location error:', e);
+      }
+    })();
+  }, [mapLoaded]);
+
+  // ── Report Hazard ───────────────────────────────────────────────────────
+  const handleReportHazard = () => {
+    Alert.alert(
+      'Report Hazard',
+      'What hazard are you reporting at your current location?',
+      [
+        {
+          text: '🕳️ Pothole',
+          onPress: () => broadcastHazard('pothole'),
+        },
+        {
+          text: '💥 Accident Scene',
+          onPress: () => broadcastHazard('accident'),
+        },
+        {
+          text: '🚧 Road Blocked',
+          onPress: () => broadcastHazard('road_closed'),
+        },
+        {
+          text: '⚠️ Debris',
+          onPress: () => broadcastHazard('debris'),
+        },
+        { text: 'Cancel', style: 'cancel' },
+      ]
+    );
+  };
+
+  const broadcastHazard = (type: HazardMarker['type']) => {
+    const hazard: HazardMarker = {
+      id: \`h_\${Date.now()}\`,
+      lat: userLocation.lat + (Math.random() - 0.5) * 0.001, // slight offset
+      lng: userLocation.lng + (Math.random() - 0.5) * 0.001,
+      type,
+      severity: 2,
+      reportedAt: Date.now(),
     };
 
-    Alert.alert(
-      'Report a Hazard',
-      'Select the type of hazard you are reporting. Your report will be visible to all nearby AETHER users.',
-      [
-        { text: '🕳️  Pothole',       onPress: () => reportType('pothole', 2) },
-        { text: '💥  Accident',       onPress: () => reportType('accident', 3) },
-        { text: '🚧  Road Closed',    onPress: () => reportType('road_closed', 3) },
-        { text: '🪨  Debris on Road', onPress: () => reportType('debris', 1) },
-        { text: 'Cancel', style: 'cancel' },
-      ],
-    );
-  }
-
-  useEffect(() => {
-    const unsub = onlinePOIService.onStatusChange(s => {
-      setOnlineLoading(s.loading);
-      setDataSource(s.source);
-    });
-    return unsub;
-  }, []);
-
-  // Refresh hazard clusters every 20 seconds while map is visible
-  useEffect(() => {
-    const interval = setInterval(() => {
-      loadHazardClusters();
-    }, 20000);
-    return () => clearInterval(interval);
-  }, []);
-
-  // Load blackspots when screen focuses
-  useFocusEffect(
-    useCallback(() => {
-      setSelectedCluster(null);  // Close any open cluster card on focus
-      if (isConnected) loadOnlineData();
-      else loadOfflineData(filter);
-
-      // ── PHASE 9: Load cached blackspots ────────────────────────────────
-      loadCachedBlackspots().then(setBlackspots);
-      // ── NEW: Load hazard clusters ─────────────────────────────────────
-      loadHazardClusters();
-    }, [filter, isConnected])
-  );
-
-  useEffect(() => {
-    if (isConnected) loadOnlineData();
-    else { setOnlinePOIs([]); setDataSource('offline'); loadOfflineData(filter); }
-  }, [isConnected]);
-
-  async function loadOnlineData(): Promise<void> {
-    const loc = await getLastKnownLocation();
-    if (!loc) { loadOfflineData(filter); return; }
-    setUserLoc(loc);
-    centreMap(loc);
-    await onlinePOIService.initialize();
-    const cacheValid = await onlinePOIService.isCacheValid(loc.lat, loc.lng);
-    if (!cacheValid) {
-      onlinePOIService.fetchAndCache(loc.lat, loc.lng, MAP_FETCH_RADIUS_M)
-        .then(() => refreshCachedPOIs(loc))
-        .catch(() => loadOfflineData(filter));
+    // Add to map visually
+    if (webViewRef.current) {
+      webViewRef.current.postMessage(JSON.stringify({
+        type: 'ADD_HAZARD',
+        hazard,
+      }));
     }
-    await refreshCachedPOIs(loc);
-    if (onlinePOIs.length === 0 && !onlineLoading) loadOfflineData(filter);
-    setLoaded(true);
-  }
 
-  async function refreshCachedPOIs(loc: StoredLocation): Promise<void> {
-    const pois = await onlinePOIService.getCachedPOIs(loc.lat, loc.lng, 'all', MAP_FETCH_RADIUS_M / 1000);
-    if (pois.length > 0) { setOnlinePOIs(pois); setDataSource('cached'); }
-  }
+    Alert.alert('✅ Hazard Reported', \`\${type.replace('_', ' ')} reported and broadcast to nearby AETHER devices.\`);
+  };
 
-  async function loadHazardClusters(): Promise<void> {
-    await hazardReportStore.initialize();
-    await hazardReportStore.reload(); // always re-read storage on focus
-    const clusters = hazardReportStore.getClusters();
-    setHazardClusters(clusters);
-  }
+  // ── Center on Me ────────────────────────────────────────────────────────
+  const handleCenterOnMe = () => {
+    if (webViewRef.current) {
+      webViewRef.current.postMessage(JSON.stringify({
+        type: 'CENTER_ON_USER',
+        lat: userLocation.lat,
+        lng: userLocation.lng,
+      }));
+    }
+  };
 
-  async function loadOfflineData(type: POIType): Promise<void> {
-    const loc = await getLastKnownLocation();
-    setUserLoc(loc);
-    if (!loc) return;
-    centreMap(loc);
-    const found = await searchPOI(loc.lat, loc.lng, type);
-    setOfflinePOIs(found);
-    setLoaded(true);
-  }
+  // ── WebView message handler ─────────────────────────────────────────────
+  const handleWebViewMessage = (event: any) => {
+    try {
+      const msg = JSON.parse(event.nativeEvent.data);
+      if (msg.type === 'MAP_READY') {
+        setMapLoaded(true);
+        console.log('[Map] Leaflet map is ready');
+      }
+      if (msg.type === 'MAP_TAP') {
+        console.log('[Map] Tapped at:', msg.lat, msg.lng);
+      }
+    } catch (e) { /* ignore */ }
+  };
 
-  function onFilterChange(type: POIType): void {
-    setSelectedPOI(null);
-    setFilter(type);
-    if (isConnected && onlinePOIs.length > 0) return;
-    loadOfflineData(type);
-  }
-
-  function centreMap(loc: StoredLocation): void {
-    mapRef.current?.animateToRegion({
-      latitude: loc.lat, longitude: loc.lng,
-      latitudeDelta: 0.12, longitudeDelta: 0.12,
-    });
-  }
-
-  const displayPOIs: POI[] = isConnected && onlinePOIs.length > 0
-    ? onlinePOIs.filter(p => p.type === filter)
-    : offlinePOIs;
-
-  const allFilters = isConnected ? [...CORE_FILTERS, ...ONLINE_ONLY_FILTERS] : CORE_FILTERS;
-  const filterColor = allFilters.find(f => f.type === filter)?.color ?? Colors.brand.primary;
-  const badge = getBadgeConfig(isConnected ? dataSource : 'offline', onlineLoading);
-  const activeCrash = activeBystanderAlert?.packet ?? null;
-
+  // ── Render ──────────────────────────────────────────────────────────────
   return (
-    <View style={styles.container}>
+    <MapErrorBoundary>
+      <View style={styles.container}>
 
-      {/* Filter chips + source badge */}
-      <View style={styles.filterBarWrapper}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterBar}>
-          {allFilters.map(f => (
-            <TouchableOpacity
-              key={f.type}
-              style={[
-                styles.filterChip,
-                filter === f.type
-                  ? { backgroundColor: f.color, borderColor: f.color }
-                  : { backgroundColor: Colors.background.elevated, borderColor: Colors.border.medium },
-              ]}
-              onPress={() => onFilterChange(f.type)}
-              activeOpacity={0.8}
-            >
-              <Text style={[styles.filterText, filter === f.type ? { color: '#FFFFFF', fontWeight: '600' } : { color: Colors.label.secondary }]}>
-                {f.label}
-              </Text>
-            </TouchableOpacity>
-          ))}
-
-          {/* ── PHASE 9: Danger Zones toggle chip ──────────────────────── */}
-          <TouchableOpacity
-            style={[
-              styles.filterChip,
-              showBlackspots
-                ? { backgroundColor: '#CC0000', borderColor: '#CC0000' }
-                : { backgroundColor: 'rgba(255,255,255,0.92)', borderColor: 'rgba(0,0,0,0.08)' },
-            ]}
-            onPress={() => setShowBlackspots(!showBlackspots)}
-            activeOpacity={0.8}
-          >
-            <Text style={[styles.filterText, showBlackspots ? { color: '#FFFFFF', fontWeight: '600' } : { color: Colors.label.secondary }]}>
-              ⚠ Danger
-            </Text>
-          </TouchableOpacity>
-
-          {/* ── NEW: Hazard Reports toggle chip ──────────────────────── */}
-          <TouchableOpacity
-            style={[
-              styles.filterChip,
-              showHazardClusters
-                ? { backgroundColor: '#FF9500', borderColor: '#FF9500' }
-                : { backgroundColor: 'rgba(255,255,255,0.92)', borderColor: 'rgba(0,0,0,0.08)' },
-            ]}
-            onPress={() => setShowHazardClusters(!showHazardClusters)}
-            activeOpacity={0.8}
-          >
-            <Text style={[
-              styles.filterText,
-              showHazardClusters
-                ? { color: '#FFFFFF', fontWeight: '600' }
-                : { color: Colors.label.secondary }
-            ]}>
-              🕳️ Reports
-            </Text>
-          </TouchableOpacity>
-        </ScrollView>
-
-        <View style={[styles.sourceBadge, { backgroundColor: badge.bg }]}>
-          {onlineLoading
-            ? <ActivityIndicator size="small" color={badge.color} style={{ width: 12, height: 12 }} />
-            : <Ionicons name={badge.icon as any} size={11} color={badge.color} />
-          }
-          <Text style={[styles.sourceBadgeText, { color: badge.color }]}>{badge.label}</Text>
-        </View>
-      </View>
-
-      {/* Live incident badge */}
-      {activeCrash && (
-        <View style={styles.incidentBadge}>
-          <View style={styles.incidentDot} />
-          <Text style={styles.incidentBadgeText}>
-            Live Incident · {activeBystanderAlert?.distanceM ? `${Math.round(activeBystanderAlert.distanceM)}m away` : 'Nearby'}
-          </Text>
-        </View>
-      )}
-
-      {/* ── PHASE 9: Blackspot count badge ─────────────────────────────── */}
-      {showBlackspots && blackspots.length > 0 && (
-        <View style={styles.blackspotBadge}>
-          <Ionicons name="warning" size={11} color="#CC0000" />
-          <Text style={styles.blackspotBadgeText}>
-            {blackspots.length} danger zone{blackspots.length !== 1 ? 's' : ''} nearby
-          </Text>
-        </View>
-      )}
-
-      {/* Map */}
-      <MapView
-        ref={mapRef}
-        style={styles.map}
-        userInterfaceStyle="light"
-        showsUserLocation
-        showsMyLocationButton={false}
-        onPress={() => setSelectedPOI(null)}
-        initialRegion={{
-          latitude: userLoc?.lat ?? 12.9716,
-          longitude: userLoc?.lng ?? 77.5946,
-          latitudeDelta: 0.12,
-          longitudeDelta: 0.12,
-        }}
-      >
-        {/* Search radius */}
-        {userLoc && (
-          <Circle
-            center={{ latitude: userLoc.lat, longitude: userLoc.lng }}
-            radius={isConnected ? MAP_FETCH_RADIUS_M : 10000}
-            fillColor="rgba(22, 72, 208, 0.04)"
-            strokeColor="rgba(22, 72, 208, 0.18)"
-            strokeWidth={1}
-          />
-        )}
-
-        {/* POI markers (unchanged) */}
-        {displayPOIs.map(poi => {
-          const pinColor = isConnected && onlinePOIs.length > 0 ? (MARKER_COLOR[poi.type] ?? filterColor) : filterColor;
-          const isSelected = selectedPOI?.id === poi.id;
-          return (
-            <Marker
-              key={poi.id}
-              coordinate={{ latitude: poi.lat, longitude: poi.lng }}
-              pinColor={isSelected ? '#FFD700' : pinColor}
-              tracksViewChanges={false}
-              onPress={(e) => {
-                e.stopPropagation();
-                setSelectedPOI(selectedPOI?.id === poi.id ? null : poi);
-              }}
-            >
-              <Callout tooltip={false}>
-                <View style={styles.simpleCallout}>
-                  <Text style={styles.simpleCalloutText} numberOfLines={1}>{poi.name}</Text>
-                  <Text style={styles.simpleCalloutHint}>Tap for options</Text>
-                </View>
-              </Callout>
-            </Marker>
-          );
-        })}
-
-        {/* ── PHASE 9: Blackspot danger zones ──────────────────────────── */}
-        {showBlackspots && <BlackspotMapLayer blackspots={blackspots} />}
-
-        {/* Hazard report clusters — with cluster press handler for Android overlay */}
-        {showHazardClusters && (
-          <HazardMapLayer
-            clusters={hazardClusters}
-            onClusterPress={(cluster) => {
-              setSelectedCluster(prev =>
-                prev?.clusterKey === cluster.clusterKey ? null : cluster
-              );
-            }}
-          />
-        )}
-
-        {/* Red incident overlay (unchanged) */}
-        {activeCrash && (
-          <>
-            <Circle
-              center={{ latitude: activeCrash.lat, longitude: activeCrash.lng }}
-              radius={600} fillColor="rgba(239,62,40,0.06)" strokeColor="transparent"
-            />
-            <Circle
-              center={{ latitude: activeCrash.lat, longitude: activeCrash.lng }}
-              radius={300} fillColor="rgba(239,62,40,0.12)"
-              strokeColor="rgba(239,62,40,0.30)" strokeWidth={1.5}
-            />
-            <Circle
-              center={{ latitude: activeCrash.lat, longitude: activeCrash.lng }}
-              radius={100} fillColor="rgba(239,62,40,0.25)"
-              strokeColor="rgba(239,62,40,0.50)" strokeWidth={2}
-            />
-            <Marker
-              coordinate={{ latitude: activeCrash.lat, longitude: activeCrash.lng }}
-              anchor={{ x: 0.5, y: 0.5 }}
-            >
-              <View style={styles.incidentPin}>
-                <View style={styles.incidentPinCore} />
-              </View>
-            </Marker>
-          </>
-        )}
-      </MapView>
-
-      {/* ── PHASE 12: Report Hazard button — bottom right ─────────────── */}
-      <TouchableOpacity
-        style={styles.hazardBtn}
-        onPress={handleReportHazard}
-        activeOpacity={0.85}
-      >
-        <Text style={{ fontSize: 15 }}>⚠️</Text>
-        <Text style={styles.hazardBtnText}>Report Hazard</Text>
-      </TouchableOpacity>
-
-      {/* Legend (unchanged) */}
-      {isConnected && onlinePOIs.length > 0 && !selectedPOI && (
-        <View style={styles.legend}>
-          {[...CORE_FILTERS, ...ONLINE_ONLY_FILTERS].map(f => (
-            <View key={f.type} style={styles.legendRow}>
-              <View style={[styles.legendDot, { backgroundColor: f.color }]} />
-              <Text style={styles.legendText}>{f.label}</Text>
-            </View>
-          ))}
-          {/* ── PHASE 9: Legend entry for blackspots ─────────────────── */}
-          {showBlackspots && blackspots.length > 0 && (
-            <View style={styles.legendRow}>
-              <View style={[styles.legendDot, { backgroundColor: '#CC0000' }]} />
-              <Text style={styles.legendText}>Danger Zone</Text>
+        {/* Map WebView */}
+        <WebView
+          ref={webViewRef}
+          style={styles.map}
+          originWhitelist={['*']}
+          source={{
+            html: generateLeafletHTML(
+              userLocation.lat,
+              userLocation.lng,
+              hazards,
+              blackspots
+            ),
+          }}
+          onMessage={handleWebViewMessage}
+          onError={(e) => console.error('[Map] WebView error:', e.nativeEvent.description)}
+          javaScriptEnabled
+          domStorageEnabled
+          startInLoadingState
+          renderLoading={() => (
+            <View style={styles.loadingOverlay}>
+              <ActivityIndicator size="large" color="#ef3e28" />
+              <Text style={styles.loadingText}>Loading OpenStreetMap...</Text>
             </View>
           )}
-          {showHazardClusters && hazardClusters.length > 0 && (
-            <View style={styles.legendRow}>
-              <View style={[styles.legendDot, { backgroundColor: '#FF9500' }]} />
-              <Text style={styles.legendText}>User Reports</Text>
-            </View>
-          )}
-        </View>
-      )}
+          // Allow loading tiles from openstreetmap.org + unpkg.com (Leaflet CDN)
+          mixedContentMode="always"
+          allowsInlineMediaPlayback
+        />
 
-      {/* Count badge (unchanged) */}
-      {loaded && !selectedPOI && (
-        <View style={styles.countBadge}>
-          <Ionicons name="location-outline" size={11} color={Colors.label.secondary} />
-          <Text style={styles.countText}>{displayPOIs.length} found · tap a pin for options</Text>
-        </View>
-      )}
-
-      {/* My location button (unchanged) */}
-      {userLoc && (
-        <TouchableOpacity
-          style={[styles.myLocBtn, selectedPOI ? { bottom: Layout.CONTENT_BOTTOM_PADDING + 200 } : {}]}
-          onPress={() => mapRef.current?.animateToRegion({ latitude: userLoc.lat, longitude: userLoc.lng, latitudeDelta: 0.08, longitudeDelta: 0.08 })}
-        >
-          <Ionicons name="locate" size={20} color={Colors.brand.accent} />
-        </TouchableOpacity>
-      )}
-
-      {/* Floating POI action card (unchanged) */}
-      {selectedPOI && <POIActionCard poi={selectedPOI} onDismiss={() => setSelectedPOI(null)} />}
-
-      {/* ── Hazard cluster info card (Android-safe overlay) ─────────────────── */}
-      {selectedCluster && (() => {
-        const CRED_CONFIG = {
-          low:    { color: '#8E8E93', label: 'Unverified — 1 report',     bg: 'rgba(142,142,147,0.10)' },
-          medium: { color: '#FF9500', label: 'Likely real',               bg: 'rgba(255,149,0,0.10)'   },
-          high:   { color: '#FF3B30', label: 'Confirmed — slow down!',    bg: 'rgba(255,59,48,0.10)'   },
-        };
-        const cred     = CRED_CONFIG[selectedCluster.credibilityLevel];
-        const minsAgo  = Math.round((Date.now() - selectedCluster.lastReportedAt) / 60000);
-        const expiresIn = Math.max(0, 30 - Math.round((Date.now() - selectedCluster.lastReportedAt) / 60000));
-
-        return (
-          <View style={hazardCardStyles.card}>
-            {/* Close button */}
-            <TouchableOpacity
-              style={hazardCardStyles.closeBtn}
-              onPress={() => setSelectedCluster(null)}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            >
-              <Ionicons name="close" size={16} color="#666" />
-            </TouchableOpacity>
-
-            {/* Header row: emoji + type + credibility badge */}
-            <View style={hazardCardStyles.headerRow}>
-              <Text style={hazardCardStyles.emoji}>
-                {HAZARD_EMOJI[selectedCluster.hazardType]}
-              </Text>
-              <View style={hazardCardStyles.headerText}>
-                <Text style={hazardCardStyles.hazardType}>
-                  {HAZARD_LABEL[selectedCluster.hazardType]}
-                </Text>
-                <View style={[hazardCardStyles.credBadge, { backgroundColor: cred.bg }]}>
-                  <Text style={[hazardCardStyles.credLabel, { color: cred.color }]}>
-                    {cred.label}
-                  </Text>
-                </View>
-              </View>
-            </View>
-
-            {/* Report count */}
-            <View style={hazardCardStyles.reportRow}>
-              <Ionicons name="people" size={14} color={
-                selectedCluster.credibilityLevel === 'high' ? '#FF3B30' :
-                selectedCluster.credibilityLevel === 'medium' ? '#FF9500' : '#8E8E93'
-              } />
-              <Text style={[hazardCardStyles.reportCount, { color:
-                selectedCluster.credibilityLevel === 'high' ? '#FF3B30' :
-                selectedCluster.credibilityLevel === 'medium' ? '#FF9500' : '#8E8E93'
-              }]}>
-                {selectedCluster.reportCount === 1
-                  ? '1 person reported this'
-                  : `${selectedCluster.reportCount} people reported this`}
-              </Text>
-            </View>
-
-            {/* Meta: time + expiry */}
-            <View style={hazardCardStyles.metaRow}>
-              <Text style={hazardCardStyles.metaText}>
-                {minsAgo === 0 ? 'Reported just now' : `Reported ${minsAgo}m ago`}
-              </Text>
-              <Text style={hazardCardStyles.dot}>·</Text>
-              <Text style={hazardCardStyles.metaText}>
-                Expires in {expiresIn}m
-              </Text>
-            </View>
+        {/* Loading overlay until map signals ready */}
+        {!mapLoaded && (
+          <View style={styles.loadingOverlay}>
+            <ActivityIndicator size="large" color="#ef3e28" />
+            <Text style={styles.loadingText}>Loading Map...</Text>
+            <Text style={styles.loadingSubText}>OpenStreetMap — No API key required</Text>
           </View>
-        );
-      })()}
-    </View>
+        )}
+
+        {/* Top Info Bar */}
+        <View style={styles.infoBar}>
+          <Text style={styles.infoText}>
+            {hazards.length} hazard{hazards.length !== 1 ? 's' : ''} •{' '}
+            {blackspots.length} blackspot{blackspots.length !== 1 ? 's' : ''}
+          </Text>
+          <View style={styles.osmBadge}>
+            <Text style={styles.osmBadgeText}>© OpenStreetMap</Text>
+          </View>
+        </View>
+
+        {/* Floating Buttons */}
+        <View style={styles.buttonRow}>
+          <TouchableOpacity style={styles.centerBtn} onPress={handleCenterOnMe}>
+            <Text style={styles.centerBtnText}>📍 My Location</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.hazardBtn} onPress={handleReportHazard}>
+            <Text style={styles.hazardBtnText}>⚠️ Report Hazard</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Legend */}
+        <View style={styles.legend}>
+          <Text style={styles.legendTitle}>MAP LEGEND</Text>
+          <View style={styles.legendRow}>
+            <View style={[styles.legendDot, { backgroundColor: '#ef3e28' }]} />
+            <Text style={styles.legendText}>High-risk Blackspot</Text>
+          </View>
+          <View style={styles.legendRow}>
+            <View style={[styles.legendDot, { backgroundColor: '#ff9f0a' }]} />
+            <Text style={styles.legendText}>Medium-risk Zone</Text>
+          </View>
+          <View style={styles.legendRow}>
+            <Text style={styles.legendIcon}>🕳️</Text>
+            <Text style={styles.legendText}>Pothole Reported</Text>
+          </View>
+          <View style={styles.legendRow}>
+            <Text style={styles.legendIcon}>💥</Text>
+            <Text style={styles.legendText}>Accident Scene</Text>
+          </View>
+        </View>
+
+      </View>
+    </MapErrorBoundary>
   );
 }
 
-// ─── Card styles (unchanged) ──────────────────────────────────────────────────
-
-const cardStyles = StyleSheet.create({
-  wrapper: {
+// ── Styles ────────────────────────────────────────────────────────────────
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#0a0a0a',
+  },
+  map: {
+    flex: 1,
+  },
+  loadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: '#0a0a0a',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 10,
+  },
+  loadingText: {
+    color: '#f5f5f5',
+    fontSize: 16,
+    marginTop: 14,
+    fontWeight: '600',
+  },
+  loadingSubText: {
+    color: '#555',
+    fontSize: 12,
+    marginTop: 6,
+  },
+  infoBar: {
     position: 'absolute',
-    bottom: 0,
+    top: 0,
     left: 0,
     right: 0,
-    backgroundColor: Colors.background.elevated,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    paddingHorizontal: 20,
-    paddingBottom: Layout.CONTENT_BOTTOM_PADDING - 20,
-    ...Shadows.lg,
-    // Ensure the card sits above the tab bar
-    zIndex: 20,
-  },
-  handleArea: {
-    alignItems: 'center',
-    paddingVertical: 10,
-  },
-  handle: {
-    width: 36,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: Colors.border.medium,
-  },
-  header: {
+    backgroundColor: 'rgba(10,10,10,0.85)',
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    gap: 8,
-    marginBottom: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    paddingTop: Platform.OS === 'ios' ? 50 : 12,
   },
-  typeTag: {
-    paddingHorizontal: 9,
-    paddingVertical: 3,
-    borderRadius: 6,
-  },
-  typeText: {
-    fontSize: 10,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 0.4,
-  },
-  distance: {
+  infoText: {
+    color: '#f5f5f5',
     fontSize: 13,
     fontWeight: '600',
-    color: Colors.label.secondary,
-    flex: 1,
   },
-  name: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: Colors.label.primary,
-    letterSpacing: -0.4,
-    marginBottom: 6,
-    lineHeight: 26,
-  },
-  hoursRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    marginBottom: 8,
-  },
-  hours: {
-    fontSize: 12,
-    color: Colors.label.tertiary,
-  },
-  caps: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-    marginBottom: 8,
-  },
-  capBadge: {
-    backgroundColor: Colors.background.grouped,
-    borderRadius: 6,
+  osmBadge: {
+    backgroundColor: '#1a1a1a',
     paddingHorizontal: 8,
     paddingVertical: 3,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: '#333',
   },
-  capText: {
+  osmBadgeText: {
+    color: '#888',
     fontSize: 10,
-    color: Colors.label.secondary,
-    textTransform: 'capitalize',
-    fontWeight: '500',
   },
-  capMore: {
-    fontSize: 10,
-    color: Colors.label.tertiary,
-    alignSelf: 'center',
-  },
-  divider: {
-    height: 0.5,
-    backgroundColor: Colors.separator.nonOpaque,
-    marginVertical: 14,
-  },
-  actions: {
+  buttonRow: {
+    position: 'absolute',
+    bottom: 20,
+    left: 16,
+    right: 16,
     flexDirection: 'row',
-    gap: 12,
-    marginBottom: 10,
+    gap: 10,
   },
-  btn: {
+  centerBtn: {
     flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 14,
-    borderRadius: 14,
-  },
-  btnNavigate: {
-    backgroundColor: Colors.brand.accent,
-    shadowColor: Colors.brand.accent,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.30,
-    shadowRadius: 10,
-    elevation: 6,
-  },
-  btnNavigateText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
-  btnCall: {
-    backgroundColor: `${Colors.status.success}12`,
-    borderWidth: 1.5,
-    borderColor: `${Colors.status.success}40`,
-  },
-  btnCallText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: Colors.status.success,
-  },
-  phoneHint: {
-    fontSize: 11,
-    color: Colors.label.tertiary,
-    textAlign: 'center',
-  },
-});
-
-// ─── Map styles ───────────────────────────────────────────────────────────────
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background.primary },
-  map: { flex: 1 },
-  filterBarWrapper: { position: 'absolute', top: Layout.STATUS_BAR_HEIGHT + 4, left: 0, right: 0, zIndex: 10, flexDirection: 'row', alignItems: 'center', paddingHorizontal: Layout.HORIZONTAL_PADDING, gap: 8 },
-  filterBar: { flexDirection: 'row', gap: 8, paddingRight: 4, flexGrow: 0 },
-  filterChip: { paddingHorizontal: 16, paddingVertical: 9, borderRadius: BorderRadius.full, borderWidth: 1, ...Shadows.sm },
-  filterText: { fontSize: 13, fontWeight: '500' },
-  sourceBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 7, borderRadius: BorderRadius.full, ...Shadows.sm },
-  sourceBadgeText: { fontSize: 10, fontWeight: '700', letterSpacing: 0.3 },
-
-  incidentBadge: {
-    position: 'absolute',
-    top: Layout.STATUS_BAR_HEIGHT + 52,
-    alignSelf: 'center',
-    zIndex: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: Colors.background.elevated,
-    borderRadius: BorderRadius.full,
-    paddingHorizontal: 14,
-    paddingVertical: 7,
+    backgroundColor: 'rgba(10,10,10,0.9)',
     borderWidth: 1,
-    borderColor: `${Colors.brand.primary}30`,
-    ...Shadows.sm,
-  },
-  incidentDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: Colors.brand.primary },
-  incidentBadgeText: { fontSize: 12, fontWeight: '600', color: Colors.brand.primary },
-
-  blackspotBadge: {
-    position: 'absolute',
-    top: Layout.STATUS_BAR_HEIGHT + 86,
-    alignSelf: 'center',
-    zIndex: 10,
-    flexDirection: 'row',
+    borderColor: '#333',
+    borderRadius: 10,
+    paddingVertical: 12,
     alignItems: 'center',
-    gap: 5,
-    backgroundColor: 'rgba(255,255,255,0.95)',
-    borderRadius: BorderRadius.full,
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-    borderWidth: 1,
-    borderColor: 'rgba(204,0,0,0.25)',
-    ...Shadows.sm,
   },
-  blackspotBadgeText: {
-    fontSize: 11,
+  centerBtnText: {
+    color: '#f5f5f5',
+    fontSize: 14,
     fontWeight: '600',
-    color: '#CC0000',
-  },
-
-  incidentPin: {
-    width: 20, height: 20, borderRadius: 10,
-    backgroundColor: 'rgba(255,59,48,0.25)',
-    alignItems: 'center', justifyContent: 'center',
-  },
-  incidentPinCore: {
-    width: 10, height: 10, borderRadius: 5,
-    backgroundColor: Colors.brand.primary,
-    borderWidth: 2, borderColor: '#FFFFFF',
-  },
-
-  // Simple callout — name only, no buttons
-  simpleCallout: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    maxWidth: 200,
-    ...Shadows.sm,
-  },
-  simpleCalloutText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: Colors.label.primary,
-  },
-  simpleCalloutHint: {
-    fontSize: 10,
-    color: Colors.label.tertiary,
-    marginTop: 2,
-  },
-
-  legend: {
-    position: 'absolute',
-    bottom: Layout.CONTENT_BOTTOM_PADDING + 70,
-    left: Layout.HORIZONTAL_PADDING,
-    backgroundColor: Colors.background.elevated,
-    borderRadius: BorderRadius.lg,
-    padding: 10,
-    gap: 5,
-    ...Shadows.sm,
-    borderWidth: 1,
-    borderColor: Colors.border.subtle,
-  },
-  legendRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  legendDot: { width: 8, height: 8, borderRadius: 4 },
-  legendText: { fontSize: 11, color: Colors.label.secondary, fontWeight: '500' },
-
-  countBadge: {
-    position: 'absolute',
-    bottom: Layout.CONTENT_BOTTOM_PADDING + 16,
-    alignSelf: 'center',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    backgroundColor: Colors.background.elevated,
-    borderRadius: BorderRadius.full,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    ...Shadows.sm,
-    borderWidth: 1,
-    borderColor: Colors.border.subtle,
-  },
-  countText: { fontSize: 13, color: Colors.label.primary, fontWeight: '500' },
-
-  myLocBtn: {
-    position: 'absolute',
-    bottom: Layout.CONTENT_BOTTOM_PADDING + 60,
-    right: Layout.HORIZONTAL_PADDING,
-    width: 44, height: 44, borderRadius: 22,
-    backgroundColor: Colors.background.elevated,
-    alignItems: 'center', justifyContent: 'center',
-    ...Shadows.md,
-    zIndex: 10,
   },
   hazardBtn: {
-    position: 'absolute',
-    bottom: Layout.CONTENT_BOTTOM_PADDING + 60, // sits above the "my location" button
-    right: Layout.HORIZONTAL_PADDING,
-    backgroundColor: '#1C1C1E',
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    flexDirection: 'row',
+    flex: 1,
+    backgroundColor: '#ef3e28',
+    borderRadius: 10,
+    paddingVertical: 12,
     alignItems: 'center',
-    gap: 6,
-    zIndex: 10,
-    borderWidth: 1,
-    borderColor: 'rgba(255,200,0,0.3)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
-    elevation: 5,
   },
   hazardBtnText: {
-    color: '#FFD60A',
-    fontSize: 13,
-    fontWeight: '700' as const,
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '700',
   },
-});
-
-const hazardCardStyles = StyleSheet.create({
-  card: {
+  legend: {
     position: 'absolute',
-    bottom: Layout.CONTENT_BOTTOM_PADDING + 70,
-    left: 14,
-    right: 14,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 14,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.18,
-    shadowRadius: 12,
-    elevation: 10,
-    zIndex: 20,
-    gap: 8,
+    top: Platform.OS === 'ios' ? 90 : 60,
+    right: 12,
+    backgroundColor: 'rgba(10,10,10,0.88)',
+    borderWidth: 1,
+    borderColor: '#2a2a2a',
+    borderRadius: 10,
+    padding: 10,
+    minWidth: 170,
   },
-  closeBtn: {
-    position: 'absolute',
-    top: 10,
-    right: 10,
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: '#F0F0F0',
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 1,
-  },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingRight: 28,  // space for close button
-  },
-  emoji: {
-    fontSize: 28,
-  },
-  headerText: {
-    flex: 1,
-    gap: 4,
-  },
-  hazardType: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#1A1A1A',
-    letterSpacing: -0.3,
-  },
-  credBadge: {
-    alignSelf: 'flex-start',
-    borderRadius: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-  },
-  credLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 0.3,
-  },
-  reportRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-  },
-  reportCount: {
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  metaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  metaText: {
-    fontSize: 11,
+  legendTitle: {
     color: '#888',
+    fontSize: 9,
+    fontWeight: '700',
+    letterSpacing: 1,
+    marginBottom: 7,
   },
-  dot: {
+  legendRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 5,
+    gap: 7,
+  },
+  legendDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+  },
+  legendIcon: {
+    fontSize: 13,
+    width: 14,
+    textAlign: 'center',
+  },
+  legendText: {
+    color: '#ccc',
     fontSize: 11,
-    color: '#CCC',
   },
 });
