@@ -1,8 +1,4 @@
 // app/(tabs)/map.tsx
-// Full-featured map — Leaflet.js + OpenStreetMap
-// Restores: POI search, category filters, hazard markers, blackspot circles,
-//           credibility counts, Report Hazard, CACHED/LIVE badge, found count
-
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   View,
@@ -18,8 +14,8 @@ import {
 import { WebView } from 'react-native-webview';
 import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import * as Location from 'expo-location';
 import { MapErrorBoundary } from '../../components/MapErrorBoundary';
-import { getLastKnownLocation } from '../../services/GPSService';
 import { searchPOI, type POI } from '../../services/POIDatabase';
 import {
   onlinePOIService,
@@ -31,9 +27,6 @@ import { hazardReportStore } from '../../services/DriverIntelligence/HazardRepor
 import { hazardBroadcaster } from '../../services/DriverIntelligence/HazardBroadcaster';
 import { useNetworkStatus } from '../../services/NetworkMonitor';
 import { POI_TYPES, type POIType } from '../../utils/constants';
-import { Colors, BorderRadius, Layout } from '../../theme';
-import type { Blackspot } from '../../services/RoadDNA/types';
-import type { HazardCluster } from '../../services/DriverIntelligence/types';
 
 // ── Category definitions ──────────────────────────────────────────────────────
 
@@ -46,199 +39,160 @@ const CATEGORIES = [
   { type: POI_TYPES.BLOOD_BANK, label: 'Blood Bank', color: '#ef3e28', bg: '#FEF1EE', border: '#F4C5BE' },
 ] as const;
 
-// ── Leaflet HTML (loads once, receives data via postMessage) ──────────────────
+// ── Leaflet HTML ──────────────────────────────────────────────────────────────
+// KEY FIX: baseUrl is set to https://tile.openstreetmap.org so tile requests are allowed
 
 const LEAFLET_HTML = `<!DOCTYPE html>
 <html>
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
 <style>
-  * { margin:0; padding:0; box-sizing:border-box; }
-  html, body, #map { width:100%; height:100%; background:#e8e0d4; }
-  .leaflet-popup-content-wrapper { background:#fff; border-radius:10px; box-shadow:0 4px 20px rgba(0,0,0,0.15); border:none; }
-  .leaflet-popup-tip-container { display:none; }
-  .poi-popup { min-width:200px; }
-  .poi-popup h3 { font-size:14px; font-weight:700; color:#141210; margin-bottom:4px; line-height:1.3; }
-  .poi-popup .dist { font-size:11px; color:#888; margin-bottom:8px; }
-  .poi-popup .tags { display:flex; flex-wrap:wrap; gap:4px; margin-bottom:10px; }
-  .poi-popup .tag { background:#f0f0f0; border-radius:4px; padding:2px 7px; font-size:9px; color:#666; font-weight:600; }
-  .poi-popup .actions { display:flex; gap:8px; }
-  .poi-popup .btn { flex:1; display:flex; align-items:center; justify-content:center; gap:5px; padding:9px; border-radius:8px; border:none; cursor:pointer; font-size:12px; font-weight:700; }
-  .btn-call { background:#e8f6ef; color:#0E8C56; }
-  .btn-nav { background:#ebf0fc; color:#1648D0; }
-  .hazard-popup { min-width:160px; }
-  .hazard-popup h3 { font-size:13px; font-weight:700; color:#141210; margin-bottom:4px; }
-  .hazard-popup .cred { font-size:11px; margin-bottom:4px; }
-  .hazard-popup .time { font-size:10px; color:#888; }
-  .cred-low { color:#8E8E93; }
-  .cred-medium { color:#C05C0A; }
-  .cred-high { color:#ef3e28; }
-  .user-dot { width:16px; height:16px; background:#007aff; border:3px solid #fff; border-radius:50%; box-shadow:0 0 0 4px rgba(0,122,255,0.25); }
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body,#map{width:100%;height:100%;background:#e8e0d4;}
+.leaflet-popup-content-wrapper{background:#fff;border-radius:12px;box-shadow:0 4px 20px rgba(0,0,0,0.18);border:none;padding:0;}
+.leaflet-popup-content{margin:0;padding:0;}
+.leaflet-popup-tip-container{display:none;}
+.pp{padding:14px;min-width:200px;font-family:-apple-system,sans-serif;}
+.pp h3{font-size:14px;font-weight:700;color:#141210;margin-bottom:3px;line-height:1.3;}
+.pp .dist{font-size:11px;color:#888;margin-bottom:8px;}
+.pp .tags{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:10px;}
+.pp .tag{background:#f0ede6;border-radius:4px;padding:2px 7px;font-size:9px;color:#666;font-weight:600;text-transform:capitalize;}
+.pp .acts{display:flex;gap:8px;}
+.pp .btn{flex:1;display:flex;align-items:center;justify-content:center;gap:5px;padding:9px 6px;border-radius:8px;border:none;cursor:pointer;font-size:11px;font-weight:700;font-family:-apple-system,sans-serif;}
+.bc{background:#e8f6ef;color:#0E8C56;}
+.bn{background:#ebf0fc;color:#1648D0;}
+.hp{padding:12px;min-width:160px;font-family:-apple-system,sans-serif;}
+.hp h3{font-size:13px;font-weight:700;color:#141210;margin-bottom:4px;}
+.hp .cr{font-size:11px;margin-bottom:3px;}
+.hp .tm{font-size:10px;color:#888;}
+.cr-low{color:#8E8E93;}.cr-medium{color:#C05C0A;}.cr-high{color:#ef3e28;}
 </style>
 </head>
 <body>
 <div id="map"></div>
 <script>
-var map = L.map('map', { center:[20.5937,78.9629], zoom:13, zoomControl:false });
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-  maxZoom:19,
-  attribution:'© OpenStreetMap'
+var map=L.map('map',{center:[20.5937,78.9629],zoom:13,zoomControl:false});
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
+  maxZoom:19,attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+  crossOrigin:true
 }).addTo(map);
-L.control.zoom({ position:'bottomright' }).addTo(map);
+L.control.zoom({position:'bottomright'}).addTo(map);
 
-// Layer groups
-var poiLayer = L.layerGroup().addTo(map);
-var hazardLayer = L.layerGroup().addTo(map);
-var blackspotLayer = L.layerGroup().addTo(map);
+var poiLayer=L.layerGroup().addTo(map);
+var hazardLayer=L.layerGroup().addTo(map);
+var bsLayer=L.layerGroup().addTo(map);
+var userMarker=null;
+var userCircle=null;
 
-// User location
-var userIcon = L.divIcon({ html:'<div class="user-dot"></div>', iconSize:[16,16], iconAnchor:[8,8], className:'' });
-var userMarker = null;
+var POI_COLORS={hospital:'#ef3e28',police:'#1648D0',towing:'#C05C0A',petrol:'#6B35CC',puncture:'#0E8C56',blood_bank:'#ef3e28'};
 
-function updateUser(lat, lng) {
-  if (userMarker) { userMarker.setLatLng([lat, lng]); }
-  else { userMarker = L.marker([lat,lng],{icon:userIcon}).addTo(map); }
-  L.circle([lat,lng],{color:'#007aff',fillColor:'#007aff',fillOpacity:0.06,radius:120,weight:1}).addTo(map);
+function makePinIcon(color){
+  var svg='<svg width="28" height="36" viewBox="0 0 28 36" xmlns="http://www.w3.org/2000/svg">'+
+    '<path d="M14 0C6.27 0 0 6.27 0 14c0 9.33 14 22 14 22S28 23.33 28 14C28 6.27 21.73 0 14 0z" fill="'+color+'"/>'+
+    '<circle cx="14" cy="14" r="6" fill="rgba(255,255,255,0.4)"/></svg>';
+  return L.divIcon({html:svg,iconSize:[28,36],iconAnchor:[14,36],popupAnchor:[0,-38],className:''});
 }
 
-// POI colors by type
-var poiColors = {
-  hospital:'#ef3e28', police:'#1648D0', towing:'#C05C0A',
-  petrol:'#6B35CC', puncture:'#0E8C56', blood_bank:'#ef3e28'
-};
-
-function makePOIIcon(type) {
-  var color = poiColors[type] || '#888';
-  var svg = '<svg width="28" height="36" viewBox="0 0 28 36" xmlns="http://www.w3.org/2000/svg">' +
-    '<path d="M14 0C6.27 0 0 6.27 0 14c0 9.33 14 22 14 22S28 23.33 28 14C28 6.27 21.73 0 14 0z" fill="' + color + '"/>' +
-    '<circle cx="14" cy="14" r="7" fill="rgba(255,255,255,0.35)"/>' +
-    '</svg>';
+function makeUserIcon(){
   return L.divIcon({
-    html: svg,
-    iconSize: [28,36], iconAnchor: [14,36], popupAnchor: [0,-36],
-    className: ''
+    html:'<div style="width:16px;height:16px;background:#007aff;border:3px solid #fff;border-radius:50%;box-shadow:0 0 0 4px rgba(0,122,255,0.25);"></div>',
+    iconSize:[16,16],iconAnchor:[8,8],className:''
   });
 }
 
-function timeSince(ts) {
-  var m = Math.round((Date.now() - ts) / 60000);
-  if (m < 60) return m + ' min ago';
-  return Math.round(m/60) + ' hr ago';
+function timeSince(ts){
+  var m=Math.round((Date.now()-ts)/60000);
+  if(m<1)return'Just now';
+  if(m<60)return m+' min ago';
+  return Math.round(m/60)+' hr ago';
 }
 
-// Load POIs
-function loadPOIs(pois) {
+function rn(data){
+  try{window.ReactNativeWebView.postMessage(JSON.stringify(data));}catch(e){}
+}
+
+function loadPOIs(pois){
   poiLayer.clearLayers();
-  pois.forEach(function(poi) {
-    var marker = L.marker([poi.lat, poi.lng], { icon: makePOIIcon(poi.type) });
-    var tags = (poi.capabilities || []).slice(0,4).map(function(c){ return '<span class="tag">' + c.replace(/_/g,' ') + '</span>'; }).join('');
-    var phone = poi.phone || '';
-    var popup = '<div class="poi-popup">' +
-      '<h3>' + poi.name + '</h3>' +
-      '<div class="dist">' + (poi.distanceText || '') + ' away</div>' +
-      (tags ? '<div class="tags">' + tags + '</div>' : '') +
-      '<div class="actions">' +
-      (phone ? '<button class="btn btn-call" onclick="callPOI(\'' + phone + '\')">📞 ' + phone + '</button>' : '') +
-      '<button class="btn btn-nav" onclick="navPOI(' + poi.lat + ',' + poi.lng + ',\'' + poi.name + '\')">🧭 Navigate</button>' +
+  pois.forEach(function(poi){
+    var color=POI_COLORS[poi.type]||'#888';
+    var icon=makePinIcon(color);
+    var tags=(poi.capabilities||[]).slice(0,4).map(function(c){return'<span class="tag">'+c.replace(/_/g,' ')+'</span>';}).join('');
+    var phone=poi.phone||'';
+    var popup='<div class="pp">'+
+      '<h3>'+poi.name+'</h3>'+
+      '<div class="dist">'+(poi.distanceText||'')+'</div>'+
+      (tags?'<div class="tags">'+tags+'</div>':'')+
+      '<div class="acts">'+
+      (phone?'<button class="btn bc" onclick="rn({type:\'CALL\',phone:\''+phone+'\'})">&#128222; '+phone+'</button>':'')+
+      '<button class="btn bn" onclick="rn({type:\'NAVIGATE\',lat:'+poi.lat+',lng:'+poi.lng+',name:\''+poi.name.replace(/'/g,'')+'\'})">&#129517; Navigate</button>'+
       '</div></div>';
-    marker.bindPopup(popup, { maxWidth:280 });
-    poiLayer.addLayer(marker);
+    L.marker([poi.lat,poi.lng],{icon:icon}).bindPopup(popup,{maxWidth:280}).addTo(poiLayer);
   });
-  sendToRN({ type:'POI_COUNT', count:pois.length });
+  rn({type:'POI_COUNT',count:pois.length});
 }
 
-function callPOI(phone) {
-  sendToRN({ type:'CALL', phone:phone });
-}
-function navPOI(lat, lng, name) {
-  sendToRN({ type:'NAVIGATE', lat:lat, lng:lng, name:name });
-}
-
-// Load hazard clusters
-function loadHazards(clusters) {
+function loadHazards(clusters){
   hazardLayer.clearLayers();
-  clusters.forEach(function(c) {
-    var emoji = c.hazardType === 'pothole' ? '🕳️' :
-                c.hazardType === 'accident' ? '💥' :
-                c.hazardType === 'road_closed' ? '🚧' : '🪨';
-    var credClass = 'cred-' + c.credibilityLevel;
-    var credLabel = c.credibilityLevel === 'high' ? 'Confirmed ✓' :
-                    c.credibilityLevel === 'medium' ? 'Likely Real' : 'Unverified';
-    var ringColor = c.credibilityLevel === 'high' ? '#ef3e28' :
-                    c.credibilityLevel === 'medium' ? '#C05C0A' : '#8E8E93';
-
-    // Danger zone circle
-    L.circle([c.lat,c.lng],{
-      color:ringColor, fillColor:ringColor, fillOpacity:0.12, radius:80, weight:2
-    }).addTo(hazardLayer);
-
-    // Count badge HTML
-    var badge = c.reportCount > 1 ? '<div style="position:absolute;top:-6px;right:-8px;background:' + ringColor + ';color:#fff;border-radius:10px;min-width:18px;height:18px;font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center;padding:0 4px;border:2px solid #fff;">' + c.reportCount + '</div>' : '';
-
-    var icon = L.divIcon({
-      html: '<div style="position:relative;width:36px;height:36px;background:#fff;border-radius:50%;border:2.5px solid ' + ringColor + ';display:flex;align-items:center;justify-content:center;font-size:20px;box-shadow:0 2px 8px rgba(0,0,0,0.2);">' + emoji + badge + '</div>',
-      iconSize:[36,36], iconAnchor:[18,18], className:''
+  clusters.forEach(function(c){
+    var emoji=c.hazardType==='pothole'?'&#128371;':c.hazardType==='accident'?'&#128165;':c.hazardType==='road_closed'?'&#128679;':'&#129618;';
+    var ringColor=c.credibilityLevel==='high'?'#ef3e28':c.credibilityLevel==='medium'?'#C05C0A':'#8E8E93';
+    var credLabel=c.credibilityLevel==='high'?'Confirmed':c.credibilityLevel==='medium'?'Likely Real':'Unverified';
+    var credClass='cr-'+c.credibilityLevel;
+    L.circle([c.lat,c.lng],{color:ringColor,fillColor:ringColor,fillOpacity:0.14,radius:80,weight:2}).addTo(hazardLayer);
+    var badge=c.reportCount>1?'<div style="position:absolute;top:-6px;right:-8px;background:'+ringColor+';color:#fff;border-radius:10px;min-width:18px;height:18px;font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center;padding:0 4px;border:2px solid #fff;">'+c.reportCount+'</div>':'';
+    var icon=L.divIcon({
+      html:'<div style="position:relative;width:36px;height:36px;background:#fff;border-radius:50%;border:2.5px solid '+ringColor+';display:flex;align-items:center;justify-content:center;font-size:19px;box-shadow:0 2px 8px rgba(0,0,0,0.2);">'+emoji+badge+'</div>',
+      iconSize:[36,36],iconAnchor:[18,18],className:''
     });
-
-    var timeStr = timeSince(c.lastReportedAt);
-    var popup = '<div class="hazard-popup">' +
-      '<h3>' + emoji + ' ' + c.hazardType.replace('_',' ').toUpperCase() + '</h3>' +
-      '<div class="cred ' + credClass + '">' + credLabel + ' (' + c.reportCount + ' report' + (c.reportCount > 1 ? 's' : '') + ')</div>' +
-      '<div class="time">Last reported: ' + timeStr + '</div>' +
-      '</div>';
-
+    var popup='<div class="hp"><h3>'+c.hazardType.replace('_',' ').toUpperCase()+'</h3>'+
+      '<div class="cr '+credClass+'">'+credLabel+' ('+c.reportCount+' report'+(c.reportCount>1?'s':'')+')</div>'+
+      '<div class="tm">'+timeSince(c.lastReportedAt)+'</div></div>';
     L.marker([c.lat,c.lng],{icon:icon}).bindPopup(popup).addTo(hazardLayer);
   });
 }
 
-// Load blackspot circles
-function loadBlackspots(blackspots) {
-  blackspotLayer.clearLayers();
-  blackspots.forEach(function(b) {
-    var color = b.severity === 'high' ? '#ef3e28' : b.severity === 'medium' ? '#ff9500' : '#ffcc00';
-    L.circle([b.lat,b.lng],{
-      color:color, fillColor:color, fillOpacity:0.18, radius:b.radius_m||50, weight:2
-    }).bindPopup('<b>⚠ ' + b.severity.toUpperCase() + ' RISK ZONE</b><br>' + b.event_count + ' driving events recorded').addTo(blackspotLayer);
+function loadBlackspots(bs){
+  bsLayer.clearLayers();
+  bs.forEach(function(b){
+    var color=b.severity==='high'?'#ef3e28':b.severity==='medium'?'#ff9500':'#ffcc00';
+    L.circle([b.lat,b.lng],{color:color,fillColor:color,fillOpacity:0.18,radius:b.radius_m||50,weight:2})
+      .bindPopup('<b>&#9888; '+b.severity.toUpperCase()+' RISK ZONE</b><br>'+b.event_count+' driving events')
+      .addTo(bsLayer);
   });
 }
 
-// Add a single new hazard (after reporting)
-function addNewHazard(hazard) {
-  loadHazards(hazard);
+function setUser(lat,lng){
+  if(userMarker){userMarker.setLatLng([lat,lng]);}
+  else{userMarker=L.marker([lat,lng],{icon:makeUserIcon(),zIndexOffset:1000}).addTo(map);}
+  if(userCircle){map.removeLayer(userCircle);}
+  userCircle=L.circle([lat,lng],{color:'#007aff',fillColor:'#007aff',fillOpacity:0.07,radius:120,weight:1}).addTo(map);
 }
 
-// Message handler from React Native
-function handleRNMessage(rawData) {
-  try {
-    var msg = JSON.parse(rawData);
-    if (msg.type === 'LOAD_POIS') loadPOIs(msg.pois);
-    else if (msg.type === 'LOAD_HAZARDS') loadHazards(msg.hazards);
-    else if (msg.type === 'LOAD_BLACKSPOTS') loadBlackspots(msg.blackspots);
-    else if (msg.type === 'UPDATE_USER') {
-      updateUser(msg.lat, msg.lng);
-      map.setView([msg.lat, msg.lng], 14, { animate:true });
+function handleMsg(raw){
+  try{
+    var msg=JSON.parse(raw);
+    if(msg.type==='LOAD_POIS'){loadPOIs(msg.pois);}
+    else if(msg.type==='LOAD_HAZARDS'){loadHazards(msg.hazards);}
+    else if(msg.type==='LOAD_BLACKSPOTS'){loadBlackspots(msg.blackspots);}
+    else if(msg.type==='SET_USER'){
+      setUser(msg.lat,msg.lng);
+      map.setView([msg.lat,msg.lng],14,{animate:true});
     }
-    else if (msg.type === 'CENTER_MAP') {
-      map.setView([msg.lat, msg.lng], 15, { animate:true });
-    }
-    else if (msg.type === 'REFRESH_HAZARDS') loadHazards(msg.hazards);
-  } catch(e) {}
+    else if(msg.type==='CENTER'){map.setView([msg.lat,msg.lng],15,{animate:true});}
+    else if(msg.type==='REFRESH_HAZARDS'){loadHazards(msg.hazards);}
+  }catch(e){}
 }
 
-document.addEventListener('message', function(e){ handleRNMessage(e.data); });
-window.addEventListener('message', function(e){ handleRNMessage(e.data); });
+document.addEventListener('message',function(e){handleMsg(e.data);});
+window.addEventListener('message',function(e){handleMsg(e.data);});
 
-function sendToRN(data) {
-  try { window.ReactNativeWebView.postMessage(JSON.stringify(data)); } catch(e){}
-}
-
-// Signal ready
-setTimeout(function(){
-  sendToRN({ type:'MAP_READY' });
-}, 600);
+// Signal ready after map and tiles start loading
+map.whenReady(function(){
+  setTimeout(function(){rn({type:'MAP_READY'});},300);
+});
 </script>
 </body>
 </html>`;
@@ -248,11 +202,10 @@ setTimeout(function(){
 export default function MapScreen() {
   const webViewRef = useRef<WebView>(null);
   const { isConnected } = useNetworkStatus();
+  const mapReadyRef = useRef(false);
 
   const [selectedCategory, setSelectedCategory] = useState<POIType>(POI_TYPES.HOSPITAL);
-  const [pois, setPois] = useState<POI[]>([]);
   const [loading, setLoading] = useState(false);
-  const [mapReady, setMapReady] = useState(false);
   const [foundCount, setFoundCount] = useState(0);
   const [dataSource, setDataSource] = useState<DataSource>('offline');
   const [userLat, setUserLat] = useState(20.5937);
@@ -260,59 +213,47 @@ export default function MapScreen() {
   const [hasLocation, setHasLocation] = useState(false);
   const [reporting, setReporting] = useState(false);
 
-  const mapReadyRef = useRef(false);
-
-  // ── Send message to WebView ────────────────────────────────────────────────
+  // ── Send to map ─────────────────────────────────────────────────────────────
 
   const sendToMap = useCallback((data: object) => {
-    if (webViewRef.current && mapReadyRef.current) {
-      webViewRef.current.postMessage(JSON.stringify(data));
+    try {
+      if (webViewRef.current) {
+        webViewRef.current.postMessage(JSON.stringify(data));
+      }
+    } catch (e) {}
+  }, []);
+
+  // ── Get location — tries cached first, then requests fresh ─────────────────
+
+  const getLocation = useCallback(async (): Promise<{ lat: number; lng: number } | null> => {
+    try {
+      // Step 1: request permission
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        console.warn('[Map] Location permission denied');
+        return null;
+      }
+
+      // Step 2: try last known first (fast)
+      const last = await Location.getLastKnownPositionAsync();
+      if (last && last.coords.accuracy && last.coords.accuracy < 500) {
+        return { lat: last.coords.latitude, lng: last.coords.longitude };
+      }
+
+      // Step 3: request current position (may take a few seconds)
+      const current = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+        timeInterval: 5000,
+      });
+      return { lat: current.coords.latitude, lng: current.coords.longitude };
+
+    } catch (e) {
+      console.warn('[Map] getLocation error:', e);
+      return null;
     }
   }, []);
 
-  // ── Load user location ────────────────────────────────────────────────────
-
-  const loadUserLocation = useCallback(async () => {
-    try {
-      const loc = await getLastKnownLocation();
-      if (loc) {
-        setUserLat(loc.lat);
-        setUserLng(loc.lng);
-        setHasLocation(true);
-        sendToMap({ type: 'UPDATE_USER', lat: loc.lat, lng: loc.lng });
-        return loc;
-      }
-    } catch (e) {
-      console.warn('[Map] Location error:', e);
-    }
-    return null;
-  }, [sendToMap]);
-
-  // ── Load blackspots ───────────────────────────────────────────────────────
-
-  const loadBlackspots = useCallback(async () => {
-    try {
-      const spots = await loadCachedBlackspots();
-      if (spots.length > 0) {
-        sendToMap({ type: 'LOAD_BLACKSPOTS', blackspots: spots });
-      }
-    } catch (e) {
-      console.warn('[Map] Blackspot load error:', e);
-    }
-  }, [sendToMap]);
-
-  // ── Load hazard clusters ──────────────────────────────────────────────────
-
-  const loadHazards = useCallback(() => {
-    try {
-      const clusters = hazardReportStore.getClusters();
-      sendToMap({ type: 'LOAD_HAZARDS', hazards: clusters });
-    } catch (e) {
-      console.warn('[Map] Hazard load error:', e);
-    }
-  }, [sendToMap]);
-
-  // ── Load POIs for selected category ──────────────────────────────────────
+  // ── Load POIs ───────────────────────────────────────────────────────────────
 
   const loadPOIs = useCallback(async (category: POIType, lat: number, lng: number) => {
     setLoading(true);
@@ -320,7 +261,6 @@ export default function MapScreen() {
       let results: POI[] = [];
 
       if (isConnected) {
-        // Try online first
         try {
           await onlinePOIService.initialize();
           const valid = await onlinePOIService.isCacheValid(lat, lng);
@@ -332,51 +272,69 @@ export default function MapScreen() {
             setDataSource(valid ? 'cached' : 'live');
           }
         } catch (e) {
-          // fall through to offline
+          // fall to offline
         }
       }
 
-      // Offline fallback
       if (results.length === 0) {
         results = await searchPOI(lat, lng, category);
         setDataSource('offline');
       }
 
-      setPois(results);
       setFoundCount(results.length);
       sendToMap({ type: 'LOAD_POIS', pois: results });
     } catch (e) {
-      console.warn('[Map] POI load error:', e);
+      console.warn('[Map] loadPOIs error:', e);
     } finally {
       setLoading(false);
     }
   }, [isConnected, sendToMap]);
 
-  // ── On map ready — send all data ──────────────────────────────────────────
+  // ── Load hazards ────────────────────────────────────────────────────────────
+
+  const loadHazards = useCallback(async () => {
+    try {
+      await hazardReportStore.initialize();
+      const clusters = hazardReportStore.getClusters();
+      sendToMap({ type: 'LOAD_HAZARDS', hazards: clusters });
+    } catch (e) {}
+  }, [sendToMap]);
+
+  // ── Load blackspots ─────────────────────────────────────────────────────────
+
+  const loadBlackspots = useCallback(async () => {
+    try {
+      const spots = await loadCachedBlackspots();
+      if (spots.length > 0) {
+        sendToMap({ type: 'LOAD_BLACKSPOTS', blackspots: spots });
+      }
+    } catch (e) {}
+  }, [sendToMap]);
+
+  // ── On map ready ────────────────────────────────────────────────────────────
 
   const onMapReady = useCallback(async () => {
+    if (mapReadyRef.current) return; // prevent double-fire
     mapReadyRef.current = true;
-    setMapReady(true);
 
-    // Load location first
-    const loc = await loadUserLocation();
-    const lat = loc?.lat ?? userLat;
-    const lng = loc?.lng ?? userLng;
+    // Get location
+    const loc = await getLocation();
+    if (loc) {
+      setUserLat(loc.lat);
+      setUserLng(loc.lng);
+      setHasLocation(true);
+      sendToMap({ type: 'SET_USER', lat: loc.lat, lng: loc.lng });
+      await loadPOIs(selectedCategory, loc.lat, loc.lng);
+    } else {
+      // No location — still load with default coords
+      await loadPOIs(selectedCategory, userLat, userLng);
+    }
 
-    // Send all data to map
-    await loadPOIs(selectedCategory, lat, lng);
     await loadBlackspots();
-    loadHazards();
-  }, [loadUserLocation, loadPOIs, loadBlackspots, loadHazards, selectedCategory, userLat, userLng]);
+    await loadHazards();
+  }, [getLocation, sendToMap, loadPOIs, loadBlackspots, loadHazards, selectedCategory, userLat, userLng]);
 
-  // ── Handle category change ────────────────────────────────────────────────
-
-  const handleCategoryChange = useCallback(async (category: POIType) => {
-    setSelectedCategory(category);
-    await loadPOIs(category, userLat, userLng);
-  }, [loadPOIs, userLat, userLng]);
-
-  // ── Handle WebView messages ───────────────────────────────────────────────
+  // ── WebView message handler ─────────────────────────────────────────────────
 
   const handleWebViewMessage = useCallback((event: any) => {
     try {
@@ -386,71 +344,88 @@ export default function MapScreen() {
         onMapReady();
         return;
       }
-
       if (msg.type === 'POI_COUNT') {
         setFoundCount(msg.count);
         return;
       }
-
       if (msg.type === 'CALL') {
-        if (msg.phone) {
-          Linking.openURL('tel:' + msg.phone).catch(() => {
-            Alert.alert('Cannot Call', 'No phone number available.');
-          });
-        }
+        Linking.openURL('tel:' + msg.phone).catch(() => {
+          Alert.alert('Cannot Call', 'No number available.');
+        });
         return;
       }
-
       if (msg.type === 'NAVIGATE') {
-        const geoUrl = 'geo:' + msg.lat + ',' + msg.lng + '?q=' + msg.lat + ',' + msg.lng + '(' + encodeURIComponent(msg.name) + ')';
-        Linking.openURL(geoUrl).catch(() => {
+        const url = 'geo:' + msg.lat + ',' + msg.lng + '?q=' + msg.lat + ',' + msg.lng + '(' + encodeURIComponent(msg.name) + ')';
+        Linking.openURL(url).catch(() => {
           Linking.openURL('https://maps.google.com/?q=' + msg.lat + ',' + msg.lng);
         });
         return;
       }
-
-    } catch (e) { /* ignore */ }
+    } catch (e) {}
   }, [onMapReady]);
 
-  // ── Report Hazard ─────────────────────────────────────────────────────────
+  // ── Category change ─────────────────────────────────────────────────────────
 
-  const handleReportHazard = useCallback(() => {
-    if (!hasLocation) {
-      Alert.alert('Location Needed', 'Enable location to report a hazard at your position.');
+  const handleCategoryChange = useCallback(async (cat: POIType) => {
+    setSelectedCategory(cat);
+    if (hasLocation) {
+      await loadPOIs(cat, userLat, userLng);
+    }
+  }, [loadPOIs, userLat, userLng, hasLocation]);
+
+  // ── Center on me ────────────────────────────────────────────────────────────
+
+  const handleCenterOnMe = useCallback(async () => {
+    const loc = await getLocation();
+    if (loc) {
+      setUserLat(loc.lat);
+      setUserLng(loc.lng);
+      setHasLocation(true);
+      sendToMap({ type: 'SET_USER', lat: loc.lat, lng: loc.lng });
+      sendToMap({ type: 'CENTER', lat: loc.lat, lng: loc.lng });
+      await loadPOIs(selectedCategory, loc.lat, loc.lng);
+    } else {
+      Alert.alert('Location Unavailable', 'Could not get your current location. Please check GPS settings.');
+    }
+  }, [getLocation, sendToMap, loadPOIs, selectedCategory]);
+
+  // ── Report Hazard ───────────────────────────────────────────────────────────
+
+  const handleReportHazard = useCallback(async () => {
+    // Get fresh location even if hasLocation is false
+    const loc = await getLocation();
+    if (!loc) {
+      Alert.alert(
+        'Location Needed',
+        'AETHER could not read your GPS. Please make sure location is enabled in your phone settings, then tap Report Hazard again.',
+        [{ text: 'OK' }]
+      );
       return;
     }
+
+    // Update our stored coords
+    setUserLat(loc.lat);
+    setUserLng(loc.lng);
+    setHasLocation(true);
 
     Alert.alert(
       'Report Road Hazard',
       'What hazard are you reporting at your current location?',
       [
-        {
-          text: 'Pothole',
-          onPress: () => submitHazard('pothole'),
-        },
-        {
-          text: 'Accident Scene',
-          onPress: () => submitHazard('accident'),
-        },
-        {
-          text: 'Road Blocked',
-          onPress: () => submitHazard('road_closed'),
-        },
-        {
-          text: 'Debris on Road',
-          onPress: () => submitHazard('debris'),
-        },
+        { text: 'Pothole',       onPress: () => submitHazard('pothole') },
+        { text: 'Accident Scene', onPress: () => submitHazard('accident') },
+        { text: 'Road Blocked',  onPress: () => submitHazard('road_closed') },
+        { text: 'Debris on Road', onPress: () => submitHazard('debris') },
         { text: 'Cancel', style: 'cancel' },
       ]
     );
-  }, [hasLocation]);
+  }, [getLocation]);
 
   const submitHazard = useCallback(async (type: 'pothole' | 'accident' | 'road_closed' | 'debris') => {
     setReporting(true);
     try {
       const result = await hazardBroadcaster.reportHazard(type, 2);
       if (result.success) {
-        // Reload hazards to show the new one
         const clusters = hazardReportStore.getClusters();
         sendToMap({ type: 'LOAD_HAZARDS', hazards: clusters });
         Alert.alert(
@@ -467,64 +442,67 @@ export default function MapScreen() {
     }
   }, [sendToMap]);
 
-  // ── Center on user ────────────────────────────────────────────────────────
-
-  const handleCenterOnMe = useCallback(async () => {
-    const loc = await loadUserLocation();
-    if (loc) {
-      sendToMap({ type: 'CENTER_MAP', lat: loc.lat, lng: loc.lng });
-      await loadPOIs(selectedCategory, loc.lat, loc.lng);
-    }
-  }, [loadUserLocation, sendToMap, loadPOIs, selectedCategory]);
-
-  // ── Reload when tab is focused ────────────────────────────────────────────
+  // ── Refresh hazards when tab is focused ────────────────────────────────────
 
   useFocusEffect(
     useCallback(() => {
       if (mapReadyRef.current) {
         loadHazards();
-        loadBlackspots();
       }
-    }, [loadHazards, loadBlackspots])
+    }, [loadHazards])
   );
 
-  // ── Source badge config ───────────────────────────────────────────────────
+  // ── Source badge ────────────────────────────────────────────────────────────
 
   const sourceBadge = {
     live:    { label: 'LIVE',    color: '#0E8C56', bg: '#E8F6EF', icon: 'wifi' },
     cached:  { label: 'CACHED',  color: '#1648D0', bg: '#EBF0FC', icon: 'checkmark-circle' },
-    offline: { label: 'OFFLINE', color: '#ADAAA2', bg: '#F0EDE6', icon: 'cloud-offline-outline' },
+    offline: { label: 'OFFLINE', color: '#888',    bg: '#F0EDE6', icon: 'cloud-offline-outline' },
   }[dataSource] as { label: string; color: string; bg: string; icon: string };
 
   const selectedCat = CATEGORIES.find(c => c.type === selectedCategory) ?? CATEGORIES[0];
 
-  // ── Render ────────────────────────────────────────────────────────────────
+  // ── Render ──────────────────────────────────────────────────────────────────
 
   return (
     <MapErrorBoundary>
       <View style={styles.container}>
 
-        {/* ── WebView Map ── */}
+        {/* ── WebView: KEY FIX — baseUrl allows tile requests ── */}
         <WebView
           ref={webViewRef}
           style={styles.map}
           originWhitelist={['*']}
-          source={{ html: LEAFLET_HTML }}
+          source={{
+            html: LEAFLET_HTML,
+            baseUrl: 'https://tile.openstreetmap.org',  // ← THIS FIXES THE BLANK MAP
+          }}
           onMessage={handleWebViewMessage}
-          onError={(e) => console.error('[Map] WebView error:', e.nativeEvent.description)}
-          javaScriptEnabled
-          domStorageEnabled
+          onError={(e) => {
+            console.error('[Map] WebView error:', e.nativeEvent.description);
+          }}
+          onHttpError={(e) => {
+            console.warn('[Map] HTTP error:', e.nativeEvent.statusCode);
+          }}
+          javaScriptEnabled={true}
+          domStorageEnabled={true}
           mixedContentMode="always"
-          allowsInlineMediaPlayback
+          allowFileAccessFromFileURLs={true}
+          allowUniversalAccessFromFileURLs={true}
+          allowsInlineMediaPlayback={true}
+          geolocationEnabled={true}
+          mediaPlaybackRequiresUserAction={false}
           startInLoadingState={false}
+          cacheEnabled={true}
+          cacheMode="LOAD_DEFAULT"
         />
 
-        {/* ── Top bar: category filters ── */}
+        {/* ── Category filter tabs + source badge ── */}
         <View style={styles.topBar}>
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.categoryStrip}
+            contentContainerStyle={styles.catStrip}
           >
             {CATEGORIES.map((cat) => {
               const active = selectedCategory === cat.type;
@@ -541,7 +519,7 @@ export default function MapScreen() {
                   activeOpacity={0.7}
                 >
                   <Text style={[
-                    styles.catPillText,
+                    styles.catText,
                     { color: active ? cat.color : '#706D65' },
                   ]}>
                     {cat.label}
@@ -551,7 +529,6 @@ export default function MapScreen() {
             })}
           </ScrollView>
 
-          {/* Source badge */}
           <View style={[styles.sourceBadge, { backgroundColor: sourceBadge.bg }]}>
             <Ionicons name={sourceBadge.icon as any} size={10} color={sourceBadge.color} />
             <Text style={[styles.sourceBadgeText, { color: sourceBadge.color }]}>
@@ -560,9 +537,9 @@ export default function MapScreen() {
           </View>
         </View>
 
-        {/* ── Report Hazard button (top right) ── */}
+        {/* ── Report Hazard button ── */}
         <TouchableOpacity
-          style={[styles.reportBtn, reporting && styles.reportBtnDisabled]}
+          style={[styles.reportBtn, reporting && { opacity: 0.5 }]}
           onPress={handleReportHazard}
           disabled={reporting}
           activeOpacity={0.85}
@@ -573,11 +550,13 @@ export default function MapScreen() {
           </Text>
         </TouchableOpacity>
 
-        {/* ── Loading overlay ── */}
+        {/* ── Loading spinner ── */}
         {loading && (
-          <View style={styles.loadingOverlay}>
+          <View style={styles.loadingChip}>
             <ActivityIndicator size="small" color={selectedCat.color} />
-            <Text style={styles.loadingText}>Loading {selectedCat.label}s...</Text>
+            <Text style={[styles.loadingText, { color: selectedCat.color }]}>
+              Loading {selectedCat.label}s...
+            </Text>
           </View>
         )}
 
@@ -589,33 +568,36 @@ export default function MapScreen() {
             { color: '#C05C0A', label: 'Towing' },
             { color: '#6B35CC', label: 'Petrol' },
             { color: '#0E8C56', label: 'Tyre' },
-            { color: '#C05C0A', label: 'User Reports', isHazard: true },
-          ].map((item) => (
+          ].map(item => (
             <View key={item.label} style={styles.legendRow}>
-              {item.isHazard ? (
-                <Text style={styles.legendEmoji}>⚠️</Text>
-              ) : (
-                <View style={[styles.legendDot, { backgroundColor: item.color }]} />
-              )}
+              <View style={[styles.legendDot, { backgroundColor: item.color }]} />
               <Text style={styles.legendText}>{item.label}</Text>
             </View>
           ))}
+          <View style={styles.legendRow}>
+            <Text style={styles.legendEmoji}>⚠️</Text>
+            <Text style={styles.legendText}>User Reports</Text>
+          </View>
         </View>
 
-        {/* ── Center on Me button ── */}
-        <TouchableOpacity style={styles.locateBtn} onPress={handleCenterOnMe} activeOpacity={0.8}>
+        {/* ── Locate me button ── */}
+        <TouchableOpacity
+          style={styles.locateBtn}
+          onPress={handleCenterOnMe}
+          activeOpacity={0.8}
+        >
           <Ionicons name="locate" size={20} color="#1648D0" />
         </TouchableOpacity>
 
-        {/* ── Found count bar (bottom) ── */}
+        {/* ── Found count bar ── */}
         <View style={styles.foundBar}>
           <Ionicons name="location-outline" size={13} color="#706D65" />
           <Text style={styles.foundText}>
             {foundCount > 0
               ? foundCount + ' found · tap a pin for options'
-              : hasLocation
-                ? 'No ' + selectedCat.label + 's found nearby'
-                : 'Enable location to search nearby'}
+              : loading
+                ? 'Searching...'
+                : 'No ' + selectedCat.label + 's found nearby'}
           </Text>
         </View>
 
@@ -634,27 +616,25 @@ const styles = StyleSheet.create({
   map: {
     flex: 1,
   },
-
-  // Top bar
   topBar: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
-    zIndex: 10,
-    paddingTop: Platform.OS === 'ios' ? 54 : 32,
+    zIndex: 20,
+    paddingTop: Platform.OS === 'ios' ? 54 : 30,
     paddingHorizontal: 12,
     paddingBottom: 10,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: 'rgba(255,255,255,0.92)',
+    backgroundColor: 'rgba(255,255,255,0.94)',
     borderBottomWidth: 0.5,
     borderBottomColor: 'rgba(0,0,0,0.08)',
   },
-  categoryStrip: {
+  catStrip: {
     gap: 7,
-    paddingRight: 8,
+    paddingRight: 6,
   },
   catPill: {
     paddingHorizontal: 14,
@@ -662,7 +642,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     borderWidth: 1.5,
   },
-  catPillText: {
+  catText: {
     fontSize: 13,
     fontWeight: '600',
   },
@@ -680,11 +660,9 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: 0.8,
   },
-
-  // Report Hazard button
   reportBtn: {
     position: 'absolute',
-    top: Platform.OS === 'ios' ? 110 : 88,
+    top: Platform.OS === 'ios' ? 108 : 88,
     right: 12,
     zIndex: 20,
     flexDirection: 'row',
@@ -702,25 +680,20 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     elevation: 4,
   },
-  reportBtnDisabled: {
-    opacity: 0.5,
-  },
   reportBtnText: {
     fontSize: 12,
     fontWeight: '700',
     color: '#C05C0A',
   },
-
-  // Loading
-  loadingOverlay: {
+  loadingChip: {
     position: 'absolute',
-    top: Platform.OS === 'ios' ? 110 : 88,
+    top: Platform.OS === 'ios' ? 108 : 88,
     left: 12,
-    zIndex: 15,
+    zIndex: 20,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 7,
-    backgroundColor: 'rgba(255,255,255,0.92)',
+    backgroundColor: 'rgba(255,255,255,0.95)',
     paddingHorizontal: 12,
     paddingVertical: 7,
     borderRadius: 10,
@@ -732,17 +705,14 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: 12,
-    color: '#706D65',
     fontWeight: '500',
   },
-
-  // Legend
   legend: {
     position: 'absolute',
     bottom: 70,
     left: 12,
     zIndex: 10,
-    backgroundColor: 'rgba(255,255,255,0.92)',
+    backgroundColor: 'rgba(255,255,255,0.95)',
     borderRadius: 12,
     padding: 10,
     shadowColor: '#000',
@@ -773,8 +743,6 @@ const styles = StyleSheet.create({
     color: '#706D65',
     fontWeight: '500',
   },
-
-  // Locate button
   locateBtn: {
     position: 'absolute',
     bottom: 70,
@@ -794,8 +762,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(0,0,0,0.08)',
   },
-
-  // Found count bar
   foundBar: {
     position: 'absolute',
     bottom: 16,
@@ -805,7 +771,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: 'rgba(255,255,255,0.95)',
+    backgroundColor: 'rgba(255,255,255,0.97)',
     borderRadius: 14,
     paddingHorizontal: 14,
     paddingVertical: 12,
