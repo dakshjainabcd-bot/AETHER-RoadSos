@@ -19,16 +19,17 @@ import { loadCachedBlackspots } from '../../services/RoadDNA/BlackspotEngine';
 import { hazardReportStore } from '../../services/DriverIntelligence/HazardReportStore';
 import { hazardBroadcaster } from '../../services/DriverIntelligence/HazardBroadcaster';
 import { useNetworkStatus } from '../../services/NetworkMonitor';
-import { POI_TYPES } from '../../utils/constants';
+import { POI_TYPES, type POIType } from '../../utils/constants';
+import { SIMULATION_SERVER_URL } from '../../utils/constants';
 
 // ── Category definitions ──────────────────────────────────────────────────────
 
 const CATEGORIES = [
-  { type: POI_TYPES.HOSPITAL,   label: 'Hospital',   color: '#ef3e28', bg: '#FEF1EE', border: '#F4C5BE' },
-  { type: POI_TYPES.POLICE,     label: 'Police',     color: '#1648D0', bg: '#EBF0FC', border: '#A8BEE8' },
-  { type: POI_TYPES.TOWING,     label: 'Towing',     color: '#C05C0A', bg: '#FEF4E6', border: '#E8C088' },
-  { type: POI_TYPES.PETROL,     label: 'Petrol',     color: '#6B35CC', bg: '#F4EFFE', border: '#C8A8EE' },
-  { type: POI_TYPES.PUNCTURE,   label: 'Tyre',       color: '#0E8C56', bg: '#E8F6EF', border: '#96D4B4' },
+  { type: POI_TYPES.HOSPITAL, label: 'Hospital', color: '#ef3e28', bg: '#FEF1EE', border: '#F4C5BE' },
+  { type: POI_TYPES.POLICE, label: 'Police', color: '#1648D0', bg: '#EBF0FC', border: '#A8BEE8' },
+  { type: POI_TYPES.TOWING, label: 'Towing', color: '#C05C0A', bg: '#FEF4E6', border: '#E8C088' },
+  { type: POI_TYPES.PETROL, label: 'Petrol', color: '#6B35CC', bg: '#F4EFFE', border: '#C8A8EE' },
+  { type: POI_TYPES.PUNCTURE, label: 'Tyre', color: '#0E8C56', bg: '#E8F6EF', border: '#96D4B4' },
   { type: POI_TYPES.BLOOD_BANK, label: 'Blood Bank', color: '#ef3e28', bg: '#FEF1EE', border: '#F4C5BE' },
 ] as const;
 
@@ -125,8 +126,8 @@ function loadPOIs(pois){
       '<div class="dist">'+dist+'</div>'+
       (tags?'<div class="tags">'+tags+'</div>':'')+
       '<div class="acts">'+
-      (phone?'<button class="btn bc" onclick="rn({type:\'CALL\',phone:\''+phone+'\'})">Call '+phone+'</button>':'')+
-      '<button class="btn bn" onclick="rn({type:\'NAV\',lat:'+poi.lat+',lng:'+poi.lng+'})">Navigate</button>'+
+      (phone?'<button class="btn bc" onclick="rn({type:\\'CALL\\',phone:\\''+phone+'\\'})">Call '+phone+'</button>':'')+
+      '<button class="btn bn" onclick="rn({type:\\'NAV\\',lat:'+poi.lat+',lng:'+poi.lng+'})">Navigate</button>'+
       '</div></div>';
     L.marker([poi.lat,poi.lng],{icon:icon}).bindPopup(popup,{maxWidth:280}).addTo(poiLayer);
   });
@@ -208,6 +209,12 @@ export default function MapScreen() {
   const { isConnected } = useNetworkStatus();
   const mapReadyRef = useRef(false);
 
+  // Derive HTTPS server URL from the WebSocket URL already in constants
+  // wss://aether-server-10bk.onrender.com → https://aether-server-10bk.onrender.com
+  const MAP_URL = SIMULATION_SERVER_URL
+    .replace('wss://', 'https://')
+    .replace('ws://', 'http://') + '/map';
+
   const [mapFileUri, setMapFileUri] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string>(POI_TYPES.HOSPITAL);
   const [loading, setLoading] = useState(false);
@@ -243,7 +250,7 @@ export default function MapScreen() {
       if (webViewRef.current) {
         webViewRef.current.postMessage(JSON.stringify(data));
       }
-    } catch (e) {}
+    } catch (e) { }
   }, []);
 
   // ── Get user location (3-step fallback) ────────────────────────────────────
@@ -282,7 +289,7 @@ export default function MapScreen() {
           await onlinePOIService.initialize();
           const valid = await onlinePOIService.isCacheValid(lat, lng);
           if (!valid) {
-            onlinePOIService.fetchAndCache(lat, lng, SERVICES_FETCH_RADIUS_M).catch(() => {});
+            onlinePOIService.fetchAndCache(lat, lng, SERVICES_FETCH_RADIUS_M).catch(() => { });
           }
           results = await onlinePOIService.getCachedPOIs(lat, lng, category as any, SERVICES_FETCH_RADIUS_M / 1000);
           if (results.length > 0) setDataSource(valid ? 'cached' : 'live');
@@ -311,7 +318,7 @@ export default function MapScreen() {
     try {
       const clusters = hazardReportStore.getClusters();
       sendToMap({ type: 'LOAD_HAZARDS', hazards: clusters });
-    } catch (e) {}
+    } catch (e) { }
   }, [sendToMap]);
 
   // ── Load blackspots ─────────────────────────────────────────────────────────
@@ -322,7 +329,7 @@ export default function MapScreen() {
       if (spots.length > 0) {
         sendToMap({ type: 'LOAD_BLACKSPOTS', blackspots: spots });
       }
-    } catch (e) {}
+    } catch (e) { }
   }, [sendToMap]);
 
   // ── Map ready: called once when Leaflet signals ready ──────────────────────
@@ -361,7 +368,7 @@ export default function MapScreen() {
         return;
       }
       if (msg.type === 'CALL') {
-        Linking.openURL('tel:' + msg.phone).catch(() => {});
+        Linking.openURL('tel:' + msg.phone).catch(() => { });
         return;
       }
       if (msg.type === 'NAV') {
@@ -371,7 +378,7 @@ export default function MapScreen() {
         });
         return;
       }
-    } catch (e) {}
+    } catch (e) { }
   }, [onMapReady]);
 
   // ── Category change ─────────────────────────────────────────────────────────
@@ -419,10 +426,10 @@ export default function MapScreen() {
       'Report Road Hazard',
       'What hazard are you reporting at your current location?',
       [
-        { text: 'Pothole',        onPress: () => submitHazard('pothole') },
+        { text: 'Pothole', onPress: () => submitHazard('pothole') },
         { text: 'Accident Scene', onPress: () => submitHazard('accident') },
-        { text: 'Road Blocked',   onPress: () => submitHazard('road_closed') },
-        { text: 'Debris',         onPress: () => submitHazard('debris') },
+        { text: 'Road Blocked', onPress: () => submitHazard('road_closed') },
+        { text: 'Debris', onPress: () => submitHazard('debris') },
         { text: 'Cancel', style: 'cancel' },
       ]
     );
@@ -459,10 +466,10 @@ export default function MapScreen() {
   // ── Source badge ────────────────────────────────────────────────────────────
 
   const sourceBadge = dataSource === 'live'
-    ? { label: 'LIVE',    color: '#0E8C56', bg: '#E8F6EF', icon: 'wifi' as const }
+    ? { label: 'LIVE', color: '#0E8C56', bg: '#E8F6EF', icon: 'wifi' as const }
     : dataSource === 'cached'
-    ? { label: 'CACHED',  color: '#1648D0', bg: '#EBF0FC', icon: 'checkmark-circle' as const }
-    : { label: 'OFFLINE', color: '#888',    bg: '#F0EDE6', icon: 'cloud-offline-outline' as const };
+      ? { label: 'CACHED', color: '#1648D0', bg: '#EBF0FC', icon: 'checkmark-circle' as const }
+      : { label: 'OFFLINE', color: '#888', bg: '#F0EDE6', icon: 'cloud-offline-outline' as const };
 
   const selectedCat = CATEGORIES.find(c => c.type === selectedCategory) ?? CATEGORIES[0];
 
@@ -472,30 +479,23 @@ export default function MapScreen() {
     <MapErrorBoundary>
       <View style={styles.container}>
 
-        {/* ── Map via file:// URI (THE FIX) ── */}
-        {mapFileUri ? (
-          <WebView
-            ref={webViewRef}
-            style={styles.map}
-            originWhitelist={['*']}
-            source={{ uri: mapFileUri }}        // file:// URI, not inline HTML
-            onMessage={handleWebViewMessage}
-            onError={(e) => console.error('[Map] WebView error:', e.nativeEvent.description)}
-            javaScriptEnabled={true}
-            domStorageEnabled={true}
-            allowFileAccess={true}              // allow reading file:// URIs
-            allowFileAccessFromFileURLs={true}  // allow file:// to access files
-            allowUniversalAccessFromFileURLs={true} // THE KEY: allows cross-origin from file://
-            mixedContentMode="always"           // allow http resources from file:// context
-            cacheEnabled={true}
-            startInLoadingState={false}
-          />
-        ) : (
-          <View style={[styles.map, styles.mapInit]}>
-            <ActivityIndicator size="large" color="#ef3e28" />
-            <Text style={styles.mapInitText}>Initializing map...</Text>
-          </View>
-        )}
+        {/* ── Map via HTTPS server URL (THE FIX) ── */}
+        <WebView
+          ref={webViewRef}
+          style={styles.map}
+          originWhitelist={['*']}
+          source={{ uri: MAP_URL }}         // ← HTTPS URL from server, not file://
+          onMessage={handleWebViewMessage}
+          onError={(e) => console.error('[Map] WebView error:', e.nativeEvent.description)}
+          javaScriptEnabled={true}
+          domStorageEnabled={true}
+          allowFileAccess={true}
+          allowFileAccessFromFileURLs={true}
+          allowUniversalAccessFromFileURLs={true}
+          mixedContentMode="always"
+          cacheEnabled={true}
+          startInLoadingState={false}
+        />
 
         {/* ── Category filter tabs + source badge ── */}
         <View style={styles.topBar}>
@@ -606,17 +606,6 @@ export default function MapScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#e8e0d4' },
   map: { flex: 1 },
-  mapInit: {
-    backgroundColor: '#e8e0d4',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  mapInitText: {
-    marginTop: 12,
-    fontSize: 14,
-    color: '#706D65',
-    fontWeight: '500',
-  },
   topBar: {
     position: 'absolute',
     top: 0, left: 0, right: 0,

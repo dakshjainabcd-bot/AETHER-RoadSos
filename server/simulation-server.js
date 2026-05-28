@@ -435,6 +435,16 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  // ── Map HTML endpoint ─────────────────────────────────────────────────────
+  if (parsedUrl.pathname === '/map') {
+    res.writeHead(200, {
+      'Content-Type': 'text/html; charset=utf-8',
+      'Cache-Control': 'public, max-age=300',
+    });
+    res.end(generateMapHTML());
+    return;
+  }
+
   // 404 for everything else
   res.writeHead(404, { 'Content-Type': 'application/json' });
   res.end(JSON.stringify({ error: 'Not Found', availableRoutes: ['/', '/health', '/dashboard', '/api/incidents', '/api/v1/sos', '/api/v1/hospital_prealert'] }));
@@ -709,6 +719,168 @@ function refresh() {
 // Auto-refresh every 5 seconds
 setInterval(refresh, 5000);
 refresh();
+</script>
+</body>
+</html>`;
+}
+
+// ── Map HTML Generator ────────────────────────────────────────────────────
+function generateMapHTML() {
+  return `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body,#map{width:100%;height:100%;background:#e8e0d4;}
+.leaflet-popup-content-wrapper{background:#fff;border-radius:12px;box-shadow:0 4px 20px rgba(0,0,0,0.15);border:none;padding:0;}
+.leaflet-popup-content{margin:0;padding:0;}
+.leaflet-popup-tip-container{display:none;}
+.pp{padding:14px;min-width:200px;font-family:-apple-system,sans-serif;}
+.pp h3{font-size:14px;font-weight:700;color:#141210;margin-bottom:3px;line-height:1.3;}
+.pp .dist{font-size:11px;color:#888;margin-bottom:8px;}
+.pp .tags{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:10px;}
+.pp .tag{background:#f0ede6;border-radius:4px;padding:2px 7px;font-size:9px;color:#666;font-weight:600;text-transform:capitalize;}
+.pp .acts{display:flex;gap:8px;}
+.pp .btn{flex:1;display:flex;align-items:center;justify-content:center;gap:5px;padding:9px 6px;border-radius:8px;border:none;cursor:pointer;font-size:11px;font-weight:700;font-family:-apple-system,sans-serif;}
+.bc{background:#e8f6ef;color:#0E8C56;}
+.bn{background:#ebf0fc;color:#1648D0;}
+.hp{padding:12px;min-width:160px;font-family:-apple-system,sans-serif;}
+.hp h3{font-size:13px;font-weight:700;color:#141210;margin-bottom:4px;}
+.hp .cr{font-size:11px;margin-bottom:3px;}
+.hp .tm{font-size:10px;color:#888;}
+.cr-low{color:#8E8E93;}.cr-medium{color:#C05C0A;}.cr-high{color:#ef3e28;}
+</style>
+</head>
+<body>
+<div id="map"></div>
+<script>
+var map=L.map('map',{center:[20.5937,78.9629],zoom:13,zoomControl:false});
+
+// CartoDB Voyager — free, no key, permissive CORS (works from HTTPS origin)
+L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',{
+  attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+  subdomains:'abcd',
+  maxZoom:20
+}).addTo(map);
+
+L.control.zoom({position:'bottomright'}).addTo(map);
+
+var poiLayer=L.layerGroup().addTo(map);
+var hazardLayer=L.layerGroup().addTo(map);
+var bsLayer=L.layerGroup().addTo(map);
+var userMarker=null;
+var userCircle=null;
+
+var POI_COLORS={hospital:'#ef3e28',police:'#1648D0',towing:'#C05C0A',petrol:'#6B35CC',puncture:'#0E8C56',blood_bank:'#ef3e28'};
+
+function makePinIcon(color){
+  var svg='<svg width="28" height="36" viewBox="0 0 28 36" xmlns="http://www.w3.org/2000/svg">'+
+    '<path d="M14 0C6.27 0 0 6.27 0 14c0 9.33 14 22 14 22S28 23.33 28 14C28 6.27 21.73 0 14 0z" fill="'+color+'"/>'+
+    '<circle cx="14" cy="14" r="6" fill="rgba(255,255,255,0.4)"/></svg>';
+  return L.divIcon({html:svg,iconSize:[28,36],iconAnchor:[14,36],popupAnchor:[0,-38],className:''});
+}
+
+function timeSince(ts){
+  var m=Math.round((Date.now()-ts)/60000);
+  if(m<1)return 'Just now';
+  if(m<60)return m+' min ago';
+  return Math.round(m/60)+' hr ago';
+}
+
+function rn(data){
+  try{window.ReactNativeWebView.postMessage(JSON.stringify(data));}catch(e){}
+}
+
+function loadPOIs(pois){
+  poiLayer.clearLayers();
+  pois.forEach(function(poi){
+    var color=POI_COLORS[poi.type]||'#888';
+    var icon=makePinIcon(color);
+    var tags=(poi.capabilities||[]).slice(0,4).map(function(c){
+      return '<span class="tag">'+c.replace(/_/g,' ')+'</span>';
+    }).join('');
+    var phone=(poi.phone||'').toString();
+    var dist=(poi.distanceText||'');
+    var popup='<div class="pp">'+
+      '<h3>'+poi.name+'</h3>'+
+      '<div class="dist">'+dist+'</div>'+
+      (tags?'<div class="tags">'+tags+'</div>':'')+
+      '<div class="acts">'+
+      (phone?'<button class="btn bc" onclick="rn({type:\\'CALL\\',phone:\\''+phone+'\\'})">Call '+phone+'</button>':'')+
+      '<button class="btn bn" onclick="rn({type:\\'NAV\\',lat:'+poi.lat+',lng:'+poi.lng+'})">Navigate</button>'+
+      '</div></div>';
+    L.marker([poi.lat,poi.lng],{icon:icon}).bindPopup(popup,{maxWidth:280}).addTo(poiLayer);
+  });
+  rn({type:'POI_COUNT',count:pois.length});
+}
+
+function loadHazards(clusters){
+  hazardLayer.clearLayers();
+  clusters.forEach(function(c){
+    var emoji=c.hazardType==='pothole'?'&#128371;':c.hazardType==='accident'?'&#128165;':c.hazardType==='road_closed'?'&#128679;':'&#129618;';
+    var ringColor=c.credibilityLevel==='high'?'#ef3e28':c.credibilityLevel==='medium'?'#C05C0A':'#8E8E93';
+    var credLabel=c.credibilityLevel==='high'?'Confirmed':c.credibilityLevel==='medium'?'Likely Real':'Unverified';
+    var credClass='cr-'+c.credibilityLevel;
+    L.circle([c.lat,c.lng],{color:ringColor,fillColor:ringColor,fillOpacity:0.14,radius:80,weight:2}).addTo(hazardLayer);
+    var badge=c.reportCount>1?'<div style="position:absolute;top:-6px;right:-8px;background:'+ringColor+';color:#fff;border-radius:10px;min-width:18px;height:18px;font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center;padding:0 4px;border:2px solid #fff;">'+c.reportCount+'</div>':'';
+    var icon=L.divIcon({
+      html:'<div style="position:relative;width:36px;height:36px;background:#fff;border-radius:50%;border:2.5px solid '+ringColor+';display:flex;align-items:center;justify-content:center;font-size:18px;box-shadow:0 2px 8px rgba(0,0,0,0.2);">'+emoji+badge+'</div>',
+      iconSize:[36,36],iconAnchor:[18,18],className:''
+    });
+    var popup='<div class="hp"><h3>'+c.hazardType.replace('_',' ').toUpperCase()+'</h3>'+
+      '<div class="cr '+credClass+'">'+credLabel+' ('+c.reportCount+' report'+(c.reportCount>1?'s':'')+')</div>'+
+      '<div class="tm">'+timeSince(c.lastReportedAt)+'</div></div>';
+    L.marker([c.lat,c.lng],{icon:icon}).bindPopup(popup).addTo(hazardLayer);
+  });
+}
+
+function loadBlackspots(bs){
+  bsLayer.clearLayers();
+  bs.forEach(function(b){
+    var color=b.severity==='high'?'#ef3e28':b.severity==='medium'?'#ff9500':'#ffcc00';
+    L.circle([b.lat,b.lng],{color:color,fillColor:color,fillOpacity:0.18,radius:b.radius_m||50,weight:2})
+      .bindPopup('<b>&#9888; '+b.severity.toUpperCase()+' RISK ZONE</b><br>'+b.event_count+' events')
+      .addTo(bsLayer);
+  });
+}
+
+function setUser(lat,lng){
+  if(userMarker){userMarker.setLatLng([lat,lng]);}
+  else{
+    var uIcon=L.divIcon({
+      html:'<div style="width:16px;height:16px;background:#007aff;border:3px solid #fff;border-radius:50%;box-shadow:0 0 0 4px rgba(0,122,255,0.25);"></div>',
+      iconSize:[16,16],iconAnchor:[8,8],className:''
+    });
+    userMarker=L.marker([lat,lng],{icon:uIcon,zIndexOffset:1000}).addTo(map);
+  }
+  if(userCircle){map.removeLayer(userCircle);}
+  userCircle=L.circle([lat,lng],{color:'#007aff',fillColor:'#007aff',fillOpacity:0.07,radius:120,weight:1}).addTo(map);
+}
+
+function handleMsg(raw){
+  try{
+    var msg=JSON.parse(raw);
+    if(msg.type==='LOAD_POIS'){loadPOIs(msg.pois);}
+    else if(msg.type==='LOAD_HAZARDS'){loadHazards(msg.hazards);}
+    else if(msg.type==='LOAD_BLACKSPOTS'){loadBlackspots(msg.blackspots);}
+    else if(msg.type==='SET_USER'){
+      setUser(msg.lat,msg.lng);
+      map.setView([msg.lat,msg.lng],14,{animate:true});
+    }
+    else if(msg.type==='CENTER'){map.setView([msg.lat,msg.lng],15,{animate:true});}
+    else if(msg.type==='REFRESH_HAZARDS'){loadHazards(msg.hazards);}
+  }catch(e){}
+}
+
+document.addEventListener('message',function(e){handleMsg(e.data);});
+window.addEventListener('message',function(e){handleMsg(e.data);});
+
+// Signal ready — use setTimeout as Leaflet on CDN may need a moment
+setTimeout(function(){rn({type:'MAP_READY'});},800);
 </script>
 </body>
 </html>`;
