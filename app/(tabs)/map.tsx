@@ -1,32 +1,25 @@
 // app/(tabs)/map.tsx
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+// ROOT-CAUSE FIX: write HTML to FileSystem, load via file:// URI
+// This makes allowUniversalAccessFromFileURLs work → tiles load
+
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import {
-  View,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  Alert,
-  ActivityIndicator,
-  Platform,
-  ScrollView,
-  Linking,
+  View, StyleSheet, Text, TouchableOpacity,
+  Alert, ActivityIndicator, Platform, ScrollView, Linking,
 } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
+import * as FileSystem from 'expo-file-system/legacy';
 import { MapErrorBoundary } from '../../components/MapErrorBoundary';
-import { searchPOI, type POI } from '../../services/POIDatabase';
-import {
-  onlinePOIService,
-  SERVICES_FETCH_RADIUS_M,
-  type DataSource,
-} from '../../services/OnlinePOIService';
+import { searchPOI } from '../../services/POIDatabase';
+import { onlinePOIService, SERVICES_FETCH_RADIUS_M } from '../../services/OnlinePOIService';
 import { loadCachedBlackspots } from '../../services/RoadDNA/BlackspotEngine';
 import { hazardReportStore } from '../../services/DriverIntelligence/HazardReportStore';
 import { hazardBroadcaster } from '../../services/DriverIntelligence/HazardBroadcaster';
 import { useNetworkStatus } from '../../services/NetworkMonitor';
-import { POI_TYPES, type POIType } from '../../utils/constants';
+import { POI_TYPES } from '../../utils/constants';
 
 // ── Category definitions ──────────────────────────────────────────────────────
 
@@ -39,20 +32,26 @@ const CATEGORIES = [
   { type: POI_TYPES.BLOOD_BANK, label: 'Blood Bank', color: '#ef3e28', bg: '#FEF1EE', border: '#F4C5BE' },
 ] as const;
 
+// ── File path for cached HTML ─────────────────────────────────────────────────
+
+const MAP_HTML_PATH = FileSystem.cacheDirectory + 'aether_map_v3.html';
+
 // ── Leaflet HTML ──────────────────────────────────────────────────────────────
-// KEY FIX: baseUrl is set to https://tile.openstreetmap.org so tile requests are allowed
+// CRITICAL: No backticks inside JS sections (Metro bundler issue)
+// CRITICAL: No crossOrigin anywhere (blocks tiles)
+// Uses CartoDB Voyager tiles — free, permissive CORS headers
 
 const LEAFLET_HTML = `<!DOCTYPE html>
 <html>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box;}
 html,body,#map{width:100%;height:100%;background:#e8e0d4;}
-.leaflet-popup-content-wrapper{background:#fff;border-radius:12px;box-shadow:0 4px 20px rgba(0,0,0,0.18);border:none;padding:0;}
+.leaflet-popup-content-wrapper{background:#fff;border-radius:12px;box-shadow:0 4px 20px rgba(0,0,0,0.15);border:none;padding:0;}
 .leaflet-popup-content{margin:0;padding:0;}
 .leaflet-popup-tip-container{display:none;}
 .pp{padding:14px;min-width:200px;font-family:-apple-system,sans-serif;}
@@ -75,11 +74,14 @@ html,body,#map{width:100%;height:100%;background:#e8e0d4;}
 <div id="map"></div>
 <script>
 var map=L.map('map',{center:[20.5937,78.9629],zoom:13,zoomControl:false});
+
+// CartoDB Voyager tiles — free, no API key, permissive CORS
 L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',{
   attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
   subdomains:'abcd',
   maxZoom:20
 }).addTo(map);
+
 L.control.zoom({position:'bottomright'}).addTo(map);
 
 var poiLayer=L.layerGroup().addTo(map);
@@ -97,16 +99,9 @@ function makePinIcon(color){
   return L.divIcon({html:svg,iconSize:[28,36],iconAnchor:[14,36],popupAnchor:[0,-38],className:''});
 }
 
-function makeUserIcon(){
-  return L.divIcon({
-    html:'<div style="width:16px;height:16px;background:#007aff;border:3px solid #fff;border-radius:50%;box-shadow:0 0 0 4px rgba(0,122,255,0.25);"></div>',
-    iconSize:[16,16],iconAnchor:[8,8],className:''
-  });
-}
-
 function timeSince(ts){
   var m=Math.round((Date.now()-ts)/60000);
-  if(m<1)return'Just now';
+  if(m<1)return 'Just now';
   if(m<60)return m+' min ago';
   return Math.round(m/60)+' hr ago';
 }
@@ -120,15 +115,18 @@ function loadPOIs(pois){
   pois.forEach(function(poi){
     var color=POI_COLORS[poi.type]||'#888';
     var icon=makePinIcon(color);
-    var tags=(poi.capabilities||[]).slice(0,4).map(function(c){return'<span class="tag">'+c.replace(/_/g,' ')+'</span>';}).join('');
-    var phone=poi.phone||'';
+    var tags=(poi.capabilities||[]).slice(0,4).map(function(c){
+      return '<span class="tag">'+c.replace(/_/g,' ')+'</span>';
+    }).join('');
+    var phone=(poi.phone||'').toString();
+    var dist=(poi.distanceText||'');
     var popup='<div class="pp">'+
       '<h3>'+poi.name+'</h3>'+
-      '<div class="dist">'+(poi.distanceText||'')+'</div>'+
+      '<div class="dist">'+dist+'</div>'+
       (tags?'<div class="tags">'+tags+'</div>':'')+
       '<div class="acts">'+
-      (phone?'<button class="btn bc" onclick="rn({type:\'CALL\',phone:\''+phone+'\'})">&#128222; '+phone+'</button>':'')+
-      '<button class="btn bn" onclick="rn({type:\'NAVIGATE\',lat:'+poi.lat+',lng:'+poi.lng+',name:\''+poi.name.replace(/'/g,'')+'\'})">&#129517; Navigate</button>'+
+      (phone?'<button class="btn bc" onclick="rn({type:\'CALL\',phone:\''+phone+'\'})">Call '+phone+'</button>':'')+
+      '<button class="btn bn" onclick="rn({type:\'NAV\',lat:'+poi.lat+',lng:'+poi.lng+'})">Navigate</button>'+
       '</div></div>';
     L.marker([poi.lat,poi.lng],{icon:icon}).bindPopup(popup,{maxWidth:280}).addTo(poiLayer);
   });
@@ -145,7 +143,7 @@ function loadHazards(clusters){
     L.circle([c.lat,c.lng],{color:ringColor,fillColor:ringColor,fillOpacity:0.14,radius:80,weight:2}).addTo(hazardLayer);
     var badge=c.reportCount>1?'<div style="position:absolute;top:-6px;right:-8px;background:'+ringColor+';color:#fff;border-radius:10px;min-width:18px;height:18px;font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center;padding:0 4px;border:2px solid #fff;">'+c.reportCount+'</div>':'';
     var icon=L.divIcon({
-      html:'<div style="position:relative;width:36px;height:36px;background:#fff;border-radius:50%;border:2.5px solid '+ringColor+';display:flex;align-items:center;justify-content:center;font-size:19px;box-shadow:0 2px 8px rgba(0,0,0,0.2);">'+emoji+badge+'</div>',
+      html:'<div style="position:relative;width:36px;height:36px;background:#fff;border-radius:50%;border:2.5px solid '+ringColor+';display:flex;align-items:center;justify-content:center;font-size:18px;box-shadow:0 2px 8px rgba(0,0,0,0.2);">'+emoji+badge+'</div>',
       iconSize:[36,36],iconAnchor:[18,18],className:''
     });
     var popup='<div class="hp"><h3>'+c.hazardType.replace('_',' ').toUpperCase()+'</h3>'+
@@ -160,14 +158,20 @@ function loadBlackspots(bs){
   bs.forEach(function(b){
     var color=b.severity==='high'?'#ef3e28':b.severity==='medium'?'#ff9500':'#ffcc00';
     L.circle([b.lat,b.lng],{color:color,fillColor:color,fillOpacity:0.18,radius:b.radius_m||50,weight:2})
-      .bindPopup('<b>&#9888; '+b.severity.toUpperCase()+' RISK ZONE</b><br>'+b.event_count+' driving events')
+      .bindPopup('<b>&#9888; '+b.severity.toUpperCase()+' RISK ZONE</b><br>'+b.event_count+' events')
       .addTo(bsLayer);
   });
 }
 
 function setUser(lat,lng){
   if(userMarker){userMarker.setLatLng([lat,lng]);}
-  else{userMarker=L.marker([lat,lng],{icon:makeUserIcon(),zIndexOffset:1000}).addTo(map);}
+  else{
+    var uIcon=L.divIcon({
+      html:'<div style="width:16px;height:16px;background:#007aff;border:3px solid #fff;border-radius:50%;box-shadow:0 0 0 4px rgba(0,122,255,0.25);"></div>',
+      iconSize:[16,16],iconAnchor:[8,8],className:''
+    });
+    userMarker=L.marker([lat,lng],{icon:uIcon,zIndexOffset:1000}).addTo(map);
+  }
   if(userCircle){map.removeLayer(userCircle);}
   userCircle=L.circle([lat,lng],{color:'#007aff',fillColor:'#007aff',fillOpacity:0.07,radius:120,weight:1}).addTo(map);
 }
@@ -190,10 +194,9 @@ function handleMsg(raw){
 document.addEventListener('message',function(e){handleMsg(e.data);});
 window.addEventListener('message',function(e){handleMsg(e.data);});
 
-// Signal ready after map and tiles start loading
-map.whenReady(function(){
-  setTimeout(function(){rn({type:'MAP_READY'});},300);
-});
+// Signal ready after map and Leaflet initialize
+// Use setTimeout — more reliable than whenReady for CDN-loaded Leaflet
+setTimeout(function(){rn({type:'MAP_READY'});},800);
 </script>
 </body>
 </html>`;
@@ -205,16 +208,35 @@ export default function MapScreen() {
   const { isConnected } = useNetworkStatus();
   const mapReadyRef = useRef(false);
 
-  const [selectedCategory, setSelectedCategory] = useState<POIType>(POI_TYPES.HOSPITAL);
+  const [mapFileUri, setMapFileUri] = useState<string | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<string>(POI_TYPES.HOSPITAL);
   const [loading, setLoading] = useState(false);
   const [foundCount, setFoundCount] = useState(0);
-  const [dataSource, setDataSource] = useState<DataSource>('offline');
+  const [dataSource, setDataSource] = useState<'live' | 'cached' | 'offline'>('offline');
   const [userLat, setUserLat] = useState(20.5937);
   const [userLng, setUserLng] = useState(78.9629);
   const [hasLocation, setHasLocation] = useState(false);
   const [reporting, setReporting] = useState(false);
 
-  // ── Send to map ─────────────────────────────────────────────────────────────
+  // ── CRITICAL FIX: Write HTML to filesystem on mount ─────────────────────────
+  // This is the fix for blank tiles. Loading from file:// URI allows
+  // allowUniversalAccessFromFileURLs to work properly on Android.
+
+  useEffect(() => {
+    const writeMapFile = async () => {
+      try {
+        await FileSystem.writeAsStringAsync(MAP_HTML_PATH, LEAFLET_HTML, {
+          encoding: FileSystem.EncodingType.UTF8,
+        });
+        setMapFileUri(MAP_HTML_PATH);
+      } catch (err) {
+        console.error('[Map] Failed to write map HTML file:', err);
+      }
+    };
+    writeMapFile();
+  }, []);
+
+  // ── Send message to WebView ─────────────────────────────────────────────────
 
   const sendToMap = useCallback((data: object) => {
     try {
@@ -224,30 +246,24 @@ export default function MapScreen() {
     } catch (e) {}
   }, []);
 
-  // ── Get location — tries cached first, then requests fresh ─────────────────
+  // ── Get user location (3-step fallback) ────────────────────────────────────
 
   const getLocation = useCallback(async (): Promise<{ lat: number; lng: number } | null> => {
     try {
-      // Step 1: request permission
       const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        console.warn('[Map] Location permission denied');
-        return null;
-      }
+      if (status !== 'granted') return null;
 
-      // Step 2: try last known first (fast)
+      // Step 1: last known (fast)
       const last = await Location.getLastKnownPositionAsync();
       if (last && last.coords.accuracy && last.coords.accuracy < 500) {
         return { lat: last.coords.latitude, lng: last.coords.longitude };
       }
 
-      // Step 3: request current position (may take a few seconds)
+      // Step 2: current (slower but accurate)
       const current = await Location.getCurrentPositionAsync({
         accuracy: Location.Accuracy.Balanced,
-        timeInterval: 5000,
       });
       return { lat: current.coords.latitude, lng: current.coords.longitude };
-
     } catch (e) {
       console.warn('[Map] getLocation error:', e);
       return null;
@@ -256,10 +272,10 @@ export default function MapScreen() {
 
   // ── Load POIs ───────────────────────────────────────────────────────────────
 
-  const loadPOIs = useCallback(async (category: POIType, lat: number, lng: number) => {
+  const loadPOIs = useCallback(async (category: string, lat: number, lng: number) => {
     setLoading(true);
     try {
-      let results: POI[] = [];
+      let results: any[] = [];
 
       if (isConnected) {
         try {
@@ -268,17 +284,15 @@ export default function MapScreen() {
           if (!valid) {
             onlinePOIService.fetchAndCache(lat, lng, SERVICES_FETCH_RADIUS_M).catch(() => {});
           }
-          results = await onlinePOIService.getCachedPOIs(lat, lng, category, SERVICES_FETCH_RADIUS_M / 1000);
-          if (results.length > 0) {
-            setDataSource(valid ? 'cached' : 'live');
-          }
+          results = await onlinePOIService.getCachedPOIs(lat, lng, category as any, SERVICES_FETCH_RADIUS_M / 1000);
+          if (results.length > 0) setDataSource(valid ? 'cached' : 'live');
         } catch (e) {
           // fall to offline
         }
       }
 
       if (results.length === 0) {
-        results = await searchPOI(lat, lng, category);
+        results = await searchPOI(lat, lng, category as any);
         setDataSource('offline');
       }
 
@@ -293,9 +307,8 @@ export default function MapScreen() {
 
   // ── Load hazards ────────────────────────────────────────────────────────────
 
-  const loadHazards = useCallback(async () => {
+  const loadHazards = useCallback(() => {
     try {
-      await hazardReportStore.initialize();
       const clusters = hazardReportStore.getClusters();
       sendToMap({ type: 'LOAD_HAZARDS', hazards: clusters });
     } catch (e) {}
@@ -312,13 +325,12 @@ export default function MapScreen() {
     } catch (e) {}
   }, [sendToMap]);
 
-  // ── On map ready ────────────────────────────────────────────────────────────
+  // ── Map ready: called once when Leaflet signals ready ──────────────────────
 
   const onMapReady = useCallback(async () => {
-    if (mapReadyRef.current) return; // prevent double-fire
+    if (mapReadyRef.current) return;
     mapReadyRef.current = true;
 
-    // Get location
     const loc = await getLocation();
     if (loc) {
       setUserLat(loc.lat);
@@ -327,12 +339,11 @@ export default function MapScreen() {
       sendToMap({ type: 'SET_USER', lat: loc.lat, lng: loc.lng });
       await loadPOIs(selectedCategory, loc.lat, loc.lng);
     } else {
-      // No location — still load with default coords
       await loadPOIs(selectedCategory, userLat, userLng);
     }
 
     await loadBlackspots();
-    await loadHazards();
+    loadHazards();
   }, [getLocation, sendToMap, loadPOIs, loadBlackspots, loadHazards, selectedCategory, userLat, userLng]);
 
   // ── WebView message handler ─────────────────────────────────────────────────
@@ -350,14 +361,12 @@ export default function MapScreen() {
         return;
       }
       if (msg.type === 'CALL') {
-        Linking.openURL('tel:' + msg.phone).catch(() => {
-          Alert.alert('Cannot Call', 'No number available.');
-        });
+        Linking.openURL('tel:' + msg.phone).catch(() => {});
         return;
       }
-      if (msg.type === 'NAVIGATE') {
-        const url = 'geo:' + msg.lat + ',' + msg.lng + '?q=' + msg.lat + ',' + msg.lng + '(' + encodeURIComponent(msg.name) + ')';
-        Linking.openURL(url).catch(() => {
+      if (msg.type === 'NAV') {
+        const geoUrl = 'geo:' + msg.lat + ',' + msg.lng + '?q=' + msg.lat + ',' + msg.lng;
+        Linking.openURL(geoUrl).catch(() => {
           Linking.openURL('https://maps.google.com/?q=' + msg.lat + ',' + msg.lng);
         });
         return;
@@ -367,11 +376,11 @@ export default function MapScreen() {
 
   // ── Category change ─────────────────────────────────────────────────────────
 
-  const handleCategoryChange = useCallback(async (cat: POIType) => {
+  const handleCategoryChange = useCallback(async (cat: string) => {
     setSelectedCategory(cat);
-    if (hasLocation) {
-      await loadPOIs(cat, userLat, userLng);
-    }
+    const lat = hasLocation ? userLat : 20.5937;
+    const lng = hasLocation ? userLng : 78.9629;
+    await loadPOIs(cat, lat, lng);
   }, [loadPOIs, userLat, userLng, hasLocation]);
 
   // ── Center on me ────────────────────────────────────────────────────────────
@@ -386,25 +395,22 @@ export default function MapScreen() {
       sendToMap({ type: 'CENTER', lat: loc.lat, lng: loc.lng });
       await loadPOIs(selectedCategory, loc.lat, loc.lng);
     } else {
-      Alert.alert('Location Unavailable', 'Could not get your current location. Please check GPS settings.');
+      Alert.alert('Location Unavailable', 'Please enable GPS and try again.');
     }
   }, [getLocation, sendToMap, loadPOIs, selectedCategory]);
 
   // ── Report Hazard ───────────────────────────────────────────────────────────
 
   const handleReportHazard = useCallback(async () => {
-    // Get fresh location even if hasLocation is false
+    // Always get fresh location — never rely on state
     const loc = await getLocation();
     if (!loc) {
       Alert.alert(
         'Location Needed',
-        'AETHER could not read your GPS. Please make sure location is enabled in your phone settings, then tap Report Hazard again.',
-        [{ text: 'OK' }]
+        'AETHER could not read your GPS. Make sure location is enabled in Settings, then tap Report Hazard again.'
       );
       return;
     }
-
-    // Update our stored coords
     setUserLat(loc.lat);
     setUserLng(loc.lng);
     setHasLocation(true);
@@ -413,26 +419,23 @@ export default function MapScreen() {
       'Report Road Hazard',
       'What hazard are you reporting at your current location?',
       [
-        { text: 'Pothole',       onPress: () => submitHazard('pothole') },
+        { text: 'Pothole',        onPress: () => submitHazard('pothole') },
         { text: 'Accident Scene', onPress: () => submitHazard('accident') },
-        { text: 'Road Blocked',  onPress: () => submitHazard('road_closed') },
-        { text: 'Debris on Road', onPress: () => submitHazard('debris') },
+        { text: 'Road Blocked',   onPress: () => submitHazard('road_closed') },
+        { text: 'Debris',         onPress: () => submitHazard('debris') },
         { text: 'Cancel', style: 'cancel' },
       ]
     );
   }, [getLocation]);
 
-  const submitHazard = useCallback(async (type: 'pothole' | 'accident' | 'road_closed' | 'debris') => {
+  const submitHazard = useCallback(async (type: string) => {
     setReporting(true);
     try {
-      const result = await hazardBroadcaster.reportHazard(type, 2);
+      const result = await hazardBroadcaster.reportHazard(type as any, 2);
       if (result.success) {
         const clusters = hazardReportStore.getClusters();
         sendToMap({ type: 'LOAD_HAZARDS', hazards: clusters });
-        Alert.alert(
-          'Hazard Reported',
-          type.replace('_', ' ') + ' broadcast to nearby AETHER devices.'
-        );
+        Alert.alert('Hazard Reported', type.replace('_', ' ') + ' broadcast to nearby AETHER devices.');
       } else {
         Alert.alert('Could Not Report', result.reason || 'Please try again.');
       }
@@ -443,7 +446,7 @@ export default function MapScreen() {
     }
   }, [sendToMap]);
 
-  // ── Refresh hazards when tab is focused ────────────────────────────────────
+  // ── Refresh hazards when tab re-focused ────────────────────────────────────
 
   useFocusEffect(
     useCallback(() => {
@@ -455,11 +458,11 @@ export default function MapScreen() {
 
   // ── Source badge ────────────────────────────────────────────────────────────
 
-  const sourceBadge = {
-    live:    { label: 'LIVE',    color: '#0E8C56', bg: '#E8F6EF', icon: 'wifi' },
-    cached:  { label: 'CACHED',  color: '#1648D0', bg: '#EBF0FC', icon: 'checkmark-circle' },
-    offline: { label: 'OFFLINE', color: '#888',    bg: '#F0EDE6', icon: 'cloud-offline-outline' },
-  }[dataSource] as { label: string; color: string; bg: string; icon: string };
+  const sourceBadge = dataSource === 'live'
+    ? { label: 'LIVE',    color: '#0E8C56', bg: '#E8F6EF', icon: 'wifi' as const }
+    : dataSource === 'cached'
+    ? { label: 'CACHED',  color: '#1648D0', bg: '#EBF0FC', icon: 'checkmark-circle' as const }
+    : { label: 'OFFLINE', color: '#888',    bg: '#F0EDE6', icon: 'cloud-offline-outline' as const };
 
   const selectedCat = CATEGORIES.find(c => c.type === selectedCategory) ?? CATEGORIES[0];
 
@@ -469,34 +472,30 @@ export default function MapScreen() {
     <MapErrorBoundary>
       <View style={styles.container}>
 
-        {/* ── WebView: KEY FIX — baseUrl allows tile requests ── */}
-        <WebView
-          ref={webViewRef}
-          style={styles.map}
-          originWhitelist={['*']}
-          source={{
-            html: LEAFLET_HTML,
-            baseUrl: 'https://tile.openstreetmap.org',  // ← THIS FIXES THE BLANK MAP
-          }}
-          onMessage={handleWebViewMessage}
-          onError={(e) => {
-            console.error('[Map] WebView error:', e.nativeEvent.description);
-          }}
-          onHttpError={(e) => {
-            console.warn('[Map] HTTP error:', e.nativeEvent.statusCode);
-          }}
-          javaScriptEnabled={true}
-          domStorageEnabled={true}
-          mixedContentMode="always"
-          allowFileAccessFromFileURLs={true}
-          allowUniversalAccessFromFileURLs={true}
-          allowsInlineMediaPlayback={true}
-          geolocationEnabled={true}
-          mediaPlaybackRequiresUserAction={false}
-          startInLoadingState={false}
-          cacheEnabled={true}
-          cacheMode="LOAD_DEFAULT"
-        />
+        {/* ── Map via file:// URI (THE FIX) ── */}
+        {mapFileUri ? (
+          <WebView
+            ref={webViewRef}
+            style={styles.map}
+            originWhitelist={['*']}
+            source={{ uri: mapFileUri }}        // file:// URI, not inline HTML
+            onMessage={handleWebViewMessage}
+            onError={(e) => console.error('[Map] WebView error:', e.nativeEvent.description)}
+            javaScriptEnabled={true}
+            domStorageEnabled={true}
+            allowFileAccess={true}              // allow reading file:// URIs
+            allowFileAccessFromFileURLs={true}  // allow file:// to access files
+            allowUniversalAccessFromFileURLs={true} // THE KEY: allows cross-origin from file://
+            mixedContentMode="always"           // allow http resources from file:// context
+            cacheEnabled={true}
+            startInLoadingState={false}
+          />
+        ) : (
+          <View style={[styles.map, styles.mapInit]}>
+            <ActivityIndicator size="large" color="#ef3e28" />
+            <Text style={styles.mapInitText}>Initializing map...</Text>
+          </View>
+        )}
 
         {/* ── Category filter tabs + source badge ── */}
         <View style={styles.topBar}>
@@ -519,10 +518,7 @@ export default function MapScreen() {
                   onPress={() => handleCategoryChange(cat.type)}
                   activeOpacity={0.7}
                 >
-                  <Text style={[
-                    styles.catText,
-                    { color: active ? cat.color : '#706D65' },
-                  ]}>
+                  <Text style={[styles.catText, { color: active ? cat.color : '#706D65' }]}>
                     {cat.label}
                   </Text>
                 </TouchableOpacity>
@@ -531,7 +527,7 @@ export default function MapScreen() {
           </ScrollView>
 
           <View style={[styles.sourceBadge, { backgroundColor: sourceBadge.bg }]}>
-            <Ionicons name={sourceBadge.icon as any} size={10} color={sourceBadge.color} />
+            <Ionicons name={sourceBadge.icon} size={10} color={sourceBadge.color} />
             <Text style={[styles.sourceBadgeText, { color: sourceBadge.color }]}>
               {sourceBadge.label}
             </Text>
@@ -582,11 +578,7 @@ export default function MapScreen() {
         </View>
 
         {/* ── Locate me button ── */}
-        <TouchableOpacity
-          style={styles.locateBtn}
-          onPress={handleCenterOnMe}
-          activeOpacity={0.8}
-        >
+        <TouchableOpacity style={styles.locateBtn} onPress={handleCenterOnMe} activeOpacity={0.8}>
           <Ionicons name="locate" size={20} color="#1648D0" />
         </TouchableOpacity>
 
@@ -598,7 +590,9 @@ export default function MapScreen() {
               ? foundCount + ' found · tap a pin for options'
               : loading
                 ? 'Searching...'
-                : 'No ' + selectedCat.label + 's found nearby'}
+                : hasLocation
+                  ? 'No ' + selectedCat.label + 's found nearby'
+                  : 'Enable location to search nearby'}
           </Text>
         </View>
 
@@ -610,18 +604,22 @@ export default function MapScreen() {
 // ── Styles ────────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
+  container: { flex: 1, backgroundColor: '#e8e0d4' },
+  map: { flex: 1 },
+  mapInit: {
     backgroundColor: '#e8e0d4',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  map: {
-    flex: 1,
+  mapInitText: {
+    marginTop: 12,
+    fontSize: 14,
+    color: '#706D65',
+    fontWeight: '500',
   },
   topBar: {
     position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
+    top: 0, left: 0, right: 0,
     zIndex: 20,
     paddingTop: Platform.OS === 'ios' ? 54 : 30,
     paddingHorizontal: 12,
@@ -633,20 +631,14 @@ const styles = StyleSheet.create({
     borderBottomWidth: 0.5,
     borderBottomColor: 'rgba(0,0,0,0.08)',
   },
-  catStrip: {
-    gap: 7,
-    paddingRight: 6,
-  },
+  catStrip: { gap: 7, paddingRight: 6 },
   catPill: {
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 20,
     borderWidth: 1.5,
   },
-  catText: {
-    fontSize: 13,
-    fontWeight: '600',
-  },
+  catText: { fontSize: 13, fontWeight: '600' },
   sourceBadge: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -656,11 +648,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     flexShrink: 0,
   },
-  sourceBadgeText: {
-    fontSize: 9,
-    fontWeight: '700',
-    letterSpacing: 0.8,
-  },
+  sourceBadgeText: { fontSize: 9, fontWeight: '700', letterSpacing: 0.8 },
   reportBtn: {
     position: 'absolute',
     top: Platform.OS === 'ios' ? 108 : 88,
@@ -681,11 +669,7 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     elevation: 4,
   },
-  reportBtnText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#C05C0A',
-  },
+  reportBtnText: { fontSize: 12, fontWeight: '700', color: '#C05C0A' },
   loadingChip: {
     position: 'absolute',
     top: Platform.OS === 'ios' ? 108 : 88,
@@ -704,14 +688,10 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
   },
-  loadingText: {
-    fontSize: 12,
-    fontWeight: '500',
-  },
+  loadingText: { fontSize: 12, fontWeight: '500' },
   legend: {
     position: 'absolute',
-    bottom: 70,
-    left: 12,
+    bottom: 70, left: 12,
     zIndex: 10,
     backgroundColor: 'rgba(255,255,255,0.95)',
     borderRadius: 12,
@@ -723,34 +703,15 @@ const styles = StyleSheet.create({
     elevation: 4,
     minWidth: 140,
   },
-  legendRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 7,
-    marginBottom: 5,
-  },
-  legendDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-  },
-  legendEmoji: {
-    fontSize: 11,
-    width: 12,
-    textAlign: 'center',
-  },
-  legendText: {
-    fontSize: 11,
-    color: '#706D65',
-    fontWeight: '500',
-  },
+  legendRow: { flexDirection: 'row', alignItems: 'center', gap: 7, marginBottom: 5 },
+  legendDot: { width: 10, height: 10, borderRadius: 5 },
+  legendEmoji: { fontSize: 11, width: 12, textAlign: 'center' },
+  legendText: { fontSize: 11, color: '#706D65', fontWeight: '500' },
   locateBtn: {
     position: 'absolute',
-    bottom: 70,
-    right: 12,
+    bottom: 70, right: 12,
     zIndex: 10,
-    width: 44,
-    height: 44,
+    width: 44, height: 44,
     borderRadius: 22,
     backgroundColor: '#FFFFFF',
     alignItems: 'center',
@@ -765,9 +726,7 @@ const styles = StyleSheet.create({
   },
   foundBar: {
     position: 'absolute',
-    bottom: 16,
-    left: 16,
-    right: 16,
+    bottom: 16, left: 16, right: 16,
     zIndex: 10,
     flexDirection: 'row',
     alignItems: 'center',
@@ -782,10 +741,5 @@ const styles = StyleSheet.create({
     shadowRadius: 14,
     elevation: 6,
   },
-  foundText: {
-    fontSize: 13,
-    color: '#706D65',
-    fontWeight: '500',
-    flex: 1,
-  },
+  foundText: { fontSize: 13, color: '#706D65', fontWeight: '500', flex: 1 },
 });
