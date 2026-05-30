@@ -1110,15 +1110,9 @@ The APK has the cloud backend URL hardcoded. All cloud features work immediately
 
 ### 🌐 Live EMS Dashboard
 
-> **Dashboard:** `[LINK TO BE ADDED — Railway deployment in progress]`
+> **Dashboard:** `[https://aether-server-10bk.onrender.com/dashboard]`
 
 Open in any browser. Trigger an SOS from the APK and watch it appear on the dashboard in real time, with incident details, hospital match status, and Rakshak dispatch timeline.
-
-### 🎥 Demo Video
-
-> **4-minute walkthrough:** `[LINK TO BE ADDED]`
-
-The video demonstrates all 7 pillars in sequence: crash detection → mesh relay → BystAI triage → hospital pre-alert → Rakshak dispatch → evidence assembly → road repair filing.
 
 ### What Judges Can Test
 
