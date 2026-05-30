@@ -1048,7 +1048,7 @@ CREATE TABLE trust_scores (
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/aether.git
+[git clone https://github.com/YOUR_USERNAME/aether.git](https://github.com/dakshjainabcd-bot/AETHER-RoadSos.git)
 cd aether
 ```
 
