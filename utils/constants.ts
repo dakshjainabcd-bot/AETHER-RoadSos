@@ -88,18 +88,26 @@ export const MESH = {
   BYSTANDER_RADIUS_M: 500,
   DEDUP_WINDOW_MS: 5 * 60 * 1000,
   RELAY_JITTER_MAX_MS: 200,
-  BLE_SERVICE_UUID: 'AETHER-SOS-001',
+
+  /**
+   * BLE Service UUID that every AETHER device advertises.
+   * This is the full 128-bit UUID used in BLEPacketCodec.ts and BLETransportBridge.ts.
+   * Both files import from here — do NOT change independently.
+   */
+  BLE_SERVICE_UUID: 'ae700001-ae70-ae70-ae70-ae700000ae70',
 };
 
 /**
- * SIMULATION SERVER URL
- * Replace IP with your laptop's local IP.
- * Windows: ipconfig → IPv4 Address under Wi-Fi
- * Mac/Linux: ifconfig → inet under en0/wlan0
+ * SIMULATION_SERVER_URL is kept so existing imports in other files
+ * (HazardBroadcaster, DriverIntelligence, etc.) still compile without changes.
+ *
+ * The MeshRelayManager NO LONGER USES THIS — it connects via BLE instead.
+ * The cloud Egress service still uses the CLOUD_ENDPOINT in CloudEgress.ts
+ * for uploading SOS data when internet is available. That is intentional and correct.
+ *
+ * If you want to keep the simulation server running for development/testing,
+ * leave this value as-is. For production APK builds it is simply unused.
  */
-
-// Phase 15: Production Render deployment
-// NOTE: wss:// not ws:// — Render uses secure WebSocket automatically
 export const SIMULATION_SERVER_URL = 'wss://aether-server-10bk.onrender.com';
 export const CRASH_THRESHOLDS_CANCEL_WINDOW = 5;
 

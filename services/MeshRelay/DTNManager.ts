@@ -33,7 +33,7 @@ import {
     DTNEvent,
     DTNEventType,
 } from './types';
-import { simulationBridge } from './SimulationBridge';
+import { bleTransportBridge } from './BLETransportBridge';
 import { cloudEgress } from '../CloudEgress';
 import { DTN } from '../../utils/constants';
 import * as Battery from 'expo-battery';
@@ -180,10 +180,10 @@ class DTNManager {
         // Routing Heuristic 2: Need at least 1 other peer
         // simulationBridge.connectedDevices counts ALL phones including us
         // so we need ≥ 2 total (us + at least 1 other)
-        if (simulationBridge.connectedDevices < 2) {
+        if (bleTransportBridge.connectedDevices < 2) {
             console.log(
                 `[DTNManager] No peers available` +
-                ` (${simulationBridge.connectedDevices} device(s) connected)` +
+                ` (${bleTransportBridge.connectedDevices} device(s) connected)` +
                 ` — holding ${this.buffer.size} packet(s)`
             );
             return;
@@ -199,7 +199,7 @@ class DTNManager {
             return;
         }
 
-        const peerCount = simulationBridge.connectedDevices - 1; // Peers = total - us
+        const peerCount = bleTransportBridge.connectedDevices - 1; // Peers = total - us
         const entries = await this.buffer.getForwardable();
 
         if (entries.length === 0) {
@@ -214,7 +214,7 @@ class DTNManager {
         );
 
         for (const entry of entries) {
-            const success = simulationBridge.broadcast(entry.packet);
+            const success = bleTransportBridge.broadcast(entry.packet);
 
             if (success) {
                 // Packet sent to server for distribution to peers

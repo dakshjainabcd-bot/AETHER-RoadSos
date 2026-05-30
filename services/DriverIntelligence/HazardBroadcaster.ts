@@ -9,7 +9,7 @@ import {
   DRIVER_INTEL_CONFIG,
 } from './types';
 import { hazardReportStore } from './HazardReportStore';
-import { simulationBridge } from '../MeshRelay/SimulationBridge';
+import { bleTransportBridge } from '../MeshRelay/BLETransportBridge';
 import { getLastKnownLocation } from '../GPSService';
 import { haversineDistance } from '../../utils/haversine';
 import { getDeviceHash } from '../MeshRelay/PacketProtocol';
@@ -29,7 +29,7 @@ class HazardBroadcaster {
   private cleanupTimer: ReturnType<typeof setInterval> | null = null;
 
   initialize(): void {
-    simulationBridge.onHazardReceived((packet: HazardPacket) => {
+    bleTransportBridge.onHazardReceived((packet: HazardPacket) => {
       this.handleReceivedHazard(packet);
     });
 
@@ -84,7 +84,7 @@ class HazardBroadcaster {
     // Record rate limit timestamp AFTER storing
     await hazardReportStore.stampRateLimit(deviceHash, hazardType, loc.lat, loc.lng);
 
-    const sent = simulationBridge.broadcastHazard(packet);
+    const sent = bleTransportBridge.broadcastHazard(packet);
     console.log(
       `[HazardBroadcaster] Reported ${hazardType} at (${loc.lat.toFixed(4)}, ${loc.lng.toFixed(4)})` +
       ` — mesh ${sent ? 'sent' : 'queued (offline)'}`,
@@ -139,7 +139,7 @@ class HazardBroadcaster {
 
     // Relay if hops remaining
     if (packet.hopCount < DRIVER_INTEL_CONFIG.HAZARD_MAX_HOPS) {
-      simulationBridge.broadcastHazard({ ...packet, hopCount: packet.hopCount + 1 });
+      bleTransportBridge.broadcastHazard({ ...packet, hopCount: packet.hopCount + 1 });
     }
   }
 
