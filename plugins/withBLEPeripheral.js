@@ -1,38 +1,33 @@
 /**
- * withBLEPeripheral.js — Expo Config Plugin
+ * withBLEPeripheral.js — Expo Config Plugin (FIXED v3)
  *
- * WHY THIS FILE EXISTS:
- * When you run `eas build`, Expo's servers run `expo prebuild` FRESH and
- * regenerate the entire android/ folder from scratch. Any Kotlin files you
- * manually added to android/ on your local machine are WIPED.
+ * FIX: The previous version failed to register BLEPeripheralPackage because
+ * it searched for patterns that don't exist in Expo SDK 54's generated
+ * MainApplication.kt. The actual SDK 54 template uses:
  *
- * This config plugin tells expo prebuild to automatically:
- *   1. Write BLEPeripheralModule.kt into the android source tree
- *   2. Write BLEPeripheralPackage.kt into the android source tree
- *   3. Register the package in MainApplication.kt
+ *   PackageList(this).packages.toMutableList().apply {
+ *     // Packages that cannot be autolinked yet can be added manually here, for example:
+ *     // add(MyReactNativePackage())
+ *   }
  *
- * It runs on EVERY prebuild — local and EAS cloud — so your native module
- * is always included.
- *
- * USAGE: Referenced in app.json plugins array (already done if you followed the guide).
+ * This version searches for the comment anchor `// add(MyReactNativePackage())`
+ * which is present in every Expo SDK version's generated MainApplication.kt,
+ * making the plugin resilient to SDK version changes.
  */
 
 const { withMainApplication, withDangerousMod } = require('@expo/config-plugins');
 const path = require('path');
 const fs = require('fs');
 
-// ─── Kotlin source files ────────────────────────────────────────────────────
-// These are embedded directly so EAS cloud servers don't need any extra files.
+// ─── Kotlin source files ─────────────────────────────────────────────────────
 
-const BLE_PERIPHERAL_MODULE_KT = `
-package com.aether.roadsos.bleperipheral
+const BLE_PERIPHERAL_MODULE_KT = `package com.aether.roadsos.bleperipheral
 
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothManager
 import android.bluetooth.le.AdvertiseCallback
 import android.bluetooth.le.AdvertiseData
 import android.bluetooth.le.AdvertiseSettings
-import android.bluetooth.le.BluetoothLeAdvertiser
 import android.content.Context
 import android.os.ParcelUuid
 import android.util.Log
@@ -51,7 +46,6 @@ class BLEPeripheralModule(
         private const val AETHER_MANUFACTURER_ID = 0xAE70
     }
 
-    private var advertiser: BluetoothLeAdvertiser? = null
     private var advertiseCallback: AdvertiseCallback? = null
 
     override fun getName(): String = "BLEPeripheral"
@@ -61,20 +55,24 @@ class BLEPeripheralModule(
         try {
             val bluetoothManager =
                 reactContext.getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager
-            val bluetoothAdapter: BluetoothAdapter? = bluetoothManager?.adapter
+            val adapter: BluetoothAdapter? = bluetoothManager?.adapter
 
-            if (bluetoothAdapter == null || !bluetoothAdapter.isEnabled) {
-                Log.w(TAG, "Bluetooth not available or not enabled")
+            if (adapter == null || !adapter.isEnabled) {
+                Log.w(TAG, "Bluetooth not available or disabled")
                 return
             }
 
-            val bleAdvertiser = bluetoothAdapter.bluetoothLeAdvertiser
+            val bleAdvertiser = adapter.bluetoothLeAdvertiser
             if (bleAdvertiser == null) {
                 Log.w(TAG, "BLE advertising not supported on this device")
                 return
             }
 
-            stopAdvertisingInternal(bleAdvertiser)
+            // Stop any previous advertisement first
+            advertiseCallback?.let {
+                try { bleAdvertiser.stopAdvertising(it) } catch (_: Exception) {}
+                advertiseCallback = null
+            }
 
             val manufacturerBytes = ByteArray(manufacturerDataArray.size()) { i ->
                 (manufacturerDataArray.getInt(i) and 0xFF).toByte()
@@ -96,25 +94,23 @@ class BLEPeripheralModule(
 
             val callback = object : AdvertiseCallback() {
                 override fun onStartSuccess(settingsInEffect: AdvertiseSettings) {
-                    Log.i(TAG, "BLE advertising started OK — \${manufacturerBytes.size} byte payload")
+                    Log.i(TAG, "✅ BLE advertising started — \${manufacturerBytes.size} bytes, UUID=\$serviceUUID")
                 }
                 override fun onStartFailure(errorCode: Int) {
                     val reason = when (errorCode) {
                         ADVERTISE_FAILED_ALREADY_STARTED      -> "ALREADY_STARTED"
-                        ADVERTISE_FAILED_DATA_TOO_LARGE       -> "DATA_TOO_LARGE"
+                        ADVERTISE_FAILED_DATA_TOO_LARGE       -> "DATA_TOO_LARGE (\${manufacturerBytes.size} bytes)"
                         ADVERTISE_FAILED_FEATURE_UNSUPPORTED  -> "FEATURE_UNSUPPORTED"
                         ADVERTISE_FAILED_INTERNAL_ERROR       -> "INTERNAL_ERROR"
                         ADVERTISE_FAILED_TOO_MANY_ADVERTISERS -> "TOO_MANY_ADVERTISERS"
                         else -> "UNKNOWN(\$errorCode)"
                     }
-                    Log.e(TAG, "BLE advertising FAILED: \$reason")
+                    Log.e(TAG, "❌ BLE advertising FAILED: \$reason")
                 }
             }
 
             bleAdvertiser.startAdvertising(settings, data, callback)
-            advertiser = bleAdvertiser
             advertiseCallback = callback
-            Log.i(TAG, "startAdvertising called for UUID: \$serviceUUID")
 
         } catch (e: SecurityException) {
             Log.e(TAG, "Missing BLE permission: \${e.message}")
@@ -126,22 +122,17 @@ class BLEPeripheralModule(
     @ReactMethod
     fun stopAdvertising() {
         try {
-            advertiser?.let { stopAdvertisingInternal(it) }
-        } catch (e: Exception) {
-            Log.w(TAG, "stopAdvertising error: \${e.message}")
-        }
-    }
-
-    private fun stopAdvertisingInternal(adv: BluetoothLeAdvertiser) {
-        try {
-            advertiseCallback?.let {
-                adv.stopAdvertising(it)
-                Log.d(TAG, "BLE advertising stopped")
+            val bluetoothManager =
+                reactContext.getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager
+            val adapter = bluetoothManager?.adapter
+            adapter?.bluetoothLeAdvertiser?.let { adv ->
+                advertiseCallback?.let {
+                    adv.stopAdvertising(it)
+                    Log.d(TAG, "BLE advertising stopped")
+                }
             }
-        } catch (e: SecurityException) {
-            Log.w(TAG, "Stop advertising permission error: \${e.message}")
         } catch (e: Exception) {
-            Log.w(TAG, "Stop advertising error: \${e.message}")
+            Log.w(TAG, "stopAdvertising: \${e.message}")
         } finally {
             advertiseCallback = null
         }
@@ -149,16 +140,11 @@ class BLEPeripheralModule(
 
     override fun invalidate() {
         super.invalidate()
-        try {
-            advertiser?.let { stopAdvertisingInternal(it) }
-            advertiser = null
-        } catch (_: Exception) {}
+        try { stopAdvertising() } catch (_: Exception) {}
     }
-}
-`.trim();
+}`;
 
-const BLE_PERIPHERAL_PACKAGE_KT = `
-package com.aether.roadsos.bleperipheral
+const BLE_PERIPHERAL_PACKAGE_KT = `package com.aether.roadsos.bleperipheral
 
 import com.facebook.react.ReactPackage
 import com.facebook.react.bridge.NativeModule
@@ -168,78 +154,81 @@ import com.facebook.react.uimanager.ViewManager
 class BLEPeripheralPackage : ReactPackage {
     override fun createNativeModules(ctx: ReactApplicationContext): List<NativeModule> =
         listOf(BLEPeripheralModule(ctx))
-
     override fun createViewManagers(ctx: ReactApplicationContext): List<ViewManager<*, *>> =
         emptyList()
-}
-`.trim();
+}`;
 
-// ─── Config Plugin ──────────────────────────────────────────────────────────
+// ─── Step 1: Write Kotlin files ───────────────────────────────────────────────
 
-/**
- * Step 1: Write the Kotlin files into the android source tree during prebuild.
- * Uses withDangerousMod for direct filesystem access.
- */
 function withBLEKotlinFiles(config) {
   return withDangerousMod(config, [
     'android',
     (config) => {
-      const platformRoot = config.modRequest.platformProjectRoot;
-      // Path: android/app/src/main/java/com/aether/roadsos/bleperipheral/
+      const root = config.modRequest.platformProjectRoot;
       const dir = path.join(
-        platformRoot,
-        'app', 'src', 'main', 'java',
+        root, 'app', 'src', 'main', 'java',
         'com', 'aether', 'roadsos', 'bleperipheral'
       );
 
       fs.mkdirSync(dir, { recursive: true });
 
-      const modulePath  = path.join(dir, 'BLEPeripheralModule.kt');
-      const packagePath = path.join(dir, 'BLEPeripheralPackage.kt');
+      fs.writeFileSync(path.join(dir, 'BLEPeripheralModule.kt'), BLE_PERIPHERAL_MODULE_KT, 'utf8');
+      fs.writeFileSync(path.join(dir, 'BLEPeripheralPackage.kt'), BLE_PERIPHERAL_PACKAGE_KT, 'utf8');
 
-      fs.writeFileSync(modulePath, BLE_PERIPHERAL_MODULE_KT, 'utf8');
-      fs.writeFileSync(packagePath, BLE_PERIPHERAL_PACKAGE_KT, 'utf8');
-
-      console.log('[withBLEPeripheral] ✅ BLEPeripheralModule.kt written to', modulePath);
-      console.log('[withBLEPeripheral] ✅ BLEPeripheralPackage.kt written to', packagePath);
+      console.log('[withBLEPeripheral] ✅ BLEPeripheralModule.kt written');
+      console.log('[withBLEPeripheral] ✅ BLEPeripheralPackage.kt written');
 
       return config;
     },
   ]);
 }
 
-/**
- * Step 2: Register BLEPeripheralPackage in MainApplication.kt.
- * Uses withMainApplication which provides the file contents as a string.
- */
+// ─── Step 2: Register in MainApplication.kt ──────────────────────────────────
+
 function withBLEMainApplication(config) {
   return withMainApplication(config, (config) => {
     let contents = config.modResults.contents;
 
-    // Skip if already registered (idempotent)
-    if (contents.includes('BLEPeripheralPackage')) {
-      console.log('[withBLEPeripheral] ℹ️  BLEPeripheralPackage already registered — skipping');
+    const LINE_TO_ADD =
+      'add(com.aether.roadsos.bleperipheral.BLEPeripheralPackage())';
+
+    // Skip if already registered (makes the plugin idempotent)
+    if (contents.includes(LINE_TO_ADD)) {
+      console.log('[withBLEPeripheral] ℹ️  Already registered — skipping');
       return config;
     }
 
-    // Pattern 1: Standard expo-generated MainApplication.kt (SDK 50+)
-    //   val packages = PackageList(this).packages
-    const pattern1 = 'val packages = PackageList(this).packages';
-    if (contents.includes(pattern1)) {
+    // ── ANCHOR: the comment Expo puts in every generated MainApplication.kt ──
+    // Present in SDK 50, 51, 52, 53, 54 (and likely beyond)
+    const ANCHOR = '// add(MyReactNativePackage())';
+
+    if (contents.includes(ANCHOR)) {
       contents = contents.replace(
-        pattern1,
-        `${pattern1}\n        packages.add(com.aether.roadsos.bleperipheral.BLEPeripheralPackage())`
+        ANCHOR,
+        `${ANCHOR}\n              ${LINE_TO_ADD}`
       );
       config.modResults.contents = contents;
-      console.log('[withBLEPeripheral] ✅ Registered BLEPeripheralPackage in MainApplication.kt (pattern 1)');
+      console.log('[withBLEPeripheral] ✅ Registered BLEPeripheralPackage (anchor pattern)');
       return config;
     }
 
-    // Pattern 2: Older template — return PackageList(this).packages directly
-    const pattern2 = 'return PackageList(this).packages';
-    if (contents.includes(pattern2)) {
+    // ── FALLBACK 1: val packages = PackageList(this).packages (SDK 49 and below) ──
+    const FALLBACK1 = 'val packages = PackageList(this).packages';
+    if (contents.includes(FALLBACK1)) {
       contents = contents.replace(
-        pattern2,
+        FALLBACK1,
+        `${FALLBACK1}\n        packages.add(com.aether.roadsos.bleperipheral.BLEPeripheralPackage())`
+      );
+      config.modResults.contents = contents;
+      console.log('[withBLEPeripheral] ✅ Registered BLEPeripheralPackage (fallback 1)');
+      return config;
+    }
+
+    // ── FALLBACK 2: return PackageList(this).packages ─────────────────────────
+    const FALLBACK2 = 'return PackageList(this).packages';
+    if (contents.includes(FALLBACK2)) {
+      contents = contents.replace(
+        FALLBACK2,
         [
           'val packages = PackageList(this).packages',
           '        packages.add(com.aether.roadsos.bleperipheral.BLEPeripheralPackage())',
@@ -247,22 +236,22 @@ function withBLEMainApplication(config) {
         ].join('\n')
       );
       config.modResults.contents = contents;
-      console.log('[withBLEPeripheral] ✅ Registered BLEPeripheralPackage in MainApplication.kt (pattern 2)');
+      console.log('[withBLEPeripheral] ✅ Registered BLEPeripheralPackage (fallback 2)');
       return config;
     }
 
-    // Neither pattern found — log a warning but don't crash the build
-    console.warn(
-      '[withBLEPeripheral] ⚠️  Could not find getPackages() pattern in MainApplication.kt.',
-      'BLEPeripheralPackage was NOT registered. BLE advertising will not work.',
-      'Please add manually: packages.add(com.aether.roadsos.bleperipheral.BLEPeripheralPackage())'
+    // ── Nothing worked ────────────────────────────────────────────────────────
+    console.error(
+      '[withBLEPeripheral] ❌ CRITICAL: Could not register BLEPeripheralPackage.',
+      'None of the expected patterns were found in MainApplication.kt.',
+      'BLE advertising WILL NOT WORK. Check the plugin or register manually.'
     );
 
     return config;
   });
 }
 
-// ─── Export ─────────────────────────────────────────────────────────────────
+// ─── Export ──────────────────────────────────────────────────────────────────
 
 module.exports = function withBLEPeripheral(config) {
   config = withBLEKotlinFiles(config);

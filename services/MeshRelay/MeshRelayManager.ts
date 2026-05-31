@@ -180,7 +180,7 @@ class MeshRelayManager {
 
       if (!broadcasted || bleTransportBridge.connectedDevices < 2) {
         console.log(
-          `[MeshRelay] No BLE peers (${bleTransportBridge.connectedDevices} device(s))` +
+          `[MeshRelay] No verified BLE peers (${bleTransportBridge.connectedDevices} device(s))` +
           ` — buffering in DTN for when peers appear`
         );
         await dtnManager.bufferPacket(packet);
@@ -189,6 +189,11 @@ class MeshRelayManager {
           `[MeshRelay] SOS broadcast via BLE to ${bleTransportBridge.connectedDevices - 1} peer(s)`
         );
       }
+
+      // Always start keep-alive advertising regardless of peer count.
+      // This ensures phones that enter BLE range AFTER the SOS is triggered
+      // will still receive it (re-advertised every 8s for up to 5 minutes).
+      bleTransportBridge.startKeepAlive(packet);
 
       // Cloud upload (best-effort, not blocking)
       cloudEgress.enqueue({ ...packet, lat: location.lat, lng: location.lng });
