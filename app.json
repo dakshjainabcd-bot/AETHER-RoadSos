@@ -97,7 +97,8 @@
       ],
       "expo-sqlite",
       "expo-font",
-      "expo-asset"
+      "expo-asset",
+      "./plugins/withBLEPeripheral"
     ],
     "experiments": {
       "typedRoutes": true
