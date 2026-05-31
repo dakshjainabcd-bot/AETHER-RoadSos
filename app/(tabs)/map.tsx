@@ -253,6 +253,20 @@ export default function MapScreen() {
     } catch (e) { }
   }, []);
 
+  // ── FIX: Refresh map when hazard arrives from another phone via mesh ──────
+  // Without this, the reporting phone shows the hazard immediately, but other
+  // phones only see it when they manually re-focus the map tab. This hook
+  // subscribes to hazardBroadcaster and refreshes the hazard layer in real-time.
+  useEffect(() => {
+    const unsub = hazardBroadcaster.onHazardAlert(() => {
+      // A hazard was received from another phone — reload the cluster layer
+      const clusters = hazardReportStore.getClusters();
+      sendToMap({ type: 'LOAD_HAZARDS', hazards: clusters });
+      console.log('[Map] Hazard layer refreshed from mesh alert');
+    });
+    return () => unsub();
+  }, [sendToMap]);
+
   // ── Get user location (3-step fallback) ────────────────────────────────────
 
   const getLocation = useCallback(async (): Promise<{ lat: number; lng: number } | null> => {

@@ -1,7 +1,20 @@
 /**
- * Phase 12 — HazardBroadcaster (Updated: rate limiting + type-aware clustering)
+ * HazardBroadcaster — FIXED v2 (Dual Transport: BLE + WebSocket)
+ *
+ * ROOT CAUSE FIX for "hazard not showing on other phones":
+ *
+ * BEFORE: Only used bleTransportBridge.broadcastHazard() — which was a no-op
+ *         (returned true but did nothing). Hazards were stored locally but
+ *         never actually sent to other phones.
+ *
+ * AFTER:  Also uses simulationBridge.broadcastHazard() (WebSocket).
+ *         In initialize(), also registers onHazardReceived on simulationBridge
+ *         so hazards received via WebSocket are processed and stored locally.
+ *
+ * MAP REFRESH: When a hazard is received from another phone (via WebSocket),
+ *         HazardReportStore stores it AND emits to listeners. The map tab
+ *         subscribes via onHazardAlert() so it can refresh its hazard layer.
  */
-
 import {
   HazardPacket,
   HazardType,
@@ -10,6 +23,7 @@ import {
 } from './types';
 import { hazardReportStore } from './HazardReportStore';
 import { bleTransportBridge } from '../MeshRelay/BLETransportBridge';
+import { simulationBridge } from '../MeshRelay/SimulationBridge';
 import { getLastKnownLocation } from '../GPSService';
 import { haversineDistance } from '../../utils/haversine';
 import { getDeviceHash } from '../MeshRelay/PacketProtocol';
@@ -29,21 +43,31 @@ class HazardBroadcaster {
   private cleanupTimer: ReturnType<typeof setInterval> | null = null;
 
   initialize(): void {
+    // ── BLE hazard receive (stub — BLE hazard not yet implemented) ─────────
     bleTransportBridge.onHazardReceived((packet: HazardPacket) => {
       this.handleReceivedHazard(packet);
     });
 
+    // ── WebSocket hazard receive (THE FIX) ──────────────────────────────────
+    // This is what was missing: hazards from other phones via WebSocket
+    // were never wired up to handleReceivedHazard().
+    simulationBridge.onHazardReceived((packet: HazardPacket) => {
+      console.log(`[HazardBroadcaster] ⚠️ Received hazard via WebSocket: ${packet.hazardType}`);
+      this.handleReceivedHazard(packet);
+    });
+
+    // Periodic cleanup of seen IDs (every 30 min)
     this.cleanupTimer = setInterval(() => {
       this.seenHazardIds.clear();
     }, DRIVER_INTEL_CONFIG.HAZARD_TTL_MS);
 
     hazardReportStore.initialize().catch(console.warn);
-    console.log('[HazardBroadcaster] Initialized');
+    console.log('[HazardBroadcaster] Initialized — dual transport (BLE + WebSocket)');
   }
 
   /**
    * Report a hazard at current GPS location.
-   * Returns success/failure with human-readable reason for UI.
+   * Broadcasts via WebSocket (immediate) AND BLE (when peers in range).
    */
   async reportHazard(
     hazardType: HazardType,
@@ -56,7 +80,6 @@ class HazardBroadcaster {
 
     const deviceHash = await getDeviceHash();
 
-    // ── Rate limit check (fixes issue 3) ──────────────────────────────────
     const limitCheck = await hazardReportStore.checkRateLimit(
       deviceHash, hazardType, loc.lat, loc.lng,
     );
@@ -65,81 +88,74 @@ class HazardBroadcaster {
     }
 
     const packet: HazardPacket = {
-      hazardId:    generateHazardId(),
+      hazardId: generateHazardId(),
       hazardType,
-      lat:         loc.lat,
-      lng:         loc.lng,
+      lat: loc.lat,
+      lng: loc.lng,
       severity,
-      reportedAt:  Date.now(),
-      hopCount:    0,
+      reportedAt: Date.now(),
+      hopCount: 0,
       deviceHash,
     };
 
-    // Mark as seen so we don't alert ourselves for our own report
+    // Mark seen so we don't alert ourselves for our own report
     this.seenHazardIds.add(packet.hazardId);
 
-    // Store as own report (count = 1 from the start)
     await hazardReportStore.addReport(packet);
-
-    // Record rate limit timestamp AFTER storing
     await hazardReportStore.stampRateLimit(deviceHash, hazardType, loc.lat, loc.lng);
 
-    const sent = bleTransportBridge.broadcastHazard(packet);
+    // ── DUAL BROADCAST (THE FIX) ─────────────────────────────────────────────
+    // BLE: stub (broadcastHazard returns false — BLE hazard not yet supported)
+    const bleOk = bleTransportBridge.broadcastHazard(packet);
+    // WebSocket: THIS is what actually sends hazards to other phones
+    const wsOk  = simulationBridge.broadcastHazard(packet);
+
     console.log(
       `[HazardBroadcaster] Reported ${hazardType} at (${loc.lat.toFixed(4)}, ${loc.lng.toFixed(4)})` +
-      ` — mesh ${sent ? 'sent' : 'queued (offline)'}`,
+      ` — BLE: ${bleOk ? '✅' : '❌'} | WebSocket: ${wsOk ? '✅' : '❌'}`
     );
 
     return { success: true, packet };
   }
 
   /**
-   * Process a hazard packet received from another phone.
+   * Process a hazard packet received from another phone (via either transport).
+   * Stores it locally AND notifies UI listeners so the map refreshes.
    */
   private async handleReceivedHazard(packet: HazardPacket): Promise<void> {
-    // Deduplicate
     if (this.seenHazardIds.has(packet.hazardId)) return;
     this.seenHazardIds.add(packet.hazardId);
 
-    // TTL check
     const ageMs = Date.now() - packet.reportedAt;
     if (ageMs > DRIVER_INTEL_CONFIG.HAZARD_TTL_MS) {
       console.log(`[HazardBroadcaster] Expired hazard ${packet.hazardId} discarded`);
       return;
     }
 
-    // Distance check
     const loc = await getLastKnownLocation();
     if (!loc) return;
 
     const distKm = haversineDistance(loc.lat, loc.lng, packet.lat, packet.lng);
     const distM  = Math.round(distKm * 1000);
 
-    // Store and get cluster stats for THIS type+location (fixes issue 1)
+    // Store and get cluster stats
     const { count, credibilityLevel } = await hazardReportStore.addReport(packet);
 
     console.log(
       `[HazardBroadcaster] ${packet.hazardType} ${distM}m away — ` +
-      `${count} report(s), ${credibilityLevel} credibility`,
+      `${count} report(s), ${credibilityLevel} credibility`
     );
 
-    // Alert if within radius
+    // Alert UI if within radius
     if (distM <= DRIVER_INTEL_CONFIG.HAZARD_ALERT_RADIUS_M) {
       this.listeners.forEach(cb => {
-        try {
-          cb({
-            packet,
-            distanceM:        distM,
-            reportCount:      count,
-            credibilityLevel,
-          });
-        } catch {}
+        try { cb({ packet, distanceM: distM, reportCount: count, credibilityLevel }); } catch {}
       });
     }
 
-    // Relay if hops remaining
+    // Relay onwards if hops remaining (via WebSocket — BLE hazard relay TBD)
     if (packet.hopCount < DRIVER_INTEL_CONFIG.HAZARD_MAX_HOPS) {
-      bleTransportBridge.broadcastHazard({ ...packet, hopCount: packet.hopCount + 1 });
+      simulationBridge.broadcastHazard({ ...packet, hopCount: packet.hopCount + 1 });
     }
   }
 
