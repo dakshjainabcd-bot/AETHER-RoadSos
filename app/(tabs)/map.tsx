@@ -257,8 +257,11 @@ export default function MapScreen() {
   // Without this, the reporting phone shows the hazard immediately, but other
   // phones only see it when they manually re-focus the map tab. This hook
   // subscribes to hazardBroadcaster and refreshes the hazard layer in real-time.
+  // Guard: only send to WebView if map is already ready (prevents postMessage
+  // on an unloaded WebView when this phone is on a different tab at receive time).
   useEffect(() => {
     const unsub = hazardBroadcaster.onHazardAlert(() => {
+      if (!mapReadyRef.current) return;
       // A hazard was received from another phone — reload the cluster layer
       const clusters = hazardReportStore.getClusters();
       sendToMap({ type: 'LOAD_HAZARDS', hazards: clusters });
@@ -422,6 +425,26 @@ export default function MapScreen() {
 
   // ── Report Hazard ───────────────────────────────────────────────────────────
 
+  const submitHazard = useCallback(async (type: string) => {
+    setReporting(true);
+    try {
+      const result = await hazardBroadcaster.reportHazard(type as any, 2);
+      if (result.success) {
+        // Small delay to ensure the async addReport inside reportHazard has persisted
+        await new Promise(r => setTimeout(r, 80));
+        const clusters = hazardReportStore.getClusters();
+        sendToMap({ type: 'LOAD_HAZARDS', hazards: clusters });
+        Alert.alert('✅ Hazard Reported', type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) + ' broadcast to nearby AETHER devices via mesh.');
+      } else {
+        Alert.alert('Could Not Report', result.reason || 'Please try again.');
+      }
+    } catch (e) {
+      Alert.alert('Error', 'Failed to report hazard. Please try again.');
+    } finally {
+      setReporting(false);
+    }
+  }, [sendToMap]);
+
   const handleReportHazard = useCallback(async () => {
     // Always get fresh location — never rely on state
     const loc = await getLocation();
@@ -436,36 +459,20 @@ export default function MapScreen() {
     setUserLng(loc.lng);
     setHasLocation(true);
 
+    // Capture submitHazard at call-time to avoid stale closure in Alert.alert onPress callbacks
+    const _submit = submitHazard;
     Alert.alert(
       'Report Road Hazard',
       'What hazard are you reporting at your current location?',
       [
-        { text: 'Pothole', onPress: () => submitHazard('pothole') },
-        { text: 'Accident Scene', onPress: () => submitHazard('accident') },
-        { text: 'Road Blocked', onPress: () => submitHazard('road_closed') },
-        { text: 'Debris', onPress: () => submitHazard('debris') },
+        { text: 'Pothole', onPress: () => _submit('pothole') },
+        { text: 'Accident Scene', onPress: () => _submit('accident') },
+        { text: 'Road Blocked', onPress: () => _submit('road_closed') },
+        { text: 'Debris', onPress: () => _submit('debris') },
         { text: 'Cancel', style: 'cancel' },
       ]
     );
-  }, [getLocation]);
-
-  const submitHazard = useCallback(async (type: string) => {
-    setReporting(true);
-    try {
-      const result = await hazardBroadcaster.reportHazard(type as any, 2);
-      if (result.success) {
-        const clusters = hazardReportStore.getClusters();
-        sendToMap({ type: 'LOAD_HAZARDS', hazards: clusters });
-        Alert.alert('Hazard Reported', type.replace('_', ' ') + ' broadcast to nearby AETHER devices.');
-      } else {
-        Alert.alert('Could Not Report', result.reason || 'Please try again.');
-      }
-    } catch (e) {
-      Alert.alert('Error', 'Failed to report hazard. Please try again.');
-    } finally {
-      setReporting(false);
-    }
-  }, [sendToMap]);
+  }, [getLocation, submitHazard]);
 
   // ── Refresh hazards when tab re-focused ────────────────────────────────────
 

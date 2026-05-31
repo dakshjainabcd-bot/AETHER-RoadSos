@@ -53,6 +53,7 @@ import {
   tripScoreService,
   hazardBroadcaster,
   badgeService,
+  DRIVER_INTEL_CONFIG,
   type TripScore,
   type HazardAlertState,
 } from '../services/DriverIntelligence';
@@ -243,9 +244,13 @@ export default function RootLayout() {
 
   // ── NEW Phase 12: Hazard and trip score subscriptions ──────────────────────
   useEffect(() => {
-    // Show hazard alert banner when a hazard is received
+    // Show hazard alert banner ONLY when a hazard is within the driving alert radius.
+    // (HazardBroadcaster now fires listeners for ALL received hazards so the map
+    // can refresh; we filter here so the banner doesn't pop for distant hazards.)
     const unsubHazard = hazardBroadcaster.onHazardAlert((alert) => {
-      setHazardAlert(alert);
+      if (alert.distanceM <= DRIVER_INTEL_CONFIG.HAZARD_ALERT_RADIUS_M) {
+        setHazardAlert(alert);
+      }
     });
     // Show trip summary modal when a trip completes
     const unsubTrip = tripScoreService.onTripComplete((score) => {

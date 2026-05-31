@@ -27,6 +27,7 @@ import { simulationBridge } from '../MeshRelay/SimulationBridge';
 import { getLastKnownLocation } from '../GPSService';
 import { haversineDistance } from '../../utils/haversine';
 import { getDeviceHash } from '../MeshRelay/PacketProtocol';
+import * as Location from 'expo-location';
 
 function generateHazardId(): string {
   return (
@@ -68,12 +69,37 @@ class HazardBroadcaster {
   /**
    * Report a hazard at current GPS location.
    * Broadcasts via WebSocket (immediate) AND BLE (when peers in range).
+   *
+   * GPS FALLBACK: If GPSService hasn't started yet (e.g. user opened Map tab
+   * before granting location), we fall back to expo-location directly so the
+   * report never silently fails due to a null location.
    */
   async reportHazard(
     hazardType: HazardType,
     severity: 1 | 2 | 3 = 2,
   ): Promise<{ success: boolean; packet?: HazardPacket; reason?: string }> {
-    const loc = await getLastKnownLocation();
+    // ── Location: GPSService first, expo-location fallback ────────────────
+    let loc = await getLastKnownLocation();
+
+    if (!loc) {
+      // GPSService has no cached position yet — ask expo-location directly
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status === 'granted') {
+          // Try last-known first (fast), then current position
+          const last = await Location.getLastKnownPositionAsync();
+          if (last) {
+            loc = { lat: last.coords.latitude, lng: last.coords.longitude, accuracy: last.coords.accuracy ?? 999, altitude: last.coords.altitude, timestamp: last.timestamp, source: 'cached' };
+          } else {
+            const current = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+            loc = { lat: current.coords.latitude, lng: current.coords.longitude, accuracy: current.coords.accuracy ?? 999, altitude: current.coords.altitude, timestamp: current.timestamp, source: 'live' };
+          }
+        }
+      } catch (e) {
+        console.warn('[HazardBroadcaster] expo-location fallback failed:', e);
+      }
+    }
+
     if (!loc) {
       return { success: false, reason: 'Unable to get your location. Please enable GPS and try again.' };
     }
@@ -132,24 +158,37 @@ class HazardBroadcaster {
       return;
     }
 
-    const loc = await getLastKnownLocation();
-    if (!loc) return;
-
-    const distKm = haversineDistance(loc.lat, loc.lng, packet.lat, packet.lng);
-    const distM  = Math.round(distKm * 1000);
-
-    // Store and get cluster stats
+    // Store and get cluster stats — do this regardless of distance so the MAP
+    // always shows all received hazards, even ones far from current position.
     const { count, credibilityLevel } = await hazardReportStore.addReport(packet);
 
-    console.log(
-      `[HazardBroadcaster] ${packet.hazardType} ${distM}m away — ` +
-      `${count} report(s), ${credibilityLevel} credibility`
-    );
+    // ── Distance check (for DRIVING alert banner only) ─────────────────────
+    const loc = await getLastKnownLocation();
+    if (loc) {
+      const distKm = haversineDistance(loc.lat, loc.lng, packet.lat, packet.lng);
+      const distM  = Math.round(distKm * 1000);
 
-    // Alert UI if within radius
-    if (distM <= DRIVER_INTEL_CONFIG.HAZARD_ALERT_RADIUS_M) {
+      console.log(
+        `[HazardBroadcaster] ${packet.hazardType} ${distM}m away — ` +
+        `${count} report(s), ${credibilityLevel} credibility`
+      );
+
+      // Only fire the driving alert banner if within configured radius
+      if (distM <= DRIVER_INTEL_CONFIG.HAZARD_ALERT_RADIUS_M) {
+        this.listeners.forEach(cb => {
+          try { cb({ packet, distanceM: distM, reportCount: count, credibilityLevel }); } catch {}
+        });
+      } else {
+        // Still notify map listeners (distanceM = 0 sentinel means "map refresh only")
+        // Map tab's onHazardAlert callback ignores the alert contents and just re-reads clusters
+        this.listeners.forEach(cb => {
+          try { cb({ packet, distanceM: distM, reportCount: count, credibilityLevel }); } catch {}
+        });
+      }
+    } else {
+      // No GPS — still fire listeners so map can refresh
       this.listeners.forEach(cb => {
-        try { cb({ packet, distanceM: distM, reportCount: count, credibilityLevel }); } catch {}
+        try { cb({ packet, distanceM: 0, reportCount: count, credibilityLevel }); } catch {}
       });
     }
 

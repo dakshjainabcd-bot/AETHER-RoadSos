@@ -34,6 +34,7 @@ import {
     DTNEventType,
 } from './types';
 import { bleTransportBridge } from './BLETransportBridge';
+import { simulationBridge } from './SimulationBridge';
 import { cloudEgress } from '../CloudEgress';
 import { DTN } from '../../utils/constants';
 import * as Battery from 'expo-battery';
@@ -177,13 +178,20 @@ class DTNManager {
         // Nothing to forward
         if (this.buffer.isEmpty) return;
 
-        // Routing Heuristic 2: Need at least 1 other peer
-        // simulationBridge.connectedDevices counts ALL phones including us
-        // so we need ≥ 2 total (us + at least 1 other)
-        if (bleTransportBridge.connectedDevices < 2) {
+        // Routing Heuristic 2: Need at least 1 other peer on ANY transport.
+        // BUG FIX: Previously only checked bleTransportBridge.connectedDevices,
+        // which is always 1 in WiFi/demo mode (no BLE peers ever counted).
+        // Now we take the max of BLE peers and WebSocket peers — same logic
+        // as MeshRelayManager.connectedPeers — so DTN forwards correctly over
+        // whichever transport actually has peers connected.
+        const blePeers = bleTransportBridge.connectedDevices;   // verified AETHER peers + self
+        const wsPeers  = simulationBridge.connectedDevices;     // WS phones including self
+        const totalVisible = Math.max(blePeers, wsPeers);
+
+        if (totalVisible < 2) {
             console.log(
                 `[DTNManager] No peers available` +
-                ` (${bleTransportBridge.connectedDevices} device(s) connected)` +
+                ` (BLE: ${blePeers}, WS: ${wsPeers})` +
                 ` — holding ${this.buffer.size} packet(s)`
             );
             return;
@@ -199,7 +207,7 @@ class DTNManager {
             return;
         }
 
-        const peerCount = bleTransportBridge.connectedDevices - 1; // Peers = total - us
+        const peerCount = totalVisible - 1; // Peers = total - self
         const entries = await this.buffer.getForwardable();
 
         if (entries.length === 0) {
@@ -210,14 +218,20 @@ class DTNManager {
 
         console.log(
             `[DTNManager] 🚀 Forwarding ${entries.length} packet(s)` +
-            ` to ${peerCount} peer(s)`
+            ` to ${peerCount} peer(s) | BLE: ${blePeers - 1} WS: ${wsPeers - 1}`
         );
 
         for (const entry of entries) {
-            const success = bleTransportBridge.broadcast(entry.packet);
+            // BUG FIX: Previously only called bleTransportBridge.broadcast() here.
+            // If BLE had no peers (common in WiFi/demo mode), success was always
+            // false and the packet was never removed from the buffer — stuck forever.
+            // Now we try BOTH transports (same dual-broadcast pattern as triggerSOS).
+            const bleOk = bleTransportBridge.broadcast(entry.packet);
+            const wsOk  = simulationBridge.broadcast(entry.packet);
+            const success = bleOk || wsOk;
 
             if (success) {
-                // Packet sent to server for distribution to peers
+                // Packet sent — remove from buffer
                 await this.buffer.remove(entry.packet.incidentId);
 
                 this.emit({
@@ -228,12 +242,13 @@ class DTNManager {
 
                 console.log(
                     `[DTNManager] ✅ Forwarded: ${entry.packet.incidentId}` +
+                    ` — BLE: ${bleOk ? '✅' : '❌'} WS: ${wsOk ? '✅' : '❌'}` +
                     ` | Remaining: ${this.buffer.size}`
                 );
             } else {
-                // Broadcast failed (disconnected mid-forward)
+                // Both transports failed (disconnected mid-forward)
                 console.warn(
-                    `[DTNManager] Broadcast failed for ${entry.packet.incidentId}` +
+                    `[DTNManager] Both transports failed for ${entry.packet.incidentId}` +
                     ` — keeping in buffer`
                 );
             }
